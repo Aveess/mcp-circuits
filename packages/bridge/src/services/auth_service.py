@@ -62,7 +62,7 @@ class AuthService:
         try:
             cookies = await page.context.cookies()
             has_auth_cookie = any(
-                c.get("name", "").lower() in ("tinkerauth", "oxygen_session", "autodesk_session")
+                c.get("name", "").lower() in ("tinkerauth", "oxygen_session", "autodesk_session", "_tcad_session_colab", "_circuits_session_colab")
                 or ("auth" in c.get("name", "").lower() and c.get("name", "").lower() != "tinkercad-ldid")
                 for c in cookies
             )
@@ -76,10 +76,23 @@ class AuthService:
         except Exception:
             pass
 
-        # Otherwise attempt dashboard check
+        # Otherwise attempt dashboard check. The persistent profile may need a
+        # few seconds to restore the session, so wait before judging.
         try:
             await self.browser.navigate(DASHBOARD_URL, timeout=15000)
             page = await self.browser.get_page()
+            await page.wait_for_timeout(3000)
+            cookies = await page.context.cookies()
+            if any(
+                c.get("name", "").lower() in ("_tcad_session_colab", "_circuits_session_colab")
+                for c in cookies
+            ):
+                return {
+                    "authenticated": True,
+                    "user": "Tinkercad User",
+                    "current_url": page.url,
+                    "message": "Session is authenticated.",
+                }
             avatar = await self.browser.find_first_matching(AUTH_SELECTORS["user_avatar"], timeout=4000, page=page)
             if avatar:
                 return {
