@@ -1,0 +1,201 @@
+"""Derivación de nets eléctricas desde wires de ``inspect_circuit``.
+
+``inspect_schematic_connections`` devuelve ``nets: []`` en circuitos con
+protoboard. Aquí se reconstruyen las nets con union-find sobre los wires,
+aplicando la continuidad interna del protoboard:
+
+- Huecos de la misma columna y misma mitad (filas ``f``-``j`` o ``a``-``e``)
+  están conectados; el canal central separa ambas mitades.
+- Un pin de riel (una sola letra fuera de ``a``-``j`` seguida de columna,
+  p. ej. ``z6``) conecta con todos los pines de riel de la misma letra
+  del mismo protoboard.
+
+Los endpoints del protoboard no aparecen en el resultado: solo endpoints
+reales ``ref.pin``. Solo salen nets con >= 2 endpoints reales, ordenadas
+y sin duplicados (inmune a wires duplicados).
+"""
+
+import re
+
+from tinkercad_brain.fase0.component_map import fixture_type
+
+# Mapeo mínimo de refs, alineado con fase0.normalize (Arduino->uno,
+# LED->ledN, Resistor->rN). Se reutiliza `fixture_type` para el tipo
+# canónico en vez de importar la lógica completa de normalize_circuit,
+# que no expone el mapa instance_id->ref.
+_REF_PREFIX = {
+    "led": "led",
+    "resistor": "r",
+}
+
+_PIN_ALIASES = {
+    "Terminal 1": "1",
+    "Terminal 2": "2",
+    "Cathode": "cathode",
+    "Anode": "anode",
+}
+
+_HOLE_RE = re.compile(r"^([a-j])(\d+)$")
+_HOLE_REVERSED_RE = re.compile(r"^(\d+)([a-j])$")
+_RAIL_RE = re.compile(r"^([a-z])(\d+)$")
+_LOW_ROWS = frozenset("abcde")
+
+
+def _slug(raw_type):
+    return str(raw_type).strip().lower().replace(" ", "-").replace("_", "-")
+
+
+def _canonical_type(raw_type):
+    if not isinstance(raw_type, str) or not raw_type.strip():
+        return None
+    canonical = fixture_type(raw_type)
+    if canonical is not None:
+        return canonical
+    return _slug(raw_type)
+
+
+def _is_breadboard(canonical, raw_type):
+    if canonical == "breadboard":
+        return True
+    return isinstance(raw_type, str) and "breadboard" in raw_type.casefold()
+
+
+def _normalize_pin(pin, canonical):
+    if pin in _PIN_ALIASES:
+        return _PIN_ALIASES[pin]
+    # Supuesto: en los wires el Uno reporta "GND", pero en components y en
+    # las fixtures el pin se llama "GND1". Solo aplica al Arduino Uno.
+    if pin == "GND" and canonical == "arduino-uno":
+        return "GND1"
+    return pin
+
+
+class _UnionFind:
+    def __init__(self):
+        self._parent = {}
+
+    def find(self, node):
+        parent = self._parent.setdefault(node, node)
+        if parent != node:
+            self._parent[node] = self.find(parent)
+        return self._parent[node]
+
+    def union(self, a, b):
+        ra, rb = self.find(a), self.find(b)
+        if ra != rb:
+            self._parent[rb] = ra
+
+
+def derive_nets(inspect_data: dict) -> list[list[str]]:
+    inspect_data = inspect_data or {}
+    components = inspect_data.get("components") or []
+    wires = inspect_data.get("wires") or []
+
+    counters = {}
+
+    def _assign_ref(canonical):
+        if canonical == "arduino-uno":
+            counters[canonical] = counters.get(canonical, 0) + 1
+            n = counters[canonical]
+            return "uno" if n == 1 else f"uno{n}"
+        prefix = _REF_PREFIX.get(canonical, (canonical or "comp").replace("-", ""))
+        counters[prefix] = counters.get(prefix, 0) + 1
+        return f"{prefix}{counters[prefix]}"
+
+    # instance_id -> (ref, canonical, is_breadboard)
+    by_instance = {}
+    breadboard_instances = set()
+    for comp in components:
+        if not isinstance(comp, dict):
+            continue
+        raw_type = comp.get("type")
+        canonical = _canonical_type(raw_type)
+        if canonical is None:
+            continue
+        is_bb = _is_breadboard(canonical, raw_type)
+        ref = None if is_bb else _assign_ref(canonical)
+        instance_id = comp.get("instance_id")
+        if instance_id:
+            by_instance[instance_id] = (ref, canonical, is_bb)
+            if is_bb:
+                breadboard_instances.add(instance_id)
+
+    fallback_refs = {}
+
+    def _resolve(endpoint):
+        """Devuelve (nodo, es_real) o None si el endpoint no es usable."""
+        if not isinstance(endpoint, dict):
+            return None
+        pin = endpoint.get("pin")
+        if pin is None or (isinstance(pin, str) and not pin.strip()):
+            return None
+        pin = str(pin).strip()
+
+        instance_id = endpoint.get("instance_id")
+        component = endpoint.get("component")
+
+        record = None
+        if instance_id and instance_id in by_instance:
+            record = by_instance[instance_id]
+        elif component and component in by_instance:
+            record = by_instance[component]
+
+        if record is not None:
+            ref, canonical, is_bb = record
+            bb_key = instance_id or component
+        else:
+            canonical = _canonical_type(component)
+            is_bb = _is_breadboard(canonical, component)
+            if canonical is None:
+                return None
+            if is_bb:
+                ref = None
+                bb_key = instance_id or component
+            else:
+                key = instance_id or (component, endpoint.get("name"))
+                if key not in fallback_refs:
+                    fallback_refs[key] = _assign_ref(canonical)
+                ref = fallback_refs[key]
+                bb_key = None
+
+        if is_bb:
+            lowered = pin.casefold()
+            match = _HOLE_RE.match(lowered)
+            row = column = None
+            if match:
+                row, column = match.group(1), match.group(2)
+            else:
+                match = _HOLE_REVERSED_RE.match(lowered)
+                if match:
+                    column, row = match.group(1), match.group(2)
+            if row is not None:
+                half = "low" if row in _LOW_ROWS else "high"
+                return (("bb-col", bb_key, column, half), False)
+            rail = _RAIL_RE.match(lowered)
+            if rail:
+                return (("bb-rail", bb_key, rail.group(1)), False)
+            return (("bb-pin", bb_key, lowered), False)
+
+        return (f"{ref}.{_normalize_pin(pin, canonical)}", True)
+
+    uf = _UnionFind()
+    real_nodes = set()
+    for wire in wires:
+        if not isinstance(wire, dict):
+            continue
+        source = _resolve(wire.get("source"))
+        target = _resolve(wire.get("target"))
+        if source is None or target is None:
+            continue
+        for node, is_real in (source, target):
+            if is_real:
+                real_nodes.add(node)
+        uf.union(source[0], target[0])
+
+    groups = {}
+    for node in real_nodes:
+        groups.setdefault(uf.find(node), set()).add(node)
+
+    nets = [sorted(group) for group in groups.values() if len(group) >= 2]
+    nets.sort()
+    return nets
