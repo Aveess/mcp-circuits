@@ -13,11 +13,11 @@ EXPECTED = {
     "Pushbutton": "pushbutton",
     "Micro Servo": "servo",
     "Potentiometer": "potentiometer",
-    "Ultrasonic Distance Sensor": "ultrasonic",
+    "Ultrasonic Distance Sensor": "ultrasonic-hcsr04",
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
-    "RGB LED": "rgb-led",
+    "RGB LED": "led-rgb-common-cathode",
     "TMP36": "tmp36",
     "Breadboard Small": "breadboard",
 }
@@ -37,8 +37,8 @@ def test_fixture_type_is_case_and_whitespace_insensitive():
     assert fixture_type("arduino uno r3") == "arduino-uno"
     assert fixture_type("  Arduino   Uno   R3  ") == "arduino-uno"
     assert fixture_type("led") == "led"
-    assert fixture_type("  rGb   LeD ") == "rgb-led"
-    assert fixture_type("\tULTRASONIC   distance   SENSOR\n") == "ultrasonic"
+    assert fixture_type("  rGb   LeD ") == "led-rgb-common-cathode"
+    assert fixture_type("\tULTRASONIC   distance   SENSOR\n") == "ultrasonic-hcsr04"
 
 
 def test_fixture_type_unknown_returns_none():

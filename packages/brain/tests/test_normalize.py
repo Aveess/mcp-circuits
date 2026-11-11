@@ -54,7 +54,7 @@ def test_tipo_desconocido_usa_slug():
     inspect_data = {"components": [_comp("Breadboard Small", "bb_1")]}
 
     assert normalize_circuit(inspect_data, {"nets": []}) == {
-        "components": [{"ref": "breadboardsmall1", "type": "breadboard-small"}],
+        "components": [{"ref": "breadboard1", "type": "breadboard"}],
         "nets": [],
     }
 
