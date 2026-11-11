@@ -1,0 +1,125 @@
+[
+  {
+    "id": "blink-basico",
+    "title": "Blink básico: LED en D13 con resistencia en serie",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "led1", "type": "led"},
+      {"ref": "r1", "type": "resistor"}
+    ],
+    "nets": [["uno.D13", "r1.1"], ["r1.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "digitalWrite", "delay"]
+  },
+  {
+    "id": "boton-pullup",
+    "title": "Botón con pull-up interno en D2 y LED indicador en D13",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "btn1", "type": "pushbutton"},
+      {"ref": "led1", "type": "led"},
+      {"ref": "r1", "type": "resistor"}
+    ],
+    "nets": [["uno.D2", "btn1.1"], ["btn1.2", "uno.GND1"], ["uno.D13", "r1.1"], ["r1.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "INPUT_PULLUP", "digitalRead", "digitalWrite"]
+  },
+  {
+    "id": "semaforo-3-leds",
+    "title": "Semáforo: LEDs rojo, amarillo y verde en D11, D10 y D9",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "led_rojo", "type": "led"},
+      {"ref": "led_amarillo", "type": "led"},
+      {"ref": "led_verde", "type": "led"},
+      {"ref": "r1", "type": "resistor"},
+      {"ref": "r2", "type": "resistor"},
+      {"ref": "r3", "type": "resistor"}
+    ],
+    "nets": [["uno.D11", "r1.1"], ["r1.2", "led_rojo.anode"], ["led_rojo.cathode", "uno.GND1"], ["uno.D10", "r2.1"], ["r2.2", "led_amarillo.anode"], ["led_amarillo.cathode", "uno.GND1"], ["uno.D9", "r3.1"], ["r3.2", "led_verde.anode"], ["led_verde.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "digitalWrite", "delay"]
+  },
+  {
+    "id": "servo-potenciometro",
+    "title": "Servo en D9 controlado por potenciómetro en A0",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "servo1", "type": "servo"},
+      {"ref": "pot1", "type": "potentiometer"}
+    ],
+    "nets": [["uno.D9", "servo1.signal"], ["uno.5V", "servo1.vcc"], ["servo1.gnd", "uno.GND1"], ["uno.5V", "pot1.1"], ["pot1.2", "uno.A0"], ["pot1.3", "uno.GND1"]],
+    "code_features": ["Servo", "analogRead", "map", "write"]
+  },
+  {
+    "id": "sensor-ultrasonico",
+    "title": "Sensor ultrasónico HC-SR04 (Trig D7, Echo D6) con LED de proximidad",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "us1", "type": "ultrasonic-hcsr04"},
+      {"ref": "led1", "type": "led"},
+      {"ref": "r1", "type": "resistor"}
+    ],
+    "nets": [["uno.5V", "us1.vcc"], ["us1.gnd", "uno.GND1"], ["uno.D7", "us1.trig"], ["uno.D6", "us1.echo"], ["uno.D13", "r1.1"], ["r1.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "digitalWrite", "pulseIn", "digitalRead"]
+  },
+  {
+    "id": "buzzer-activo",
+    "title": "Buzzer activo en D8 con botón en D2 (pull-up interno)",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "buzzer1", "type": "buzzer"},
+      {"ref": "btn1", "type": "pushbutton"}
+    ],
+    "nets": [["uno.D8", "buzzer1.positive"], ["buzzer1.negative", "uno.GND1"], ["uno.D2", "btn1.1"], ["btn1.2", "uno.GND1"]],
+    "code_features": ["pinMode", "INPUT_PULLUP", "digitalRead", "digitalWrite", "tone", "noTone"]
+  },
+  {
+    "id": "ldr-divisor",
+    "title": "LDR en divisor de tensión con resistencia de 10k en A0 y LED en D13",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "ldr1", "type": "photoresistor"},
+      {"ref": "r1", "type": "resistor"},
+      {"ref": "led1", "type": "led"},
+      {"ref": "r2", "type": "resistor"}
+    ],
+    "nets": [["uno.5V", "ldr1.1"], ["ldr1.2", "uno.A0", "r1.1"], ["r1.2", "uno.GND1"], ["uno.D13", "r2.1"], ["r2.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "analogRead", "digitalWrite"]
+  },
+  {
+    "id": "motor-dc-transistor",
+    "title": "Motor DC con transistor NPN, resistencia de base y diodo flyback",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "motor1", "type": "dc-motor"},
+      {"ref": "q1", "type": "transistor-npn"},
+      {"ref": "d1", "type": "diode"},
+      {"ref": "r1", "type": "resistor"}
+    ],
+    "nets": [["uno.D9", "r1.1"], ["r1.2", "q1.base"], ["q1.emitter", "uno.GND1"], ["q1.collector", "motor1.negative", "d1.anode"], ["motor1.positive", "uno.5V", "d1.cathode"]],
+    "code_features": ["pinMode", "analogWrite"]
+  },
+  {
+    "id": "led-rgb",
+    "title": "LED RGB de cátodo común con PWM en D9, D10 y D11",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "rgb1", "type": "led-rgb-common-cathode"},
+      {"ref": "r1", "type": "resistor"},
+      {"ref": "r2", "type": "resistor"},
+      {"ref": "r3", "type": "resistor"}
+    ],
+    "nets": [["uno.D9", "r1.1"], ["r1.2", "rgb1.red"], ["uno.D10", "r2.1"], ["r2.2", "rgb1.green"], ["uno.D11", "r3.1"], ["r3.2", "rgb1.blue"], ["rgb1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "analogWrite"]
+  },
+  {
+    "id": "temperatura-tmp36",
+    "title": "Sensor de temperatura TMP36 en A0 con LED de alarma en D13",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "tmp1", "type": "tmp36"},
+      {"ref": "led1", "type": "led"},
+      {"ref": "r1", "type": "resistor"}
+    ],
+    "nets": [["uno.5V", "tmp1.vcc"], ["tmp1.vout", "uno.A0"], ["tmp1.gnd", "uno.GND1"], ["uno.D13", "r1.1"], ["r1.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
+    "code_features": ["pinMode", "analogRead", "digitalWrite", "Serial"]
+  }
+]
