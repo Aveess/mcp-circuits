@@ -1,0 +1,34 @@
+"""Mapa canónico de nombres de componentes ezhil/Tinkercad a slugs de fixtures."""
+
+TYPE_MAP: dict[str, str] = {
+    "Arduino Uno R3": "arduino-uno",
+    "LED": "led",
+    "Resistor": "resistor",
+    "Pushbutton": "pushbutton",
+    "Micro Servo": "servo",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "Potentiometer": "potentiometer",
+    "Ultrasonic Distance Sensor": "ultrasonic",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "Piezo": "buzzer",
+    "Photoresistor": "photoresistor",
+    "DC Motor": "dc-motor",
+    "RGB LED": "rgb-led",
+    "TMP36": "tmp36",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "Breadboard Small": "breadboard",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+}
+
+
+def _normalize(name: str) -> str:
+    return " ".join(name.split()).casefold()
+
+
+_NORMALIZED_MAP: dict[str, str] = {_normalize(name): slug for name, slug in TYPE_MAP.items()}
+
+
+def fixture_type(ezhil_name: str) -> str | None:
+    if ezhil_name in TYPE_MAP:
+        return TYPE_MAP[ezhil_name]
+    return _NORMALIZED_MAP.get(_normalize(ezhil_name))
+
+
+def known_slugs() -> list[str]:
+    return sorted(set(TYPE_MAP.values()))
