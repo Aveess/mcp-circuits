@@ -24,3 +24,19 @@ La fidelidad de lectura (componentes + nets vía esquemático) funcionó en el p
 circuito real. El cuello de botella se movió: ahora es la **colocación/cableado
 sobre protoboard** y la **identidad estable de componentes**, no la lectura.
 Esto refuerza portar de netchuu la spec por huecos y la colocación en el modelo.
+
+## Segunda corrida: build directo en el modelo (2026-11-11)
+
+Circuito "Fase0 modelo-directo blink": https://www.tinkercad.com/things/aBcCq6HfA2P/editel
+
+- Nueva tool del puente `tinkercad_build_circuit_model` (47 tools): coloca por
+  huecos en el modelo interno, sin clics. Resistencia 1g-5g, LED anode 5i /
+  cathode 6i, cables al Uno y al riel.
+- Bug encontrado y corregido: sin esperar `shareJsDoc.numberPending() == 0`
+  las partes desaparecían al recargar. Con la espera, persisten (verificado
+  tras recarga: Uno + protoboard + resistencia + LED, 13 cables).
+- Simulación imprime READY.
+- Pendiente: `inspect_schematic_connections` devuelve `nets: []` en este
+  circuito con protoboard, mientras que en el blink sin protoboard dio 3/3.
+  Hipótesis: la agrupación esquemática no resuelve continuidad a través de
+  los terminales del protoboard. Es el próximo frente de investigación.
