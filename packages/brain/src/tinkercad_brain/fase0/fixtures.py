@@ -10,6 +10,8 @@ def load_fixtures(path):
         raise ValueError(f"fixtures: se requieren al menos 10 circuitos, hay {len(data)}")
     seen = set()
     for circuit in data:
+        if not isinstance(circuit, dict):
+            raise ValueError("fixtures: cada circuito debe ser un objeto")
         cid = circuit.get("id")
         if not cid:
             raise ValueError("fixtures: circuito sin id")
@@ -22,8 +24,17 @@ def load_fixtures(path):
         nets = circuit.get("nets") or []
         if not nets:
             raise ValueError(f"fixtures: circuito {cid} sin nets")
-        refs = {c.get("ref") for c in components}
+        refs = set()
+        for c in components:
+            ref = c.get("ref") if isinstance(c, dict) else None
+            if ref in refs:
+                raise ValueError(f"fixtures: ref duplicado: {ref} (circuito {cid})")
+            refs.add(ref)
         for net in nets:
+            if not net:
+                raise ValueError(f"fixtures: net vacia (circuito {cid})")
+            if len(set(net)) != len(net):
+                raise ValueError(f"fixtures: extremo repetido en net: {net!r} (circuito {cid})")
             for endpoint in net:
                 if not isinstance(endpoint, str) or "." not in endpoint:
                     raise ValueError(
