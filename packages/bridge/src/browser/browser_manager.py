@@ -440,8 +440,9 @@ class BrowserManager:
             import time
             return f"tinkercad_{int(time.time())}.png"
 
-        # Extract only the base filename to strip any directory traversal attempts
-        name = Path(filename).name.strip()
+        # Extract only the base filename to strip any directory traversal attempts.
+        # Normalize Windows separators first: Path().name on POSIX ignores "\\".
+        name = Path(filename.replace("\\", "/")).name.strip()
         # Sanitize against any characters other than alphanumerics, underscores, hyphens, and dots
         clean_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", name)
         # Strip leading dots or empty result

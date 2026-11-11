@@ -9,10 +9,11 @@ _repo_root = str(Path(__file__).resolve().parent.parent)
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
 
-os.environ.setdefault("SystemRoot", r"C:\Windows")
-os.environ.setdefault("WINDIR", r"C:\Windows")
-if "PATH" not in os.environ or "system32" not in os.environ["PATH"].lower():
-    os.environ["PATH"] = r"C:\Windows\system32;C:\Windows;" + os.environ.get("PATH", "")
+if os.name == "nt":
+    os.environ.setdefault("SystemRoot", r"C:\Windows")
+    os.environ.setdefault("WINDIR", r"C:\Windows")
+    if "system32" not in os.environ.get("PATH", "").lower():
+        os.environ["PATH"] = r"C:\Windows\system32;C:\Windows;" + os.environ.get("PATH", "")
 
 import atexit
 import asyncio
