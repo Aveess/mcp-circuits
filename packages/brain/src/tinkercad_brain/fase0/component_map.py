@@ -7,11 +7,11 @@ TYPE_MAP: dict[str, str] = {
     "Pushbutton": "pushbutton",
     "Micro Servo": "servo",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Potentiometer": "potentiometer",
-    "Ultrasonic Distance Sensor": "ultrasonic",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "Ultrasonic Distance Sensor": "ultrasonic-hcsr04",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
-    "RGB LED": "rgb-led",
+    "RGB LED": "led-rgb-common-cathode",
     "TMP36": "tmp36",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Breadboard Small": "breadboard",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
 }
@@ -25,6 +25,8 @@ _NORMALIZED_MAP: dict[str, str] = {_normalize(name): slug for name, slug in TYPE
 
 
 def fixture_type(ezhil_name: str) -> str | None:
+    if not isinstance(ezhil_name, str):
+        return None
     if ezhil_name in TYPE_MAP:
         return TYPE_MAP[ezhil_name]
     return _NORMALIZED_MAP.get(_normalize(ezhil_name))
