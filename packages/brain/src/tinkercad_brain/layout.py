@@ -23,25 +23,38 @@ def _parse_endpoint(endpoint):
 
 
 def _led_resistor_pairs(components, nets):
+    if nets is not None and not isinstance(nets, list):
+        raise LayoutError("fixture 'nets' must be a list")
     type_by_ref = {c["ref"]: c["type"] for c in components}
     led_to_resistor = {}
+    leds_without_resistor = set()
     used_resistors = set()
     for net in nets or []:
-        led_ref = None
-        resistor_ref = None
+        led_refs = []
+        resistor_refs = []
         for endpoint in net:
             ref, pin = _parse_endpoint(endpoint)
             if ref is None:
                 continue
             if type_by_ref.get(ref) == "led" and pin == "anode":
-                led_ref = ref
+                if ref not in led_refs:
+                    led_refs.append(ref)
             elif type_by_ref.get(ref) == "resistor" and pin in ("1", "2"):
-                resistor_ref = ref
-        if led_ref and resistor_ref:
-            if led_ref not in led_to_resistor and resistor_ref not in used_resistors:
+                if ref not in resistor_refs:
+                    resistor_refs.append(ref)
+        for led_ref in led_refs:
+            if led_ref in led_to_resistor:
+                continue
+            resistor_ref = next(
+                (r for r in resistor_refs if r not in used_resistors), None
+            )
+            if resistor_ref is not None:
                 led_to_resistor[led_ref] = resistor_ref
                 used_resistors.add(resistor_ref)
-    return led_to_resistor
+                leds_without_resistor.discard(led_ref)
+            elif resistor_refs:
+                leds_without_resistor.add(led_ref)
+    return led_to_resistor, leds_without_resistor
 
 
 def plan_layout(fixture: dict) -> dict:
@@ -53,10 +66,19 @@ def plan_layout(fixture: dict) -> dict:
     for component in components:
         if not isinstance(component, dict) or "ref" not in component or "type" not in component:
             raise LayoutError("each component must have 'ref' and 'type'")
+    seen_refs = set()
+    for component in components:
+        ref = component["ref"]
+        if ref in seen_refs:
+            raise LayoutError(f"duplicate component ref: {ref!r}")
+        seen_refs.add(ref)
+    nets = fixture.get("nets")
+    if nets is not None and not isinstance(nets, list):
+        raise LayoutError("fixture 'nets' must be a list")
 
     order = {c["ref"]: i for i, c in enumerate(components)}
     type_by_ref = {c["ref"]: c["type"] for c in components}
-    led_to_resistor = _led_resistor_pairs(components, fixture.get("nets"))
+    led_to_resistor, leds_without_resistor = _led_resistor_pairs(components, nets)
 
     placements = {}
     unplaced = []
@@ -68,6 +90,9 @@ def plan_layout(fixture: dict) -> dict:
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "led":
+            if ref in leds_without_resistor:
+                unplaced.append(ref)
+                continue
             resistor = led_to_resistor.get(ref)
             members = [ref] + ([resistor] if resistor else [])
             units.append((min(order[m] for m in members), ref, resistor))
