@@ -132,6 +132,11 @@ def validate_spec(spec: dict) -> dict:
     if not isinstance(spec, dict):
         raise SpecError("spec: debe ser un dict")
 
+    if "title" in spec and not isinstance(spec["title"], str):
+        raise SpecError(f"title: debe ser str, no {spec['title']!r}")
+    if "code" in spec and not isinstance(spec["code"], str):
+        raise SpecError(f"code: debe ser str, no {spec['code']!r}")
+
     if "parts" not in spec or not isinstance(spec["parts"], list):
         raise SpecError("parts: falta 'parts' o no es una lista")
     parts = spec["parts"]
@@ -145,6 +150,7 @@ def validate_spec(spec: dict) -> dict:
         raise SpecError(f"wires: más de {_MAX_WIRES} wires ({len(wires_in)})")
 
     ref_types: dict[str, str] = {}
+    seen_at: dict[str, str] = {}
     for i, part in enumerate(parts):
         where = f"parts[{i}]"
         if not isinstance(part, dict):
@@ -161,11 +167,33 @@ def validate_spec(spec: dict) -> dict:
             raise SpecError(f"{where} ('{ref}'): type desconocido {type_!r}")
         ref_types[ref] = type_
 
+        if "at" in part and "free" in part:
+            raise SpecError(
+                f"{where} ('{ref}'): 'at' y 'free' son excluyentes"
+            )
+        if "angle" in part:
+            angle = part["angle"]
+            if (
+                isinstance(angle, bool)
+                or not isinstance(angle, int)
+                or angle not in (0, 90, 180, 270)
+            ):
+                raise SpecError(
+                    f"{where} ('{ref}'): angle inválido {angle!r} "
+                    "(esperado uno de 0, 90, 180, 270)"
+                )
         if "at" in part and not (_is_hole(part["at"]) or _is_rail(part["at"])):
             raise SpecError(
                 f"{where} ('{ref}'): at inválido {part['at']!r} "
                 "(esperado hueco '12e' o riel 'T-12')"
             )
+        if "at" in part:
+            if part["at"] in seen_at:
+                raise SpecError(
+                    f"{where} ('{ref}'): at {part['at']!r} ya ocupado por "
+                    f"'{seen_at[part['at']]}' (colisión)"
+                )
+            seen_at[part["at"]] = ref
         if "free" in part:
             free = part["free"]
             if (
