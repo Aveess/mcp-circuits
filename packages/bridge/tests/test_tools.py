@@ -147,7 +147,7 @@ class TestMCPServerTools(unittest.TestCase):
         self.tool_names = {t.name for t in self.tools}
 
     def test_tool_count(self):
-        self.assertEqual(len(self.tools), 46)
+        self.assertEqual(len(self.tools), 47)
 
     def test_auth_tools_registered(self):
         for tool in ["tinkercad_auth_status", "tinkercad_login", "tinkercad_open_signup", "tinkercad_logout", "tinkercad_restart_browser"]:
