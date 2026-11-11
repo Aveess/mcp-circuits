@@ -22,7 +22,8 @@ def run_steps(steps, call_tool) -> list[ProbeRecord]:
     for step in steps:
         start = time.perf_counter()
         try:
-            output = call_tool(step.tool, step.arguments)
+            raw_output = call_tool(step.tool, step.arguments)
+            output = raw_output if isinstance(raw_output, str) else str(raw_output)
             ok = True
         except Exception as exc:
             output = str(exc)
