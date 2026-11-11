@@ -18,6 +18,7 @@ from .services import (
     CompositeService,
     SchematicService,
 )
+from .services.model_build_service import ModelBuildService
 from .config import logger
 
 # Initialize MCP Server
@@ -33,6 +34,7 @@ code_service = CodeService(browser)
 simulation_service = SimulationService(browser)
 serial_service = SerialService(browser)
 schematic_service = SchematicService(browser)
+model_build_service = ModelBuildService(browser)
 composite_service = CompositeService(
     circuits=circuits_service,
     components=components_service,
@@ -943,6 +945,27 @@ async def tinkercad_build_circuit(
         return json.dumps(res, indent=2)
     except Exception as e:
         return _format_error("tinkercad_build_circuit", e)
+
+
+@server.tool()
+async def tinkercad_build_circuit_model(
+    parts: List[Dict[str, Any]],
+    wires: List[List[str]],
+    code: Optional[str] = None,
+) -> str:
+    """Build a circuit by breadboard holes directly in the editor's internal model.
+
+    Args:
+        parts: e.g. [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode", "angle": 180}]
+            (DIDs: Uno 132521, Breadboard Small 111211, LED 58422, Resistor 53184; angle optional)
+        wires: Endpoint pairs, e.g. [["uno.D13", "5i"], ["led1.anode", "T-10"]]
+        code: Optional Arduino sketch to store on the Uno.
+    """
+    try:
+        res = await model_build_service.build_from_holes(parts=parts, wires=wires, code=code)
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        return _format_error("tinkercad_build_circuit_model", e)
 
 
 @server.tool()
