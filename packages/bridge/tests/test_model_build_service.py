@@ -300,5 +300,25 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         mock_bm.get_page.assert_not_called()
 
 
+class TestBuildCircuitModelToolSchema(unittest.TestCase):
+    def test_tool_wires_schema_accepts_dict_wires(self):
+        import inspect
+
+        from src.server import server
+
+        tool = next(
+            t
+            for t in server._tool_manager.list_tools()
+            if t.name == "tinkercad_build_circuit_model"
+        )
+        wires = tool.parameters["properties"]["wires"]
+        items = wires.get("items", {})
+        # List[List[str]] forces each wire to be an array of strings and
+        # rejects dict wires such as {"from": "6i", "to": ..., "color": ...}.
+        self.assertNotEqual(items.get("type"), "array")
+        ann = str(inspect.signature(tool.fn).parameters["wires"].annotation)
+        self.assertNotIn("List[List[str]]", ann)
+
+
 if __name__ == "__main__":
     unittest.main()

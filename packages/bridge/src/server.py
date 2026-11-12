@@ -990,7 +990,7 @@ async def tinkercad_build_circuit(
 @server.tool()
 async def tinkercad_build_circuit_model(
     parts: List[Dict[str, Any]],
-    wires: List[List[str]],
+    wires: List[Any],
     code: Optional[str] = None,
 ) -> str:
     """Build a circuit by breadboard holes directly in the editor's internal model.
@@ -998,7 +998,8 @@ async def tinkercad_build_circuit_model(
     Args:
         parts: e.g. [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode", "angle": 180}]
             (DIDs: Uno 132521, Breadboard Small 111211, LED 58422, Resistor 53184; angle optional)
-        wires: Endpoint pairs, e.g. [["uno.D13", "5i"], ["led1.anode", "T-10"]]
+        wires: Endpoint pairs, e.g. [["uno.D13", "5i"], ["led1.anode", "T-10"]],
+            or dicts with optional color, e.g. [{"from": "uno.D13", "to": "5i", "color": "red"}]
         code: Optional Arduino sketch to store on the Uno.
     """
     try:
