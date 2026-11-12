@@ -516,6 +516,97 @@ def test_motor_dc_transistor_real_fixture_parts_and_wires():
     assert next(w for w in result["wires"] if w["to"] == "uno.GND1")["color"] == "black"
 
 
+def _ensure_l293d_battery_placements(monkeypatch):
+    """Inyecta placements esperados si el layout aun no los emite.
+
+    Contrato: l293d {"at": "10f", "pin": "enable1", "angle": 0} y
+    battery-9v free {"x": 560, "y": 300} (como el dc-motor).
+    Dependencia: hoy el layout deja ambos en unplaced.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = []
+        for ref in layout["unplaced"]:
+            ctype = type_by_ref.get(ref)
+            if ctype == "l293d":
+                placements[ref] = {"at": "10f", "pin": "enable1", "angle": 0}
+            elif ctype == "battery-9v":
+                placements[ref] = {"free": {"x": 560, "y": 300}}
+            else:
+                unplaced.append(ref)
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "bat1", "type": "battery-9v"},
+            {"ref": "drv1", "type": "l293d"},
+            {"ref": "motor1", "type": "dc-motor"},
+            {"ref": "pot1", "type": "potentiometer"},
+        ],
+        "nets": [
+            ["uno.D9", "drv1.enable1"],
+            ["uno.D8", "drv1.input1"],
+            ["uno.D7", "drv1.input2"],
+            ["uno.5V", "drv1.vss"],
+            ["uno.5V", "pot1.1"],
+            ["pot1.2", "uno.A0"],
+            ["pot1.3", "uno.GND1"],
+            ["bat1.positive", "drv1.vs"],
+            ["drv1.output1", "motor1.positive"],
+            ["drv1.output2", "motor1.negative"],
+            ["uno.GND1", "drv1.gnd", "drv1.gnd1", "drv1.gnd2",
+             "drv1.gnd3", "bat1.negative"],
+        ],
+    }
+    _ensure_l293d_battery_placements(monkeypatch)
+    placements = builder_module.plan_layout(fixture)["placements"]
+    assert placements["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    assert placements["bat1"] == {"free": {"x": 560, "y": 300}}
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert set(parts_by_ref) == {"bat1", "drv1", "motor1", "pot1"}
+    # Driver con ancla real capitalizada; bateria y motor libres (sin at/pin).
+    assert parts_by_ref["drv1"] == {
+        "ref": "drv1", "did": 112326, "at": "10f", "pin": "Enable1", "angle": 0,
+    }
+    assert parts_by_ref["bat1"] == {
+        "ref": "bat1", "did": 116841, "free": {"x": 560, "y": 300},
+    }
+    assert parts_by_ref["motor1"]["did"] == 114158
+    assert "free" in parts_by_ref["motor1"]
+    assert parts_by_ref["pot1"]["did"] == 45547
+
+    pot_at = placements["pot1"]["at"]
+    # Filas verificadas: f = enable1..vs (10f..17f), i = vss..enable2 (10i..17i).
+    expected_pairs = {
+        ("uno.D9", "10f"), ("uno.D8", "11f"), ("uno.D7", "16f"),
+        ("uno.5V", "10i"), ("uno.5V", pot_at),
+        (_shift(pot_at, 1), "uno.A0"), (_shift(pot_at, 2), "uno.GND1"),
+        ("bat1.+", "17f"),
+        ("12f", "motor1.1"), ("15f", "motor1.2"),
+        ("uno.GND1", "13f"), ("13f", "14f"), ("14f", "14i"),
+        ("14i", "13i"), ("13i", "bat1.-"),
+    }
+    assert len(result["wires"]) == len(expected_pairs) == 15
+    assert {(w["from"], w["to"]) for w in result["wires"]} == expected_pairs
+    by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
+    assert by_pair[("bat1.+", "17f")] == "red"
+    assert by_pair[("13i", "bat1.-")] == "black"
+    assert by_pair[("uno.GND1", "13f")] == "black"
+    assert by_pair[("uno.D9", "10f")] not in ("red", "black")
+
+
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
     # Supuesto documentado: solo se conoce la geometria del pin "1" del
     # boton (en `at`). El pin "2" de boton-pullup no se adivina: sin una

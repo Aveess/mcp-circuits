@@ -40,7 +40,13 @@ DID_BY_TYPE: dict[str, int] = {
     "transistor-npn": 58468,
     "diode": 58320,
     "dc-motor": 114158,
+    "l293d": 112326,
+    "battery-9v": 116841,
 }
+
+# Types que el builder ya soporta pero TYPE_MAP (component_map, otro
+# modulo) aun no registra: solo se usan para no rechazarlos por nombre.
+_BUILDER_ONLY_TYPES = frozenset({"l293d", "battery-9v"})
 
 # Partes de 3 pines en fila unica: orden fisico (nombre de fixture) y
 # nombre real del pin en Tinkercad. El primer pin va en el `at` del
@@ -59,6 +65,30 @@ _THREE_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
 # terminales del DC Motor en Tinkercad se llaman "1" y "2" (catalogo
 # netchuu); positive->"1", negative->"2". El puente los resuelve.
 _MOTOR_TERMINALS: dict[str, str] = {"positive": "1", "negative": "2"}
+
+# Bateria 9V libre (sin huecos, como el motor): terminales reales
+# verificados en vivo "+" y "-".
+_BATTERY_TERMINALS: dict[str, str] = {"positive": "+", "negative": "-"}
+
+# L293D (16 pines, verificado en vivo): ancla Enable1 en <B>f deja en la
+# fila f (B..B+7) la primera tupla y en la fila i (B..B+7) la segunda.
+# Mapa explicito fixture -> pin real (capitalizado, sin reglas magicas).
+_L293D_ROW_F: tuple[tuple[str, str], ...] = (
+    ("enable1", "Enable1"), ("input1", "Input1"), ("output1", "Output1"),
+    ("gnd", "GND"), ("gnd1", "GND1"), ("output2", "Output2"),
+    ("input2", "Input2"), ("vs", "Vs"),
+)
+_L293D_ROW_I: tuple[tuple[str, str], ...] = (
+    ("vss", "Vss"), ("input4", "Input4"), ("output4", "Output4"),
+    ("gnd3", "GND3"), ("gnd2", "GND2"), ("output3", "Output3"),
+    ("input3", "Input3"), ("enable2", "Enable2"),
+)
+_L293D_REAL_BY_FIXTURE: dict[str, str] = dict(_L293D_ROW_F + _L293D_ROW_I)
+# fixture pin -> (fila, desplazamiento de columna desde el ancla)
+_L293D_PIN_HOLES: dict[str, tuple[str, int]] = {
+    **{pin: ("f", i) for i, (pin, _real) in enumerate(_L293D_ROW_F)},
+    **{pin: ("i", i) for i, (pin, _real) in enumerate(_L293D_ROW_I)},
+}
 
 # HC-SR04 (4 pines): evidencia en vivo DID 219295, pin real "pos" en un
 # hueco de la fila d deja pos=+0, trig=+1, echo=+2, neg=+3 columnas.
@@ -99,11 +129,16 @@ _SIGNAL_PALETTE = (
 def _wire_group(first: str, second: str) -> int:
     endpoints = (first, second)
     if any(
-        e in _POWER_ENDPOINTS or _RAIL_POWER_RE.fullmatch(e) for e in endpoints
+        e in _POWER_ENDPOINTS
+        or _RAIL_POWER_RE.fullmatch(e)
+        or e.endswith(".+")  # terminal positivo de bateria libre (bat1.+)
+        for e in endpoints
     ):
         return 0
     if any(
-        e.startswith("uno.GND") or _RAIL_GROUND_RE.fullmatch(e)
+        e.startswith("uno.GND")
+        or _RAIL_GROUND_RE.fullmatch(e)
+        or e.endswith(".-")  # terminal negativo de bateria libre (bat1.-)
         for e in endpoints
     ):
         return 1
@@ -159,9 +194,32 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
             )
         return f"{ref}.{terminal}"
+    if ctype == "battery-9v":
+        terminal = _BATTERY_TERMINALS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
     at = placement["at"]
     # Geometria derivada de la receta de layout (ver layout.plan_layout):
-    if ctype == "diode":
+    if ctype == "l293d":
+        hole_spec = _L293D_PIN_HOLES.get(pin)
+        if hole_spec is not None:
+            row, offset = hole_spec
+            match = _HOLE_RE.fullmatch(at)
+            if match is None:
+                raise BuildError(
+                    f"hueco de layout invalido {at!r} para {endpoint!r}"
+                )
+            column = int(match.group(1)) + offset
+            if not 1 <= column <= 30:
+                raise BuildError(
+                    f"hueco derivado fuera de la protoboard para "
+                    f"{endpoint!r}: {column}{row}"
+                )
+            return f"{column}{row}"
+    elif ctype == "diode":
         if pin == "anode":
             return at
         if pin == "cathode":
@@ -224,7 +282,7 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     parts = []
     for ref, placement in placements.items():
         ctype = type_by_ref.get(ref)
-        if ctype not in _TYPE_BY_SLUG:
+        if ctype not in _TYPE_BY_SLUG and ctype not in _BUILDER_ONLY_TYPES:
             raise BuildError(f"type sin nombre conocido para ref {ref!r}: {ctype!r}")
         did = DID_BY_TYPE.get(ctype)
         if did is None:
@@ -237,8 +295,12 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             )
             continue
         part_pin = placement["pin"]
+        real_by_fixture = None
         if ctype in _LINEAR_PIN_PINS:
             real_by_fixture = dict(_LINEAR_PIN_PINS[ctype])
+        elif ctype == "l293d":
+            real_by_fixture = _L293D_REAL_BY_FIXTURE
+        if real_by_fixture is not None:
             if part_pin not in real_by_fixture:
                 raise BuildError(
                     f"pin ancla sin nombre real para ref {ref!r}: "
