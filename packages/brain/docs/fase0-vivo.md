@@ -40,3 +40,16 @@ Circuito "Fase0 modelo-directo blink": https://www.tinkercad.com/things/aBcCq6Hf
   circuito con protoboard, mientras que en el blink sin protoboard dio 3/3.
   Hipótesis: la agrupación esquemática no resuelve continuidad a través de
   los terminales del protoboard. Es el próximo frente de investigación.
+
+## Tercera y cuarta corrida: sampler y oraculo serial (2026-11-11)
+
+- Nueva tool del puente `tinkercad_simulate_samples` (48 tools): muestrea brillo
+  de LED por screenshot/PIL. En vivo arrancó y leyó serial READY, pero el brillo
+  dio identico en las 4 muestras (0.5728): la lectura por pixel NO esta
+  calibrada en headless y no es oraculo confiable todavia.
+- El oraculo que si funciona: sketch instrumentado (sketches.blink_sketch) con
+  trazas por serial. En vivo: READY, TEST:ON, TEST:OFF alternando 5 ciclos.
+  Esa es la via de verificacion de comportamiento adoptada.
+- Semaforo (dlhJ966IRvA) y boton (bWmMIRN5dwi) construidos en protoboard con
+  el builder; conectividad 1.0 y 0.8 (el 0.8 es por nombres de pin del
+  pushbutton, no por electricidad). Reportes en docs/reportes/.
