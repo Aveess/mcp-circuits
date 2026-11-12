@@ -62,6 +62,13 @@ def test_hcsr04_real_ezhil_name_resolves_without_duplicate_slug():
     assert known_slugs().count("ultrasonic-hcsr04") == 1
 
 
+def test_fixture_type_hyphen_underscore_equivalent_to_space():
+    assert fixture_type("Ultrasonic Distance Sensor (4-pin)") == "ultrasonic-hcsr04"
+    assert fixture_type("Ultrasonic Distance Sensor (4 Pin)") == "ultrasonic-hcsr04"
+    assert fixture_type("Ultrasonic Distance Sensor (4 pin)") == "ultrasonic-hcsr04"
+    assert fixture_type("Ultrasonic Distance Sensor (4_pin)") == "ultrasonic-hcsr04"
+
+
 def test_known_slugs_are_unique_and_sorted():
     slugs = known_slugs()
     assert slugs == sorted(set(slugs))
