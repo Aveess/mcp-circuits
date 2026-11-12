@@ -54,14 +54,77 @@ def test_unknown_type_goes_to_unplaced():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
-            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+            {"ref": "x1", "type": "unknown-widget"},
         ],
-        "nets": [["uno.D9", "us1.echo"]],
+        "nets": [["uno.D9", "x1.echo"]],
     }
 
     result = plan_layout(fixture)
 
-    assert result == {"placements": {}, "unplaced": ["us1"]}
+    assert result == {"placements": {}, "unplaced": ["x1"]}
+
+
+def test_ultrasonic_alone_is_placed_at_1d_with_vcc_first():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+        ],
+        "nets": [["uno.D7", "us1.trig"], ["uno.D6", "us1.echo"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result == {
+        "placements": {"us1": {"at": "1d", "pin": "vcc", "angle": 0}},
+        "unplaced": [],
+    }
+
+
+def test_ultrasonic_real_fixture_is_placed_after_led_block():
+    result = plan_layout(_fixture("sensor-ultrasonico"))
+
+    assert result["placements"]["us1"] == {"at": "7d", "pin": "vcc", "angle": 0}
+    assert result["unplaced"] == []
+
+
+def test_ultrasonic_shares_cursor_and_advances_five_after_servo():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "servo1", "type": "servo"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+            {"ref": "tmp1", "type": "tmp36"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["placements"] == {
+        "servo1": {"at": "1c", "pin": "gnd", "angle": 0},
+        "us1": {"at": "5d", "pin": "vcc", "angle": 0},
+        "tmp1": {"at": "10c", "pin": "vcc", "angle": 0},
+    }
+    assert result["unplaced"] == []
+
+
+def test_ultrasonic_that_does_not_fit_goes_to_unplaced():
+    components = [{"ref": "uno", "type": "arduino-uno"}]
+    nets = []
+    for i in range(1, 5):
+        components.append({"ref": f"led{i}", "type": "led"})
+        components.append({"ref": f"r{i}", "type": "resistor"})
+        nets.append([f"r{i}.2", f"led{i}.anode"])
+    components.append({"ref": "servo1", "type": "servo"})
+    components.append({"ref": "us1", "type": "ultrasonic-hcsr04"})
+    fixture = {"components": components, "nets": nets}
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["servo1"] == {"at": "25c", "pin": "gnd", "angle": 0}
+    assert "us1" not in result["placements"]
+    assert result["unplaced"] == ["us1"]
 
 
 def test_servo_alone_is_placed_at_1c_with_gnd_first():

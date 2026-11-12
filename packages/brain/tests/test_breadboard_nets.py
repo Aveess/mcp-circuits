@@ -8,6 +8,7 @@ from tinkercad_brain.breadboard_nets import derive_nets
 LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
 LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
 LIVE19 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live19.json")
+LIVE21 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live21.json")
 
 EXPECTED_SERVO_POT = [
     ["potentiometer1.1", "servo1.vcc", "uno.5V"],
@@ -182,6 +183,72 @@ def test_tmp36_live_pin_names_power_gnd_and_uno_gnd_unchanged():
     assert "uno.GND1" in by_uno["uno.GND1"]
     assert any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in by_uno["uno.GND1"])
     assert not any(ep.endswith((".Power", ".GND")) for net in nets for ep in net)
+
+
+def test_ultrasonic_live_pin_names_trigger_echo_ground_power():
+    # Tipo en vivo en live21: no resuelve a ultrasonic-hcsr04 en el mapa.
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("Ultrasonic Distance Sensor (4-pin)", "us_a"),
+        ],
+        "wires": [
+            _wire(_ep("Ultrasonic Distance Sensor (4-pin)", "Power", "us_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("Ultrasonic Distance Sensor (4-pin)", "Trigger", "us_a"), _ep("Arduino Uno R3", "D7", "uno1")),
+            _wire(_ep("Ultrasonic Distance Sensor (4-pin)", "Echo", "us_a"), _ep("Arduino Uno R3", "D6", "uno1")),
+            _wire(_ep("Ultrasonic Distance Sensor (4-pin)", "Ground", "us_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    assert not any(
+        ep.endswith((".Power", ".Trigger", ".Echo", ".Ground"))
+        for net in nets
+        for ep in net
+    )
+    by_uno = {ep: net for net in nets for ep in net if ep.startswith("uno.")}
+    assert any(ep.endswith(".trig") for ep in by_uno["uno.D7"])
+    assert any(ep.endswith(".echo") for ep in by_uno["uno.D6"])
+    assert any(ep.endswith(".vcc") for ep in by_uno["uno.5V"])
+    assert any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in by_uno["uno.GND1"])
+
+
+def test_ultrasonic_canonical_type_aliases():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("Ultrasonic Distance Sensor", "us_a"),
+        ],
+        "wires": [
+            _wire(_ep("Ultrasonic Distance Sensor", "Trigger", "us_a"), _ep("Arduino Uno R3", "D7", "uno1")),
+            _wire(_ep("Ultrasonic Distance Sensor", "Echo", "us_a"), _ep("Arduino Uno R3", "D6", "uno1")),
+            _wire(_ep("Ultrasonic Distance Sensor", "Ground", "us_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    assert any("uno.D7" in net and any(ep.endswith(".trig") for ep in net) for net in nets)
+    assert any("uno.D6" in net and any(ep.endswith(".echo") for ep in net) for net in nets)
+    assert any("uno.GND1" in net and any(ep.endswith(".gnd") for ep in net) for net in nets)
+
+
+def test_live21_artifact_ultrasonic_nets():
+    if not LIVE21.exists():
+        pytest.skip("live21.json no disponible")
+    inspect_data = _inspect_from_artifact(LIVE21)
+    if inspect_data is None:
+        pytest.skip("live21.json sin inspect_circuit")
+    nets = derive_nets(inspect_data)
+    assert not any(
+        ep.endswith((".Power", ".Trigger", ".Echo", ".Ground"))
+        for net in nets
+        for ep in net
+    )
+    assert any("uno.D7" in net and any(ep.endswith(".trig") for ep in net) for net in nets)
+    assert any("uno.D6" in net and any(ep.endswith(".echo") for ep in net) for net in nets)
+    assert any("uno.5V" in net and any(ep.endswith(".vcc") for ep in net) for net in nets)
+    assert any(
+        "uno.GND1" in net and any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in net)
+        for net in nets
+    )
 
 
 def test_live19_artifact_tmp36_nets():
