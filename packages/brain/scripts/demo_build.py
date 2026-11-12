@@ -54,6 +54,8 @@ _SKETCH_BY_FIXTURE = {
     "sensor-ultrasonico": "ultrasonic_sketch",
     "temperatura-tmp36": "tmp36_sketch",
     "led-rgb": "rgb_cycle_sketch",
+    "motor-dc-transistor": "motor_sketch",
+    "motor-l293d-bateria": "motor_driver_sketch",
 }
 
 
