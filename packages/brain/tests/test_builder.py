@@ -1,8 +1,10 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
 
+import tinkercad_brain.builder as builder_module
 from tinkercad_brain.builder import BuildError, build_circuit, fixture_to_model_call
 from tinkercad_brain.layout import plan_layout
 from tinkercad_brain.spec import validate_spec
@@ -66,13 +68,148 @@ def test_blink_basico_wrapped_with_types_passes_validate_spec():
     ]
 
 
-def test_unplaced_servo_fixture_raises_build_error_listing_refs():
+_FIRST_PIN_3PIN = {"servo": "gnd", "potentiometer": "1", "tmp36": "vcc"}
+_PIN_ORDER_3PIN = {
+    "servo": ["gnd", "vcc", "signal"],
+    "potentiometer": ["1", "2", "3"],
+    "tmp36": ["vcc", "vout", "gnd"],
+}
+
+
+def _ensure_3pin_placements(monkeypatch):
+    """Coloca en fila c las partes de 3 pines que el layout aun no coloque.
+
+    Contrato documentado: `at` = hueco del primer pin fisico y los otros
+    dos a +1/+2 columnas. Si plan_layout ya las coloca (merge del layout),
+    este parche no altera nada.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        used_columns = {
+            int(re.match(r"([0-9]+)c", p["at"]).group(1))
+            for p in placements.values()
+            if re.fullmatch(r"[0-9]+c", p["at"])
+        }
+        unplaced = []
+        column = 1
+        for ref in layout["unplaced"]:
+            ctype = type_by_ref.get(ref)
+            if ctype not in _FIRST_PIN_3PIN:
+                unplaced.append(ref)
+                continue
+            while column in used_columns:
+                column += 3
+            placements[ref] = {
+                "at": f"{column}c",
+                "pin": _FIRST_PIN_3PIN[ctype],
+                "angle": 0,
+            }
+            used_columns.add(column)
+            column += 3
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def _shift(hole, columns):
+    match = re.fullmatch(r"([0-9]+)([a-j])", hole)
+    return f"{int(match.group(1)) + columns}{match.group(2)}"
+
+
+def _hole_for(placement, ctype, pin):
+    index = _PIN_ORDER_3PIN[ctype].index(pin)
+    return placement["at"] if index == 0 else _shift(placement["at"], index)
+
+
+def test_servo_potentiometer_real_fixture_parts_and_wires(monkeypatch):
+    fixture = _fixture("servo-potenciometro")
+    _ensure_3pin_placements(monkeypatch)
+    placements = builder_module.plan_layout(fixture)["placements"]
+    type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["servo1"] == {
+        "ref": "servo1",
+        "did": 142073,
+        "at": placements["servo1"]["at"],
+        "pin": "Ground",
+        "angle": placements["servo1"]["angle"],
+    }
+    assert parts_by_ref["pot1"] == {
+        "ref": "pot1",
+        "did": 45547,
+        "at": placements["pot1"]["at"],
+        "pin": "term0",
+        "angle": placements["pot1"]["angle"],
+    }
+    # Sin huecos repetidos como ancla.
+    assert len({p["at"] for p in result["parts"]}) == len(result["parts"])
+
+    expected_wires = []
+    for net in fixture["nets"]:
+        translated = []
+        for endpoint in net:
+            ref, pin = endpoint.split(".", 1)
+            if ref == "uno":
+                translated.append(endpoint)
+            else:
+                translated.append(
+                    _hole_for(placements[ref], type_by_ref[ref], pin)
+                )
+        expected_wires.append(translated)
+    assert result["wires"] == expected_wires
+    assert len(result["wires"]) == 6
+
+
+def test_tmp36_synthetic_fixture_parts_and_wires(monkeypatch):
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "tmp1", "type": "tmp36"},
+        ],
+        "nets": [
+            ["uno.5V", "tmp1.vcc"],
+            ["tmp1.vout", "uno.A0"],
+            ["tmp1.gnd", "uno.GND1"],
+        ],
+    }
+    _ensure_3pin_placements(monkeypatch)
+    placement = builder_module.plan_layout(fixture)["placements"]["tmp1"]
+
+    result = fixture_to_model_call(fixture)
+
+    assert result["parts"] == [
+        {
+            "ref": "tmp1",
+            "did": 112324,
+            "at": placement["at"],
+            "pin": "Vcc",
+            "angle": placement["angle"],
+        }
+    ]
+    assert result["wires"] == [
+        ["uno.5V", placement["at"]],
+        [_shift(placement["at"], 1), "uno.A0"],
+        [_shift(placement["at"], 2), "uno.GND1"],
+    ]
+
+
+def test_ultrasonic_real_fixture_raises_build_error_unplaced():
+    # Verificado hoy: plan_layout deja us1 en unplaced, asi que el
+    # BuildError es por "sin layout" (antes de cualquier chequeo de DID;
+    # ultrasonic-hcsr04 tampoco tiene DID en el builder).
     with pytest.raises(BuildError) as excinfo:
-        fixture_to_model_call(_fixture("servo-potenciometro"))
+        fixture_to_model_call(_fixture("sensor-ultrasonico"))
 
     message = str(excinfo.value)
-    assert "servo1" in message
-    assert "pot1" in message
+    assert "sin layout" in message
+    assert "us1" in message
 
 
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
@@ -166,6 +303,6 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
         return "{}"
 
     with pytest.raises(BuildError):
-        build_circuit(_fixture("servo-potenciometro"), None, fake_call_tool)
+        build_circuit(_fixture("sensor-ultrasonico"), None, fake_call_tool)
 
     assert calls == []
