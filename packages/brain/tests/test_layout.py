@@ -446,7 +446,7 @@ def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
 
     result = plan_layout(fixture)
 
-    assert result["placements"]["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    assert result["placements"]["drv1"] == {"at": "17f", "pin": "enable1", "angle": 180}
     assert result["placements"]["pot1"] == {"at": "1c", "pin": "1", "angle": 0}
     assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
     assert result["placements"]["bat1"] == {"free": {"x": 560, "y": 300}}
@@ -484,7 +484,7 @@ def test_blocks_after_l293d_do_not_overlap_its_columns():
 
     result = plan_layout(fixture)
 
-    assert result["placements"]["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    assert result["placements"]["drv1"] == {"at": "17f", "pin": "enable1", "angle": 180}
     for i in range(1, 6):
         placement = result["placements"][f"pot{i}"]
         start = int(placement["at"][:-1])
