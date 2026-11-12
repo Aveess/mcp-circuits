@@ -6,6 +6,7 @@ import pytest
 from tinkercad_brain.breadboard_nets import derive_nets
 
 LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
+LIVE11 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live11.json")
 LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
 LIVE19 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live19.json")
 LIVE21 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live21.json")
@@ -188,6 +189,67 @@ def test_led_rgb_terminal_aliases():
     assert any(ep.endswith(".green") for ep in by_uno["uno.D10"])
     assert any(ep.endswith(".blue") for ep in by_uno["uno.D11"])
     assert any(ep.endswith(".cathode") for ep in by_uno["uno.GND1"])
+
+
+def test_pushbutton_terminal_aliases_and_resistor_unchanged():
+    # En vivo (live11) el pushbutton reporta Terminal 1a/1b y 2a/2b;
+    # la fixture boton-pullup usa btn1.1 (senal) y btn1.2 (tierra).
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("Pushbutton", "btn_a"),
+            _comp("Resistor", "r_a"),
+        ],
+        "wires": [
+            _wire(_ep("Pushbutton", "Terminal 2b", "btn_a"), _ep("Arduino Uno R3", "D2", "uno1")),
+            _wire(_ep("Pushbutton", "Terminal 1a", "btn_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+            _wire(_ep("Resistor", "Terminal 1", "r_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+            _wire(_ep("Resistor", "Terminal 2", "r_a"), _ep("Arduino Uno R3", "D13", "uno1")),
+        ],
+    }
+    assert derive_nets(data) == [
+        ["pushbutton1.1", "uno.D2"],
+        ["pushbutton1.2", "uno.GND1"],
+        ["r1.1", "uno.D9"],
+        ["r1.2", "uno.D13"],
+    ]
+
+
+@pytest.mark.parametrize(
+    "terminal,expected_pin",
+    [
+        ("Terminal 1a", "2"),
+        ("Terminal 1b", "2"),
+        ("Terminal 2a", "1"),
+        ("Terminal 2b", "1"),
+    ],
+)
+def test_pushbutton_each_terminal_letter_alias(terminal, expected_pin):
+    data = {
+        "components": [_comp("Arduino Uno R3", "uno1"), _comp("Pushbutton", "btn_a")],
+        "wires": [
+            _wire(_ep("Pushbutton", terminal, "btn_a"), _ep("Arduino Uno R3", "D2", "uno1")),
+        ],
+    }
+    assert derive_nets(data) == [[f"pushbutton1.{expected_pin}", "uno.D2"]]
+
+
+def test_live11_artifact_pushbutton_nets():
+    if not LIVE11.exists():
+        pytest.skip("live11.json no disponible")
+    inspect_data = _inspect_from_artifact(LIVE11)
+    if inspect_data is None:
+        pytest.skip("live11.json sin inspect_circuit")
+    nets = derive_nets(inspect_data)
+    assert not any("Terminal" in ep for net in nets for ep in net)
+    assert any(
+        "uno.D2" in net and any(ep.endswith(".1") and "pushbutton" in ep for ep in net)
+        for net in nets
+    )
+    assert any(
+        "uno.GND1" in net and any(ep.endswith(".2") and "pushbutton" in ep for ep in net)
+        for net in nets
+    )
 
 
 def test_generic_power_aliases_tmp36():

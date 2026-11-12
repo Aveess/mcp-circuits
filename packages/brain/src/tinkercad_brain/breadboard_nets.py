@@ -92,6 +92,21 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 2": "3",
         "Wiper": "2",
     },
+    # Acotado a pushbutton: el pulsador de 4 pines reporta en vivo
+    # "Terminal 1a"/"Terminal 1b" (un lado, unidos internamente) y
+    # "Terminal 2a"/"Terminal 2b" (el otro). El numero del terminal de
+    # Tinkercad NO coincide con la numeracion de la fixture
+    # boton-pullup (btn1.1 = lado de senal/D2, btn1.2 = lado de
+    # tierra): el mapeo se fijo por el circuito real bWmMIRN5dwi
+    # (live11.json), donde la net de uno.D2 trae "Terminal 2b" y la
+    # de uno.GND1 trae "Terminal 1a". Los "Terminal 1"/"Terminal 2"
+    # sin letra de la resistencia no entran aqui y siguen en 1/2.
+    "pushbutton": {
+        "Terminal 1a": "2",
+        "Terminal 1b": "2",
+        "Terminal 2a": "1",
+        "Terminal 2b": "1",
+    },
     "ultrasonic-hcsr04": {
         "Power": "vcc",
         "Trigger": "trig",
