@@ -15,6 +15,10 @@ THREE_PIN_FIRST_PIN = {"servo": "gnd", "potentiometer": "1", "tmp36": "vcc"}
 THREE_PIN_PINS = 3
 # Cursor advance per 3-pin block: 3 pin columns + 1 separation column.
 THREE_PIN_WIDTH = 4
+# HC-SR04 physical pin order left to right: vcc, trig, echo, gnd.
+ULTRASONIC_PINS = 4
+# Cursor advance per ultrasonic block: 4 pin columns + 1 separation column.
+ULTRASONIC_WIDTH = 5
 
 
 class LayoutError(Exception):
@@ -121,9 +125,10 @@ def plan_layout(fixture: dict) -> dict:
         if led_ref:
             placements[led_ref] = {"at": f"{column + 4}i", "pin": "anode", "angle": 180}
 
-    # Pushbuttons and 3-pin parts, after the LED/resistor blocks. All
-    # share the next_column cursor (LED block: 6, pushbutton: 1, 3-pin:
-    # 4), so no two blocks share a start column or overlap in range.
+    # Pushbuttons, 3-pin parts and the HC-SR04, after the LED/resistor
+    # blocks. All share the next_column cursor (LED block: 6, pushbutton:
+    # 1, 3-pin: 4, ultrasonic: 5), so no two blocks share a start column
+    # or overlap in range.
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "arduino-uno" or ref in placements:
@@ -144,6 +149,16 @@ def plan_layout(fixture: dict) -> dict:
                     "angle": 0,
                 }
                 next_column += THREE_PIN_WIDTH
+        elif ctype == "ultrasonic-hcsr04":
+            if next_column + ULTRASONIC_PINS - 1 > MAX_COLUMN:
+                unplaced.append(ref)
+            else:
+                placements[ref] = {
+                    "at": f"{next_column}d",
+                    "pin": "vcc",
+                    "angle": 0,
+                }
+                next_column += ULTRASONIC_WIDTH
         elif ctype not in ("led", "resistor"):
             unplaced.append(ref)
 

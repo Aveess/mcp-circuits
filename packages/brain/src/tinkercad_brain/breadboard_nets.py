@@ -51,6 +51,12 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 2": "3",
         "Wiper": "2",
     },
+    "ultrasonic-hcsr04": {
+        "Power": "vcc",
+        "Trigger": "trig",
+        "Echo": "echo",
+        "Ground": "gnd",
+    },
 }
 
 _HOLE_RE = re.compile(r"^([a-j])(\d+)$")
@@ -95,6 +101,17 @@ def _normalize_pin(pin, canonical):
         return "vcc"
     if pin == "GND":
         return "gnd"
+    # El HC-SR04 en vivo se reporta como "Ultrasonic Distance Sensor
+    # (4-pin)", que no resuelve a "ultrasonic-hcsr04": sus nombres
+    # Trigger/Echo/Ground son inequivocos y ningun Uno/resistencia/LED
+    # los usa, asi que el alias generico es seguro para esos tipos.
+    if canonical not in ("arduino-uno", "resistor", "led"):
+        if pin == "Ground":
+            return "gnd"
+        if pin == "Trigger":
+            return "trig"
+        if pin == "Echo":
+            return "echo"
     return pin
 
 
