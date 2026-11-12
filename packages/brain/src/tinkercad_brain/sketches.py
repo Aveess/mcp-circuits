@@ -170,16 +170,34 @@ def servo_knob_sketch(servo_pin: int = 9, pot_pin: str = "A0") -> str:
     return "\n".join(lines) + "\n"
 
 
-def ultrasonic_sketch(trig: int = 7, echo: int = 6) -> str:
+_DIST_THRESHOLD_MIN, _DIST_THRESHOLD_MAX = 2.0, 400.0
+
+
+def _validate_threshold_cm(threshold_cm: float) -> None:
+    if (
+        not isinstance(threshold_cm, (int, float))
+        or isinstance(threshold_cm, bool)
+        or not _DIST_THRESHOLD_MIN <= threshold_cm <= _DIST_THRESHOLD_MAX
+    ):
+        raise ValueError(
+            f"threshold_cm fuera de {_DIST_THRESHOLD_MIN}..{_DIST_THRESHOLD_MAX}: {threshold_cm!r}"
+        )
+
+
+def ultrasonic_sketch(trig: int = 7, echo: int = 6, led_pin: int = 13, threshold_cm: float = 40.0) -> str:
     _validate_pin(trig)
     _validate_pin(echo)
+    _validate_pin(led_pin)
     if trig == echo:
         raise ValueError(f"trig y echo deben ser distintos: {trig!r}")
+    _validate_threshold_cm(threshold_cm)
+    threshold_text = _format_threshold(threshold_cm)
 
     lines = [
         "void setup() {",
         f"  pinMode({trig}, OUTPUT);",
         f"  pinMode({echo}, INPUT);",
+        f"  pinMode({led_pin}, OUTPUT);",
         "  Serial.begin(9600);",
         '  Serial.println("READY");',
         "}",
@@ -192,8 +210,10 @@ def ultrasonic_sketch(trig: int = 7, echo: int = 6) -> str:
         f"  digitalWrite({trig}, LOW);",
         f"  long duracion = pulseIn({echo}, HIGH);",
         "  float distancia = duracion * 0.034 / 2;",
+        f"  digitalWrite({led_pin}, distancia < {threshold_text} ? HIGH : LOW);",
         '  Serial.print("TEST:DIST=");',
         "  Serial.println(distancia);",
+        f'  Serial.println(distancia < {threshold_text} ? "TEST:LED=ON" : "TEST:LED=OFF");',
         "  delay(200);",
         "}",
     ]
@@ -217,7 +237,7 @@ def _format_threshold(threshold: float) -> str:
     return text + "0" if text.endswith(".") else text
 
 
-def tmp36_sketch(pin: int = 13, analog_pin: str = "A0", threshold: float = 25.0) -> str:
+def tmp36_sketch(pin: int = 13, analog_pin: str = "A0", threshold: float = 20.0) -> str:
     _validate_pin(pin)
     _validate_pot_pin(analog_pin)
     _validate_threshold(threshold)
