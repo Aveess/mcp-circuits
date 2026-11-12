@@ -10,8 +10,14 @@ MAX_COLUMN = 30
 # column 31 (start + BLOCK_WIDTH) as its end boundary, beyond the board.
 LAST_BLOCK_START = 19
 # First (leftmost) pin per 3-pin type, physical order left to right:
-# servo gnd/vcc/signal, potentiometer 1/2/3, tmp36 vcc/vout/gnd.
-THREE_PIN_FIRST_PIN = {"servo": "gnd", "potentiometer": "1", "tmp36": "vcc"}
+# servo gnd/vcc/signal, potentiometer 1/2/3, tmp36 vcc/vout/gnd,
+# transistor-npn collector/base/emitter (live-verified on row c).
+THREE_PIN_FIRST_PIN = {
+    "servo": "gnd",
+    "potentiometer": "1",
+    "tmp36": "vcc",
+    "transistor-npn": "collector",
+}
 THREE_PIN_PINS = 3
 # Cursor advance per 3-pin block: 3 pin columns + 1 separation column.
 THREE_PIN_WIDTH = 4
@@ -28,6 +34,17 @@ RGB_RESISTOR_LAYOUT = {"red": (-4, "g"), "green": (-1, "h"), "blue": (-2, "j")}
 # Footprint from the leftmost resistor pin (B-4) to the last RGB pin
 # (B+3): 8 columns of cursor advance.
 RGB_WIDTH = 8
+# Diode on row g, angle 90 with pin "anode": live-verified that the
+# cathode lands 4 columns before the anode (opposite to a resistor),
+# so placing the anode at c+4 puts the cathode at c. Footprint c..c+4
+# (5 columns) + 1 separation column, like a resistor block.
+DIODE_WIDTH = 6
+# DC motors are not placed on the board: they sit free to the right of
+# it. Default free position; each extra motor shifts +120 in x so
+# multiple motors do not stack on top of each other.
+FREE_MOTOR_X = 560
+FREE_MOTOR_Y = 60
+FREE_MOTOR_STEP_X = 120
 
 
 class LayoutError(Exception):
@@ -205,8 +222,9 @@ def plan_layout(fixture: dict) -> dict:
 
     # Pushbuttons, 3-pin parts and the HC-SR04, after the LED/resistor
     # blocks. All share the next_column cursor (LED block: 6, pushbutton:
-    # 1, 3-pin: 4, ultrasonic: 5), so no two blocks share a start column
-    # or overlap in range.
+    # 1, 3-pin: 4, ultrasonic: 5, diode: 6), so no two blocks share a start
+    # column or overlap in range. DC motors are free and consume no columns.
+    motor_count = 0
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "arduino-uno" or ref in placements:
@@ -258,6 +276,24 @@ def plan_layout(fixture: dict) -> dict:
                     "angle": 0,
                 }
                 next_column += ULTRASONIC_WIDTH
+        elif ctype == "diode":
+            if next_column + 4 > MAX_COLUMN:
+                unplaced.append(ref)
+            else:
+                placements[ref] = {
+                    "at": f"{next_column + 4}g",
+                    "pin": "anode",
+                    "angle": 90,
+                }
+                next_column += DIODE_WIDTH
+        elif ctype == "dc-motor":
+            placements[ref] = {
+                "free": {
+                    "x": FREE_MOTOR_X + motor_count * FREE_MOTOR_STEP_X,
+                    "y": FREE_MOTOR_Y,
+                }
+            }
+            motor_count += 1
         elif ctype not in ("led", "resistor"):
             unplaced.append(ref)
 
