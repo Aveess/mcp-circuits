@@ -358,6 +358,98 @@ def test_ultrasonic_real_fixture_builds_with_did():
     assert us["pin"] == "pos"
 
 
+_RGB_PIN_ORDER = ["red", "cathode", "blue", "green"]
+
+
+def _ensure_rgb_placement(monkeypatch):
+    """Inyecta el placement esperado del layout si aun no lo emite.
+
+    Contrato (agente layout): {"at": "<col>i", "pin": "red", "angle": ...}
+    con red en `at` y cathode/blue/green a +1/+2/+3. Si plan_layout ya
+    lo coloca, este parche no altera nada. Dependencia: hoy el layout
+    deja rgb1 en unplaced.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = []
+        for ref in layout["unplaced"]:
+            if type_by_ref.get(ref) != "led-rgb-common-cathode":
+                unplaced.append(ref)
+                continue
+            placements[ref] = {"at": "5i", "pin": "red", "angle": 180}
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def _rgb_hole(placement, pin):
+    index = _RGB_PIN_ORDER.index(pin)
+    return placement["at"] if index == 0 else _shift(placement["at"], index)
+
+
+def test_led_rgb_real_fixture_parts_and_wires(monkeypatch):
+    fixture = _fixture("led-rgb")
+    _ensure_rgb_placement(monkeypatch)
+    placements = builder_module.plan_layout(fixture)["placements"]
+    placement = placements["rgb1"]
+    # Contrato del layout para el ancla.
+    assert placement["pin"] == "red"
+    assert placement["at"].endswith("i")
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["rgb1"] == {
+        "ref": "rgb1",
+        "did": 58456,
+        "at": placement["at"],
+        "pin": "terminal-red",
+        "angle": placement["angle"],
+    }
+    for ref in ("r1", "r2", "r3"):
+        assert parts_by_ref[ref]["did"] == 53184
+    assert set(parts_by_ref) == {"rgb1", "r1", "r2", "r3"}
+
+    def resistor_hole(ref, pin):
+        at = placements[ref]["at"]
+        return at if pin == "1" else _shift(at, 4)
+
+    # Orden fisico verificado en vivo: blue=+2, green=+3 (no al reves).
+    blue_hole = _shift(placement["at"], 2)
+    green_hole = _shift(placement["at"], 3)
+    assert _rgb_hole(placement, "blue") == blue_hole
+    assert _rgb_hole(placement, "green") == green_hole
+    assert blue_hole != green_hole
+
+    # Las 7 nets de la fixture, ya traducidas a huecos.
+    expected_pairs = {
+        ("uno.D9", resistor_hole("r1", "1")),
+        (resistor_hole("r1", "2"), _rgb_hole(placement, "red")),
+        ("uno.D10", resistor_hole("r2", "1")),
+        (resistor_hole("r2", "2"), green_hole),
+        ("uno.D11", resistor_hole("r3", "1")),
+        (resistor_hole("r3", "2"), blue_hole),
+        (_rgb_hole(placement, "cathode"), "uno.GND1"),
+    }
+    assert len(result["wires"]) == 7
+    assert {(w["from"], w["to"]) for w in result["wires"]} == expected_pairs
+
+    # Catodo a GND en negro; el resto son senales con color (sin negro/rojo).
+    cathode_wire = next(w for w in result["wires"] if w["to"] == "uno.GND1")
+    assert cathode_wire == {
+        "from": _shift(placement["at"], 1),
+        "to": "uno.GND1",
+        "color": "black",
+    }
+    signal_wires = [w for w in result["wires"] if w is not cathode_wire]
+    assert signal_wires
+    assert all(w["color"] not in ("black", "red") for w in signal_wires)
+
+
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
     # Supuesto documentado: solo se conoce la geometria del pin "1" del
     # boton (en `at`). El pin "2" de boton-pullup no se adivina: sin una

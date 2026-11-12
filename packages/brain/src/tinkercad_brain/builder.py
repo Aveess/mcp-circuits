@@ -36,6 +36,7 @@ DID_BY_TYPE: dict[str, int] = {
     "potentiometer": 45547,
     "tmp36": 112324,
     "ultrasonic-hcsr04": 219295,
+    "led-rgb-common-cathode": 58456,
 }
 
 # Partes de 3 pines en fila unica: orden fisico (nombre de fixture) y
@@ -55,9 +56,22 @@ _FOUR_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
 }
 
+# LED RGB catodo comun (4 pines): evidencia en vivo DID 58456, pin real
+# "terminal-red" en un hueco de la fila i deja red=+0, cathode=+1,
+# blue=+2, green=+3 columnas, misma fila (ojo: blue antes que green).
+_RGB_PINS: dict[str, tuple[tuple[str, str], ...]] = {
+    "led-rgb-common-cathode": (
+        ("red", "terminal-red"),
+        ("cathode", "terminal-cathode"),
+        ("blue", "terminal-blue"),
+        ("green", "terminal-green"),
+    ),
+}
+
 _LINEAR_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
     **_THREE_PIN_PINS,
     **_FOUR_PIN_PINS,
+    **_RGB_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
