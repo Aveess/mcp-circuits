@@ -73,3 +73,29 @@ ambos cables por carril horizontal bajando a la placa.
 TMP36 (https://www.tinkercad.com/things/3Dh7FcuvaEQ/editel): routed 5/5,
 serial TEST:TEMP=24.78, conectividad 1.0 tras agregar el nombre real
 "Temperature Sensor [TMP36]" al mapa y los alias Power/GND por tipo.
+
+## Correcciones tras prueba de Eddie (2026-11-11, noche)
+
+Reporte de Eddie: el foco del ultrasonico no prendia, el TMP no dejaba mover
+la temperatura, y el RGB no tenia cables. Diagnostico con evidencia:
+
+- **RGB**: el circuito `4ugNSKCOlv3` era solo la exploracion de geometria:
+  LED RGB puesto sin resistencias, sin cables y sin codigo. Se completo ahi
+  mismo y despues se reconstruyo limpio en `6CynuRekrD2` "RGB colores"
+  (3 resistencias en filas g/h/j, cables ruteados 4/4, ciclo
+  RED/GREEN/BLUE por serial verificado).
+- **Ultrasonico**: el sensor media bien; el LED no prendia porque el umbral
+  de 20 cm quedaba al borde (la distancia deriva 17-28 cm entre sesiones).
+  Se agrego al puente `tinkercad_set_component_property_model` (49 tools)
+  para fijar "Target Y" directo en el modelo, y el umbral del sketch subio
+  a 40 cm con margen. Circuito renombrado "Ultrasonico LED por distancia":
+  arranca con el objeto a ~22 cm y el LED ENCENDIDO; alejar el objeto a
+  mas de 40 cm lo apaga.
+- **TMP36**: la temperatura solo se mueve durante la simulacion (limite de
+  Tinkercad, no del circuito). El diseno original arrancaba en 24.78 con
+  umbral 25 (apagado y confuso). Nuevo circuito `dRSUU84fqhP` "TMP36
+  temperatura LED" con umbral 20: LED encendido al arrancar; bajar la
+  temperatura a menos de 20 lo apaga.
+
+Nota: quedo un circuito TMP36 duplicado de una corrida interrumpida; no hay
+tool de borrado en el puente, se puede eliminar a mano desde el dashboard.
