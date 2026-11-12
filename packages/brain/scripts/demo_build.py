@@ -35,6 +35,7 @@ _SKETCH_BY_FIXTURE = {
     "servo-potenciometro": "servo_knob_sketch",
     "sensor-ultrasonico": "ultrasonic_sketch",
     "temperatura-tmp36": "tmp36_sketch",
+    "led-rgb": "rgb_cycle_sketch",
 }
 
 

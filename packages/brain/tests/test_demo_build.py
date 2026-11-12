@@ -58,6 +58,15 @@ def test_select_code_tmp36_mockeado(monkeypatch):
     assert demo.select_code(fixture) == "// tmp36 mock\n"
 
 
+def test_select_code_led_rgb_mockeado(monkeypatch):
+    # rgb_cycle_sketch puede no existir aun en esta rama: se mockea.
+    monkeypatch.setattr(
+        sketches, "rgb_cycle_sketch", lambda: "// rgb mock\n", raising=False
+    )
+    fixture = demo.find_fixture("led-rgb")
+    assert demo.select_code(fixture) == "// rgb mock\n"
+
+
 def test_bridge_launch_spec():
     spec = demo.bridge_launch_spec("/tmp/puente-x")
     assert spec["command"] == "/tmp/puente-x/.venv/bin/python"
