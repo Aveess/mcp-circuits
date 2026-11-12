@@ -188,8 +188,8 @@ def ultrasonic_sketch(trig: int = 7, echo: int = 6, led_pin: int = 13, threshold
     _validate_pin(trig)
     _validate_pin(echo)
     _validate_pin(led_pin)
-    if trig == echo:
-        raise ValueError(f"trig y echo deben ser distintos: {trig!r}")
+    if len({trig, echo, led_pin}) != 3:
+        raise ValueError(f"pines repetidos en ultrasonico: trig={trig}, echo={echo}, led_pin={led_pin}")
     _validate_threshold_cm(threshold_cm)
     threshold_text = _format_threshold(threshold_cm)
 
