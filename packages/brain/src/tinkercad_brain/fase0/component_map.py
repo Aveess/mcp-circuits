@@ -14,6 +14,7 @@ TYPE_MAP: dict[str, str] = {
     "DC Motor": "dc-motor",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Motor DC": "dc-motor",  # Supuesto: variante con orden inverso; ezhil exacto no verificado.
     "NPN Transistor": "transistor-npn",  # Verificado: type con pines collector/base/emitter; colocación en vivo OK (did 58468).
+    "NPN Transistor (BJT)": "transistor-npn",  # Verificado: nombre real ezhil en circuito 73azwj2IJDE (inspect_circuit).
     "Transistor NPN": "transistor-npn",  # Supuesto: variante con orden inverso; ezhil exacto no verificado.
     "Transistor": "transistor-npn",  # Supuesto: nombre corto/genérico; ezhil exacto no verificado.
     "Diode": "diode",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.

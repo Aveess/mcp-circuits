@@ -9,6 +9,7 @@ LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
 LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
 LIVE19 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live19.json")
 LIVE21 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live21.json")
+LIVE24 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live24.json")
 
 EXPECTED_SERVO_POT = [
     ["potentiometer1.1", "servo1.vcc", "uno.5V"],
@@ -295,6 +296,34 @@ def test_live21_artifact_ultrasonic_nets():
         "uno.GND1" in net and any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in net)
         for net in nets
     )
+
+
+def test_transistor_npn_bjt_live_pin_names():
+    data = {
+        "components": [_comp("Arduino Uno R3", "uno1"), _comp("NPN Transistor (BJT)", "q_a")],
+        "wires": [
+            _wire(_ep("NPN Transistor (BJT)", "Collector", "q_a"), _ep("Arduino Uno R3", "D7", "uno1")),
+            _wire(_ep("NPN Transistor (BJT)", "Base", "q_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+            _wire(_ep("NPN Transistor (BJT)", "Emitter", "q_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    assert derive_nets(data) == [
+        ["transistornpn1.base", "uno.D9"],
+        ["transistornpn1.collector", "uno.D7"],
+        ["transistornpn1.emitter", "uno.GND1"],
+    ]
+
+
+def test_live24_artifact_transistor_nets():
+    if not LIVE24.exists():
+        pytest.skip("live24.json no disponible")
+    inspect_data = _inspect_from_artifact(LIVE24)
+    if inspect_data is None:
+        pytest.skip("live24.json sin inspect_circuit")
+    nets = derive_nets(inspect_data)
+    assert not any(ep.endswith((".Collector", ".Base", ".Emitter")) for net in nets for ep in net)
+    flat = {ep for net in nets for ep in net}
+    assert {"transistornpn1.collector", "transistornpn1.base", "transistornpn1.emitter"} <= flat
 
 
 def test_live19_artifact_tmp36_nets():

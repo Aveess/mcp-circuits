@@ -46,6 +46,13 @@ _PIN_ALIASES_BY_TYPE = {
         "Ground": "gnd",
         "Signal": "signal",
     },
+    # Acotado a transistor-npn: Collector/Base/Emitter con mayuscula solo
+    # los reporta este tipo en vivo (circuito 73azwj2IJDE).
+    "transistor-npn": {
+        "Collector": "collector",
+        "Base": "base",
+        "Emitter": "emitter",
+    },
     "potentiometer": {
         "Terminal 1": "1",
         "Terminal 2": "3",

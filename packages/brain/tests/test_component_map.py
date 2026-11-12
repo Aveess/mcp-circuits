@@ -95,6 +95,12 @@ def test_transistor_diode_motor_resolve_without_duplicate_slugs():
     assert known_slugs().count("dc-motor") == 1
 
 
+def test_transistor_bjt_real_ezhil_name_resolves():
+    # Nombre real ezhil en circuito 73azwj2IJDE.
+    assert fixture_type("NPN Transistor (BJT)") == "transistor-npn"
+    assert known_slugs().count("transistor-npn") == 1
+
+
 def test_known_slugs_are_unique_and_sorted():
     slugs = known_slugs()
     assert slugs == sorted(set(slugs))
