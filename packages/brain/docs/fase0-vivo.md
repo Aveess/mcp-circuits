@@ -99,3 +99,16 @@ la temperatura, y el RGB no tenia cables. Diagnostico con evidencia:
 
 Nota: quedo un circuito TMP36 duplicado de una corrida interrumpida; no hay
 tool de borrado en el puente, se puede eliminar a mano desde el dashboard.
+
+## Limpieza de cuenta y ruteo de libres (2026-11-12)
+
+Reporte de Eddie: muchos proyectos a medias/duplicados, y los cables de la
+bateria y el motor salian diagonales. Correcciones:
+- El runner ahora reutiliza el circuito por titulo exacto (no crea otro) y
+  construye con reemplazo limpio (clear_existing en el puente, que conserva
+  el Uno y borra el resto en un edit separado). Probado: reconstruir
+  "Motor L293D bateria 9V v3" devolvio la MISMA url con score 100%.
+- El ruteo ortogonal se extendio a partes libres: motor y bateria ya salen
+  en angulo recto (foto l293d_reuse.png).
+- 11 duplicados/exploraciones renombrados a "BORRAR - ..." (el puente no
+  tiene borrado; quedan agrupados para borrar desde el dashboard).
