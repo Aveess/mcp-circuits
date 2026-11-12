@@ -590,21 +590,21 @@ def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
     pot_at = placements["pot1"]["at"]
     # Filas verificadas: f = enable1..vs (10f..17f), i = vss..enable2 (10i..17i).
     expected_pairs = {
-        ("uno.D9", "10f"), ("uno.D8", "11f"), ("uno.D7", "16f"),
-        ("uno.5V", "10i"), ("uno.5V", pot_at),
+        ("uno.D9", "17f"), ("uno.D8", "16f"), ("uno.D7", "11f"),
+        ("uno.5V", "17e"), ("uno.5V", pot_at),
         (_shift(pot_at, 1), "uno.A0"), (_shift(pot_at, 2), "uno.GND1"),
-        ("bat1.+", "17f"),
-        ("12f", "motor1.1"), ("15f", "motor1.2"),
-        ("uno.GND1", "13f"), ("13f", "14f"), ("14f", "14i"),
-        ("14i", "13i"), ("13i", "bat1.-"),
+        ("bat1.+", "10f"),
+        ("15f", "motor1.1"), ("12f", "motor1.2"),
+        ("uno.GND1", "14f"), ("14f", "13f"), ("13f", "13e"),
+        ("13e", "14e"), ("14e", "bat1.-"),
     }
     assert len(result["wires"]) == len(expected_pairs) == 15
     assert {(w["from"], w["to"]) for w in result["wires"]} == expected_pairs
     by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
-    assert by_pair[("bat1.+", "17f")] == "red"
-    assert by_pair[("13i", "bat1.-")] == "black"
-    assert by_pair[("uno.GND1", "13f")] == "black"
-    assert by_pair[("uno.D9", "10f")] not in ("red", "black")
+    assert by_pair[("bat1.+", "10f")] == "red"
+    assert by_pair[("14e", "bat1.-")] == "black"
+    assert by_pair[("uno.GND1", "14f")] == "black"
+    assert by_pair[("uno.D9", "17f")] not in ("red", "black")
 
 
 def _force_l293d_180_placement(monkeypatch):
