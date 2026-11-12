@@ -31,6 +31,18 @@ DID_BY_TYPE: dict[str, int] = {
     "led": 58422,
     "resistor": 53184,
     "pushbutton": 144786,
+    "servo": 142073,
+    "potentiometer": 45547,
+    "tmp36": 112324,
+}
+
+# Partes de 3 pines en fila unica: orden fisico (nombre de fixture) y
+# nombre real del pin en Tinkercad. El primer pin va en el `at` del
+# placement; los demas a +1 y +2 columnas en la misma fila.
+_THREE_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
+    "servo": (("gnd", "Ground"), ("vcc", "Power"), ("signal", "Signal")),
+    "potentiometer": (("1", "term0"), ("2", "wiper"), ("3", "term1")),
+    "tmp36": (("vcc", "Vcc"), ("vout", "Vout"), ("gnd", "Gnd")),
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
@@ -71,6 +83,10 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
             return at
         if pin == "2":
             return _shift_hole(at, 4, endpoint)
+    elif ctype in _THREE_PIN_PINS:
+        for index, (fixture_pin, _real_pin) in enumerate(_THREE_PIN_PINS[ctype]):
+            if pin == fixture_pin:
+                return at if index == 0 else _shift_hole(at, index, endpoint)
     elif ctype == "pushbutton":
         if pin == "1":
             return at
@@ -122,12 +138,21 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             raise BuildError(
                 f"type sin DID conocido para ref {ref!r}: {ctype!r}"
             )
+        part_pin = placement["pin"]
+        if ctype in _THREE_PIN_PINS:
+            real_by_fixture = dict(_THREE_PIN_PINS[ctype])
+            if part_pin not in real_by_fixture:
+                raise BuildError(
+                    f"pin ancla sin nombre real para ref {ref!r}: "
+                    f"{part_pin!r} (type {ctype!r})"
+                )
+            part_pin = real_by_fixture[part_pin]
         parts.append(
             {
                 "ref": ref,
                 "did": did,
                 "at": placement["at"],
-                "pin": placement["pin"],
+                "pin": part_pin,
                 "angle": placement["angle"],
             }
         )
