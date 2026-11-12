@@ -33,6 +33,24 @@ _PIN_ALIASES = {
     "Terminal 2": "2",
     "Cathode": "cathode",
     "Anode": "anode",
+    "Vcc": "vcc",
+    "Vout": "vout",
+    "Gnd": "gnd",
+}
+
+# Alias que dependen del tipo: p. ej. en un potenciómetro "Terminal 2"
+# es el pin "3" de fixture (term1), no el "2" como en una resistencia.
+_PIN_ALIASES_BY_TYPE = {
+    "servo": {
+        "Power": "vcc",
+        "Ground": "gnd",
+        "Signal": "signal",
+    },
+    "potentiometer": {
+        "Terminal 1": "1",
+        "Terminal 2": "3",
+        "Wiper": "2",
+    },
 }
 
 _HOLE_RE = re.compile(r"^([a-j])(\d+)$")
@@ -61,6 +79,9 @@ def _is_breadboard(canonical, raw_type):
 
 
 def _normalize_pin(pin, canonical):
+    by_type = _PIN_ALIASES_BY_TYPE.get(canonical)
+    if by_type is not None and pin in by_type:
+        return by_type[pin]
     if pin in _PIN_ALIASES:
         return _PIN_ALIASES[pin]
     # Supuesto: en los wires el Uno reporta "GND", pero en components y en

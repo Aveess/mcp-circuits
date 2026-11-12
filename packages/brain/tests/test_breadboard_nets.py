@@ -6,6 +6,14 @@ import pytest
 from tinkercad_brain.breadboard_nets import derive_nets
 
 LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
+LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
+
+EXPECTED_SERVO_POT = [
+    ["potentiometer1.1", "servo1.vcc", "uno.5V"],
+    ["potentiometer1.2", "uno.A0"],
+    ["potentiometer1.3", "servo1.gnd", "uno.GND1"],
+    ["servo1.signal", "uno.D9"],
+]
 
 
 def _comp(type_, instance_id):
@@ -112,6 +120,58 @@ def test_empty_and_malformed():
     assert derive_nets({}) == []
     assert derive_nets({"components": [], "wires": []}) == []
     assert derive_nets({"wires": [{"source": {"pin": "D13"}}]}) == []
+
+
+def test_servo_potentiometer_real_pin_aliases():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("Micro Servo", "servo_a"),
+            _comp("Potentiometer", "pot_a"),
+        ],
+        "wires": [
+            _wire(_ep("Micro Servo", "Power", "servo_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("Micro Servo", "Ground", "servo_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+            _wire(_ep("Micro Servo", "Signal", "servo_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+            _wire(_ep("Potentiometer", "Terminal 1", "pot_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("Potentiometer", "Wiper", "pot_a"), _ep("Arduino Uno R3", "A0", "uno1")),
+            _wire(_ep("Potentiometer", "Terminal 2", "pot_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    assert derive_nets(data) == EXPECTED_SERVO_POT
+
+
+def test_generic_power_aliases_tmp36():
+    data = {
+        "components": [_comp("Arduino Uno R3", "uno1"), _comp("TMP36", "tmp_a")],
+        "wires": [
+            _wire(_ep("TMP36", "Vcc", "tmp_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("TMP36", "Vout", "tmp_a"), _ep("Arduino Uno R3", "A0", "uno1")),
+            _wire(_ep("TMP36", "Gnd", "tmp_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    assert derive_nets(data) == [
+        ["tmp361.gnd", "uno.GND1"],
+        ["tmp361.vcc", "uno.5V"],
+        ["tmp361.vout", "uno.A0"],
+    ]
+
+
+def _inspect_from_artifact(path):
+    entries = json.loads(path.read_text(encoding="utf-8"))
+    for entry in entries:
+        if entry.get("tool") == "tinkercad_inspect_circuit":
+            return json.loads(entry["output"])
+    return None
+
+
+def test_live14_artifact_servo_pot_nets():
+    if not LIVE14.exists():
+        pytest.skip("live14.json no disponible")
+    inspect_data = _inspect_from_artifact(LIVE14)
+    if inspect_data is None:
+        pytest.skip("live14.json sin inspect_circuit")
+    assert derive_nets(inspect_data) == EXPECTED_SERVO_POT
 
 
 def test_live6_artifact_blink_nets():
