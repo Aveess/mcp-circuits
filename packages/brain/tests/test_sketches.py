@@ -1,0 +1,153 @@
+import json
+import re
+from pathlib import Path
+
+import pytest
+
+from tinkercad_brain.sketches import blink_sketch, pin_of_fixture, traffic_sketch
+
+ROOT = Path(__file__).resolve().parents[1]
+REAL_FIXTURES = ROOT / "fixtures" / "fase0" / "circuits.json"
+
+
+def _real_fixture(cid):
+    circuits = json.loads(REAL_FIXTURES.read_text(encoding="utf-8"))
+    return next(c for c in circuits if c["id"] == cid)
+
+
+def _digital_writes(sketch):
+    return [(int(pin), level) for pin, level in re.findall(r"digitalWrite\((\d+), (HIGH|LOW)\)", sketch)]
+
+
+# --- blink ---
+
+
+def test_blink_default_contains_key_content():
+    sketch = blink_sketch()
+    assert "pinMode(13, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "digitalWrite(13, HIGH)" in sketch
+    assert "digitalWrite(13, LOW)" in sketch
+    assert sketch.count("delay(500)") == 2
+
+
+def test_blink_custom_pin_and_times_use_literal_pin():
+    sketch = blink_sketch(pin=9, on_ms=250, off_ms=750)
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "digitalWrite(9, HIGH)" in sketch
+    assert "digitalWrite(9, LOW)" in sketch
+    assert "delay(250)" in sketch
+    assert "delay(750)" in sketch
+    assert "13" not in sketch
+
+
+def test_blink_without_serial_has_no_serial_lines():
+    sketch = blink_sketch(serial=False)
+    assert "Serial" not in sketch
+    assert "pinMode(13, OUTPUT)" in sketch
+
+
+def test_blink_is_deterministic():
+    assert blink_sketch(pin=8, on_ms=100, off_ms=200) == blink_sketch(pin=8, on_ms=100, off_ms=200)
+
+
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_blink_rejects_unusable_pins(pin):
+    with pytest.raises(ValueError):
+        blink_sketch(pin=pin)
+
+
+@pytest.mark.parametrize("kwargs", [{"on_ms": 0}, {"on_ms": -1}, {"on_ms": 60001}, {"off_ms": 0}, {"off_ms": 60001}])
+def test_blink_rejects_out_of_range_times(kwargs):
+    with pytest.raises(ValueError):
+        blink_sketch(**kwargs)
+
+
+def test_blink_accepts_boundary_values():
+    sketch = blink_sketch(pin=2, on_ms=1, off_ms=60000)
+    assert "pinMode(2, OUTPUT)" in sketch
+    assert "delay(1)" in sketch
+    assert "delay(60000)" in sketch
+
+
+# --- traffic ---
+
+
+def test_traffic_default_sequence_turns_off_others_each_phase():
+    sketch = traffic_sketch()
+    assert "pinMode(11, OUTPUT)" in sketch
+    assert "pinMode(10, OUTPUT)" in sketch
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert _digital_writes(sketch) == [
+        (11, "HIGH"), (10, "LOW"), (9, "LOW"),
+        (11, "LOW"), (10, "HIGH"), (9, "LOW"),
+        (11, "LOW"), (10, "LOW"), (9, "HIGH"),
+    ]
+    delays = [int(d) for d in re.findall(r"delay\((\d+)\)", sketch)]
+    assert delays == [2000, 700, 2000]
+
+
+def test_traffic_custom_pins_and_times():
+    sketch = traffic_sketch(red=5, yellow=4, green=3, red_ms=100, yellow_ms=50, green_ms=300)
+    assert _digital_writes(sketch)[0] == (5, "HIGH")
+    assert _digital_writes(sketch)[4] == (4, "HIGH")
+    assert _digital_writes(sketch)[-1] == (3, "HIGH")
+    assert [int(d) for d in re.findall(r"delay\((\d+)\)", sketch)] == [100, 50, 300]
+
+
+@pytest.mark.parametrize("kwargs", [{"red": 1}, {"yellow": 14}, {"green": 0}])
+def test_traffic_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        traffic_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [{"red": 9, "yellow": 9}, {"red": 11, "green": 11}, {"yellow": 10, "green": 10}])
+def test_traffic_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        traffic_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [{"red_ms": 0}, {"yellow_ms": -5}, {"green_ms": 60001}])
+def test_traffic_rejects_out_of_range_times(kwargs):
+    with pytest.raises(ValueError):
+        traffic_sketch(**kwargs)
+
+
+# --- pin_of_fixture ---
+
+
+def test_pin_of_fixture_blink_basico_real():
+    assert pin_of_fixture(_real_fixture("blink-basico")) == {"led1": 13}
+
+
+def test_pin_of_fixture_semaforo_real():
+    assert pin_of_fixture(_real_fixture("semaforo-3-leds")) == {
+        "led_rojo": 11,
+        "led_amarillo": 10,
+        "led_verde": 9,
+    }
+
+
+def test_pin_of_fixture_omits_led_without_resistor_chain():
+    fixture = {
+        "nets": [
+            ["uno.D13", "r1.1"],
+            ["r1.2", "led1.anode"],
+            ["uno.D12", "led_suelto.anode"],
+            ["r9.2", "led_huerfano.anode"],
+        ]
+    }
+    assert pin_of_fixture(fixture) == {"led1": 13}
+
+
+def test_pin_of_fixture_handles_reversed_net_order():
+    fixture = {"nets": [["r1.1", "uno.D7"], ["led1.anode", "r1.2"]]}
+    assert pin_of_fixture(fixture) == {"led1": 7}
+
+
+def test_pin_of_fixture_without_nets_is_empty():
+    assert pin_of_fixture({}) == {}
+    assert pin_of_fixture({"nets": []}) == {}
