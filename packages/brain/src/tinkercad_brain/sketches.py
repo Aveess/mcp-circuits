@@ -264,6 +264,36 @@ def motor_sketch(pin: int = 9) -> str:
     return "\n".join(lines) + "\n"
 
 
+def motor_driver_sketch(enable_pin: int = 9, in1: int = 7, in2: int = 8, pot_pin: str = "A0") -> str:
+    for pin in (enable_pin, in1, in2):
+        _validate_pin(pin)
+    if len({enable_pin, in1, in2}) != 3:
+        raise ValueError(f"pines repetidos en driver: enable_pin={enable_pin}, in1={in1}, in2={in2}")
+    _validate_pot_pin(pot_pin)
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({enable_pin}, OUTPUT);",
+        f"  pinMode({in1}, OUTPUT);",
+        f"  pinMode({in2}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int lectura = analogRead({pot_pin});",
+        "  int velocidad = map(lectura, 0, 1023, 0, 255);",
+        f"  digitalWrite({in1}, HIGH);",
+        f"  digitalWrite({in2}, LOW);",
+        f"  analogWrite({enable_pin}, velocidad);",
+        '  Serial.print("TEST:SPEED=");',
+        "  Serial.println(velocidad);",
+        "  delay(200);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}
