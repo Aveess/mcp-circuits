@@ -273,8 +273,24 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertLess(js.index("getBreadboardPos"), js.index("term?.bbDesc"))
         self.assertIn("p.constructor", js)  # coord ctor from breadboard().pos()
         self.assertRegex(js, r"addPoint\(C \? new C\(pt\.x, pt\.y\) : pt, i \+ 1\)")
-        self.assertIn("[pUno, pDest]", js)  # Uno -> destination order
+        self.assertIn("[pUno, pDest]", js)
         self.assertIn("route_failed", js)  # addPoint errors surface, not swallowed
+
+    def test_build_js_route_debug_and_wire_direction_order(self):
+        js = mbs._BUILD_JS
+        self.assertIn("route_debug", js)
+        for reason in ("uno_pos_null", "dest_pos_null", "addpoint_error", "endpoint_not_resolved", "ok"):
+            self.assertIn(reason, js)
+        # Points follow wire direction: Uno-as-"to" must start at dest.
+        self.assertIn("fromIsUno ? [pUno, pDest] : [pDest, pUno]", js)
+        self.assertIn("addPoint returned false", js)  # silent rejection surfaces
+
+    def test_build_js_termabs_fallbacks_for_gnd(self):
+        js = mbs._BUILD_JS
+        self.assertIn("breadboardDescription", js)
+        self.assertIn("breadboardPos", js)
+        self.assertIn("termOffset(term)", js)  # device pos + terminal offset
+        self.assertIn("devPos(dev)", js)
 
     def test_build_js_syntax_with_node_if_available(self):
         import shutil
@@ -322,7 +338,45 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
             parts=[{"ref": "led1", "did": 0, "at": "9i", "pin": "anode"}], wires=[]
         )
         self.assertEqual(res["routed"], 0)
+        self.assertEqual(res["route_debug"], [])
         mock_bm.get_page.assert_not_called()
+
+    async def test_route_debug_ok_propagates(self):
+        debug = [{"wire": "uno.D13 -> 1g", "routed": True, "reason": "ok"}]
+        svc, _, _ = make_service({"placed": {}, "errors": [], "routed": 1, "route_debug": debug})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[["uno.D13", "1g"]])
+        self.assertEqual(res["route_debug"], debug)
+        self.assertEqual(res["errors"], [])
+        self.assertTrue(res["success"])
+
+    async def test_route_debug_failed_ground_adds_route_failed_error(self):
+        # Regression: 6i -> uno.GND1 was straight/diagonal with no error.
+        debug = [
+            {"wire": "uno.D13 -> 1g", "routed": True, "reason": "ok"},
+            {"wire": "6i -> uno.GND1", "routed": False, "reason": "uno_pos_null"},
+        ]
+        svc, _, _ = make_service({"placed": {}, "errors": [], "routed": 1, "route_debug": debug})
+        res = await svc.build_from_holes(
+            parts=self.PARTS, wires=[["uno.D13", "1g"], ["6i", "uno.GND1"]]
+        )
+        self.assertEqual(res["route_debug"], debug)
+        self.assertTrue(any("route_failed" in e and "uno.GND1" in e for e in res["errors"]))
+        self.assertFalse(res["success"])
+
+    async def test_route_debug_defaults_empty_when_js_omits_it(self):
+        svc, _, _ = make_service({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertEqual(res["route_debug"], [])
+
+    async def test_route_debug_js_route_failed_not_duplicated(self):
+        debug = [{"wire": "6i -> uno.GND1", "routed": False, "reason": "uno_pos_null"}]
+        svc, _, _ = make_service(
+            {"placed": {}, "errors": ["wire 6i -> uno.GND1: route_failed: uno_pos_null"],
+             "routed": 0, "route_debug": debug}
+        )
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[["6i", "uno.GND1"]])
+        self.assertEqual(len([e for e in res["errors"] if "route_failed" in e]), 1)
+        self.assertFalse(res["success"])
 
 
 class TestBuildCircuitModelToolSchema(unittest.TestCase):

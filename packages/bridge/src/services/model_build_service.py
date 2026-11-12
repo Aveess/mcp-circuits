@@ -138,9 +138,10 @@ _BUILD_JS = r"""
 (plan) => {
   const errors = [];
   const placed = {};
+  const route_debug = [];
   let routed = 0;
   const ce = window.circuit_editor;
-  if (!ce || !ce.data) return { placed, errors: ['circuit_editor not available'], routed };
+  if (!ce || !ce.data) return { placed, errors: ['circuit_editor not available'], routed, route_debug };
   const data = ce.data;
   const root = ce.root;
   const ORIGIN = { x: 870, y: 0 };
@@ -356,21 +357,40 @@ _BUILD_JS = r"""
       return null;
     }
     function termAbs(dev, term) {
+      const xy = (v) => {
+        try {
+          const p = (typeof v === 'function') ? v() : v;
+          if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
+          if (Array.isArray(p) && p.length >= 2 && isFinite(p[0]) && isFinite(p[1])) return { x: Number(p[0]), y: Number(p[1]) };
+        } catch (e) {}
+        return null;
+      };
       try {
         if (term && typeof term.getBreadboardPos === 'function') {
-          const p = term.getBreadboardPos();
-          if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
+          const p = xy(term.getBreadboardPos());
+          if (p) return p;
+        } else if (term && term.getBreadboardPos) {
+          const p = xy(term.getBreadboardPos);
+          if (p) return p;
         }
       } catch (e) {}
-      const d = term?.bbDesc || term?.breadboardDescription;
-      if (d && isFinite(d.x) && isFinite(d.y)) {
-        const base = devPos(dev), off = { x: Number(d.x), y: Number(d.y) };
-        return base ? { x: base.x + off.x, y: base.y + off.y } : off;
+      try { const p = xy(term?.breadboardPos); if (p) return p; } catch (e) {}
+      const base = devPos(dev);
+      const desc = xy(term?.bbDesc || term?.breadboardDescription);
+      const off = desc || termOffset(term);
+      if (base && off) {
+        let angle = 0;
+        try {
+          const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
+          const a = bb && (typeof bb.angle === 'function' ? bb.angle() : (typeof bb.getAngle === 'function' ? bb.getAngle() : bb.angle));
+          if (isFinite(a)) angle = Number(a);
+        } catch (e) {}
+        const r = angle ? rot(off, angle) : off;
+        return { x: base.x + r.x, y: base.y + r.y };
       }
-      try {
-        const p = typeof term?.pos === 'function' ? term.pos() : term?.pos;
-        if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
-      } catch (e) {}
+      if (desc) return desc;
+      try { const p = xy(typeof term?.pos === 'function' ? term.pos() : term?.pos); if (p) return p; } catch (e) {}
+      if (off) return off;
       return null;
     }
     function coordCtor() {
@@ -408,37 +428,62 @@ _BUILD_JS = r"""
           if (lane < 0) lane = fallbackLane;
           fallbackLane = Math.max(fallbackLane, lane + 1);
         }
+        const wireLabel = from + ' -> ' + to;
         const a = resolveEndpoint(from), b = resolveEndpoint(to);
-        if (!a || !b) { errors.push('wire ' + from + ' -> ' + to + ': endpoint not resolved'); continue; }
+        if (!a || !b) {
+          if (shouldRoute) {
+            route_debug.push({ wire: wireLabel, routed: false, reason: 'endpoint_not_resolved' });
+            errors.push('wire ' + wireLabel + ': route_failed: endpoint_not_resolved');
+          } else { errors.push('wire ' + wireLabel + ': endpoint not resolved'); }
+          continue;
+        }
         if (window.Circuits?.BendableWireData) {
           const w = new window.Circuits.BendableWireData(root, a, b, { color });
           if (data.wires && typeof data.wires.add === 'function') data.wires.add(w);
           let didRoute = false;
-          if (shouldRoute && w && typeof w.addPoint === 'function') {
-            const fromIsUno = isUnoEp(from);
-            const unoPos = termAbs(uno, fromIsUno ? a : b);
-            const destPos = bbAbs(fromIsUno ? to : from);
-            if (unoPos && destPos) {
-              const laneY = isUpperBb(fromIsUno ? to : from)
-                ? ORIGIN.y - 115 - lane * 5
-                : ORIGIN.y + 115 + lane * 5;
-              const pUno = { x: unoPos.x, y: laneY }, pDest = { x: destPos.x, y: laneY };
-              const C = coordCtor();
-              try {
-                // Always Uno -> destination, indexed from 1 (netchuu).
-                const pts = [pUno, pDest];
-                for (let i = 0; i < pts.length; i++) {
-                  const pt = pts[i];
-                  w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+          if (shouldRoute) {
+            let reason = null;
+            if (!w || typeof w.addPoint !== 'function') {
+              reason = 'addpoint_unavailable';
+            } else {
+              const fromIsUno = isUnoEp(from);
+              const unoPos = termAbs(uno, fromIsUno ? a : b);
+              const destPos = bbAbs(fromIsUno ? to : from);
+              if (!unoPos) reason = 'uno_pos_null';
+              else if (!destPos) reason = 'dest_pos_null';
+              else {
+                const laneY = isUpperBb(fromIsUno ? to : from)
+                  ? ORIGIN.y - 115 - lane * 5
+                  : ORIGIN.y + 115 + lane * 5;
+                const pUno = { x: unoPos.x, y: laneY }, pDest = { x: destPos.x, y: laneY };
+                const C = coordCtor();
+                try {
+                  // Points must follow wire direction (a -> b): when the
+                  // Uno is the "to" end, order is destination-first.
+                  const pts = fromIsUno ? [pUno, pDest] : [pDest, pUno];
+                  for (let i = 0; i < pts.length; i++) {
+                    const pt = pts[i];
+                    const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+                    if (r === false) throw new Error('addPoint returned false');
+                  }
+                  didRoute = true;
+                } catch (e) {
+                  reason = 'addpoint_error: ' + e.toString();
                 }
-                didRoute = true;
-              } catch (e) {
-                errors.push('wire ' + from + ' -> ' + to + ': route_failed ' + e.toString());
               }
+            }
+            if (didRoute) {
+              route_debug.push({ wire: wireLabel, routed: true, reason: 'ok' });
+            } else {
+              route_debug.push({ wire: wireLabel, routed: false, reason: reason || 'unknown' });
+              errors.push('wire ' + wireLabel + ': route_failed: ' + (reason || 'unknown'));
             }
           }
           if (didRoute) routed++;
           if (w && typeof w.updateNets === 'function') w.updateNets();
+        } else if (shouldRoute) {
+          route_debug.push({ wire: wireLabel, routed: false, reason: 'bendable_wire_unavailable' });
+          errors.push('wire ' + wireLabel + ': route_failed: bendable_wire_unavailable');
         } else { errors.push('wire ' + from + ': BendableWireData unavailable'); }
       } catch (e) { errors.push('wire ' + from + ': ' + e.toString()); }
     }
@@ -460,7 +505,7 @@ _BUILD_JS = r"""
     try { if (root && typeof root.stopRec === 'function') root.stopRec(); } catch (e) {}
     try { if (root && typeof root.save === 'function') root.save(); } catch (e) {}
   }
-  return { placed, errors, routed };
+  return { placed, errors, routed, route_debug };
 }
 """
 
@@ -509,8 +554,11 @@ class ModelBuildService:
         ``{"from": a, "to": b, "color": ...}``; see ``plan_wire_style``.
 
         Returns {"success": bool, "placed": {...}, "errors": [...],
-        "persisted": bool, "routed": int} plus
-        "persistence_pending": int|None on timeout.
+        "persisted": bool, "routed": int, "route_debug": [...]} plus
+        "persistence_pending": int|None on timeout. ``route_debug`` holds
+        one {"wire", "routed", "reason"} entry per routable wire; a
+        routable wire that could not be routed also adds a
+        "route_failed: ..." error (never silent).
 
         Persistence contract (ShareJS edits are lost if the editor reloads
         before they flush, per netchuu):
@@ -551,6 +599,7 @@ class ModelBuildService:
                 "errors": errors,
                 "persisted": False,
                 "routed": 0,
+                "route_debug": [],
             }
 
         page = await self.browser.get_page()
@@ -567,9 +616,24 @@ class ModelBuildService:
                 "errors": ["model build returned invalid response"],
                 "persisted": False,
                 "routed": 0,
+                "route_debug": [],
             }
 
         js_errors = list(result.get("errors") or [])
+        raw_debug = result.get("route_debug")
+        route_debug: List[Dict[str, Any]] = (
+            [dict(e) for e in raw_debug if isinstance(e, dict)]
+            if isinstance(raw_debug, list)
+            else []
+        )
+        for entry in route_debug:
+            if entry.get("routed") is False:
+                label = entry.get("wire") or "?"
+                reason = entry.get("reason") or "unknown"
+                if not any(
+                    "route_failed" in str(e) and str(label) in str(e) for e in js_errors
+                ):
+                    js_errors.append(f"route_failed: {label}: {reason}")
         placed = result.get("placed") or {}
         raw_routed = result.get("routed")
         routed = (
@@ -585,6 +649,7 @@ class ModelBuildService:
                 "errors": js_errors,
                 "persisted": True,
                 "routed": routed,
+                "route_debug": route_debug,
             }
 
         persisted, last_pending = await self._wait_for_persistence(page)
@@ -595,6 +660,7 @@ class ModelBuildService:
                 "errors": js_errors,
                 "persisted": True,
                 "routed": routed,
+                "route_debug": route_debug,
             }
         return {
             "success": False,
@@ -608,4 +674,5 @@ class ModelBuildService:
             "persisted": False,
             "persistence_pending": last_pending,
             "routed": routed,
+            "route_debug": route_debug,
         }
