@@ -578,7 +578,7 @@ def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
     assert set(parts_by_ref) == {"bat1", "drv1", "motor1", "pot1"}
     # Driver con ancla real capitalizada; bateria y motor libres (sin at/pin).
     assert parts_by_ref["drv1"] == {
-        "ref": "drv1", "did": 112326, "at": "10f", "pin": "Enable1", "angle": 0,
+        "ref": "drv1", "did": 112326, "at": "17f", "pin": "Enable1", "angle": 180,
     }
     assert parts_by_ref["bat1"] == {
         "ref": "bat1", "did": 116841, "free": {"x": 560, "y": 300},
