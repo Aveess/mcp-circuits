@@ -37,6 +37,9 @@ DID_BY_TYPE: dict[str, int] = {
     "tmp36": 112324,
     "ultrasonic-hcsr04": 219295,
     "led-rgb-common-cathode": 58456,
+    "transistor-npn": 58468,
+    "diode": 58320,
+    "dc-motor": 114158,
 }
 
 # Partes de 3 pines en fila unica: orden fisico (nombre de fixture) y
@@ -46,7 +49,16 @@ _THREE_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
     "servo": (("gnd", "Ground"), ("vcc", "Power"), ("signal", "Signal")),
     "potentiometer": (("1", "term0"), ("2", "wiper"), ("3", "term1")),
     "tmp36": (("vcc", "Vcc"), ("vout", "Vout"), ("gnd", "Gnd")),
+    # Reales verificados en colocacion: collector/base/emitter en minuscula.
+    "transistor-npn": (
+        ("collector", "collector"), ("base", "base"), ("emitter", "emitter")
+    ),
 }
+
+# Motor DC libre (sin huecos): supuesto a verificar en vivo, los
+# terminales del DC Motor en Tinkercad se llaman "1" y "2" (catalogo
+# netchuu); positive->"1", negative->"2". El puente los resuelve.
+_MOTOR_TERMINALS: dict[str, str] = {"positive": "1", "negative": "2"}
 
 # HC-SR04 (4 pines): evidencia en vivo DID 219295, pin real "pos" en un
 # hueco de la fila d deja pos=+0, trig=+1, echo=+2, neg=+3 columnas.
@@ -140,9 +152,21 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
     if placement is None:
         raise BuildError(f"extremo sin placement: {endpoint!r}")
     ctype = type_by_ref.get(ref)
+    if ctype == "dc-motor":
+        terminal = _MOTOR_TERMINALS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
     at = placement["at"]
     # Geometria derivada de la receta de layout (ver layout.plan_layout):
-    if ctype == "led":
+    if ctype == "diode":
+        if pin == "anode":
+            return at
+        if pin == "cathode":
+            return _shift_hole(at, -4, endpoint)
+    elif ctype == "led":
         if pin == "anode":
             return at
         if pin == "cathode":
@@ -207,6 +231,11 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             raise BuildError(
                 f"type sin DID conocido para ref {ref!r}: {ctype!r}"
             )
+        if "free" in placement:
+            parts.append(
+                {"ref": ref, "did": did, "free": dict(placement["free"])}
+            )
+            continue
         part_pin = placement["pin"]
         if ctype in _LINEAR_PIN_PINS:
             real_by_fixture = dict(_LINEAR_PIN_PINS[ctype])
