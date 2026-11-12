@@ -220,6 +220,7 @@ def test_ultrasonic_default_contains_key_content():
     sketch = ultrasonic_sketch()
     assert "pinMode(7, OUTPUT)" in sketch
     assert "pinMode(6, INPUT)" in sketch
+    assert "pinMode(13, OUTPUT)" in sketch
     assert "Serial.begin(9600)" in sketch
     assert 'Serial.println("READY")' in sketch
     assert "delayMicroseconds(2)" in sketch
@@ -227,6 +228,9 @@ def test_ultrasonic_default_contains_key_content():
     assert "pulseIn(6, HIGH)" in sketch
     assert "duracion * 0.034 / 2" in sketch
     assert "TEST:DIST=" in sketch
+    assert "digitalWrite(13, distancia < 40.0 ? HIGH : LOW)" in sketch
+    assert 'Serial.println(distancia < 40.0 ? "TEST:LED=ON" : "TEST:LED=OFF")' in sketch
+    assert "TEST:LED=" in sketch
     assert "delay(200)" in sketch
 
 
@@ -237,10 +241,30 @@ def test_ultrasonic_custom_pins():
     assert "pulseIn(12, HIGH)" in sketch
 
 
-@pytest.mark.parametrize("kwargs", [{"trig": 0}, {"trig": 14}, {"echo": 0}, {"echo": 14}])
+def test_ultrasonic_custom_led_and_threshold():
+    sketch = ultrasonic_sketch(trig=8, echo=12, led_pin=9, threshold_cm=25.5)
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "digitalWrite(9, distancia < 25.5 ? HIGH : LOW)" in sketch
+    assert 'Serial.println(distancia < 25.5 ? "TEST:LED=ON" : "TEST:LED=OFF")' in sketch
+
+
+def test_ultrasonic_accepts_boundary_thresholds():
+    assert "distancia < 2.0" in ultrasonic_sketch(threshold_cm=2.0)
+    assert "distancia < 400.0" in ultrasonic_sketch(threshold_cm=400.0)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"trig": 0}, {"trig": 14}, {"echo": 0}, {"echo": 14}, {"led_pin": 0}, {"led_pin": 14}]
+)
 def test_ultrasonic_rejects_unusable_pins(kwargs):
     with pytest.raises(ValueError):
         ultrasonic_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("threshold_cm", [1.9, 0, -1, 400.1, 1000.0])
+def test_ultrasonic_rejects_out_of_range_threshold_cm(threshold_cm):
+    with pytest.raises(ValueError):
+        ultrasonic_sketch(threshold_cm=threshold_cm)
 
 
 def test_ultrasonic_rejects_same_trig_and_echo():
@@ -261,7 +285,7 @@ def test_tmp36_default_contains_key_content():
     assert "(volts - 0.5) * 100.0" in sketch
     assert 'Serial.print("TEST:TEMP=");' in sketch
     assert "Serial.println(temp);" in sketch
-    assert "digitalWrite(13, temp > 25.0 ? HIGH : LOW)" in sketch
+    assert "digitalWrite(13, temp > 20.0 ? HIGH : LOW)" in sketch
     assert "delay(500)" in sketch
 
 
