@@ -1,0 +1,168 @@
+import json
+from pathlib import Path
+
+from tinkercad_brain.builder import fixture_to_model_call
+from tinkercad_brain.fase0.probe import ProbeRecord
+from tinkercad_brain.runner import run_build
+
+ROOT = Path(__file__).resolve().parents[1]
+REAL_FIXTURES = ROOT / "fixtures" / "fase0" / "circuits.json"
+CIRCUIT_ID = "abc123XYZ"
+CODE = "void setup() { pinMode(13, OUTPUT); }"
+
+
+def _fixture(fixture_id="blink-basico"):
+    circuits = json.loads(REAL_FIXTURES.read_text(encoding="utf-8"))
+    return next(c for c in circuits if c["id"] == fixture_id)
+
+
+def _ep(component, pin, instance_id):
+    return {"component": component, "pin": pin, "instance_id": instance_id}
+
+
+def _inspect_blink():
+    """Inspect con wires directos (sin protoboard) coherente con blink-basico."""
+    uno = ("Arduino Uno R3", "uno1")
+    r = ("Resistor", "r_a")
+    led = ("LED", "led_a")
+
+    def comp(type_, instance_id):
+        return {"type": type_, "instance_id": instance_id, "name": "1", "pins": []}
+
+    def wire(source, target):
+        return {"source": source, "target": target}
+
+    def e(component, pin):
+        return _ep(component[0], pin, component[1])
+
+    return {
+        "components": [comp(*uno), comp(*r), comp(*led)],
+        "wires": [
+            wire(e(uno, "D13"), e(r, "Terminal 1")),
+            wire(e(r, "Terminal 2"), e(led, "Anode")),
+            wire(e(led, "Cathode"), e(uno, "GND")),
+        ],
+    }
+
+
+def _fake_call_tool(build_output=None, create_output=None, serial_output="blink: 1\n"):
+    calls = []
+
+    def call_tool(tool, arguments):
+        calls.append((tool, arguments))
+        if tool == "tinkercad_create_circuit":
+            if create_output is not None:
+                return create_output
+            return json.dumps({"circuit_id": CIRCUIT_ID})
+        if tool == "tinkercad_build_circuit_model":
+            if build_output is not None:
+                return build_output
+            return json.dumps({"success": True, "persisted": True})
+        if tool == "tinkercad_inspect_circuit":
+            return json.dumps(_inspect_blink())
+        if tool == "tinkercad_read_serial_monitor":
+            return serial_output
+        return json.dumps({"success": True})
+
+    call_tool.calls = calls
+    return call_tool
+
+
+def test_happy_path_ok_true_full_order_and_serial():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(serial_output="blink: 1\nblink: 2\n")
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert tools == [
+        "tinkercad_create_circuit",
+        "tinkercad_build_circuit_model",
+        "tinkercad_set_code",
+        "tinkercad_open_circuit",
+        "tinkercad_inspect_circuit",
+        "tinkercad_start_simulation",
+        "tinkercad_read_serial_monitor",
+        "tinkercad_stop_simulation",
+    ]
+    assert call_tool.calls[0][1] == {"title": "Blink runner"}
+    assert call_tool.calls[1][1] == fixture_to_model_call(fixture)
+    assert call_tool.calls[2][1] == {"code": CODE}
+    assert call_tool.calls[3][1] == {"circuit_id_or_url": CIRCUIT_ID}
+    assert call_tool.calls[5][1] == {"wait_seconds": 5}
+
+    assert result["circuit_id"] == CIRCUIT_ID
+    assert result["url"] == f"https://www.tinkercad.com/things/{CIRCUIT_ID}/editel"
+    assert result["fidelity"]["score"] == 1.0
+    assert result["serial"] == "blink: 1\nblink: 2\n"
+    assert result["ok"] is True
+    assert [r.tool for r in result["records"]] == tools
+    assert all(isinstance(r, ProbeRecord) for r in result["records"])
+    assert all(r.ok for r in result["records"])
+
+
+def test_no_code_skips_set_code():
+    fixture = _fixture()
+    call_tool = _fake_call_tool()
+
+    result = run_build(fixture, None, call_tool, "Blink sin codigo")
+
+    assert result["ok"] is True
+    assert [tool for tool, _ in call_tool.calls] == [
+        "tinkercad_create_circuit",
+        "tinkercad_build_circuit_model",
+        "tinkercad_open_circuit",
+        "tinkercad_inspect_circuit",
+        "tinkercad_start_simulation",
+        "tinkercad_read_serial_monitor",
+        "tinkercad_stop_simulation",
+    ]
+
+
+def test_build_success_false_forces_ok_false_despite_fidelity():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(
+        build_output=json.dumps({"success": False, "error": "boom"})
+    )
+
+    result = run_build(fixture, CODE, call_tool, "Blink roto")
+
+    assert result["fidelity"]["score"] == 1.0
+    assert result["ok"] is False
+
+
+def test_build_persisted_false_forces_ok_false_despite_fidelity():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(
+        build_output=json.dumps({"success": True, "persisted": False})
+    )
+
+    result = run_build(fixture, CODE, call_tool, "Blink sin persistir")
+
+    assert result["fidelity"]["score"] == 1.0
+    assert result["ok"] is False
+
+
+def test_create_without_id_cuts_without_calling_rest():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(create_output=json.dumps({"success": True}))
+
+    result = run_build(fixture, CODE, call_tool, "Sin id")
+
+    assert result["ok"] is False
+    assert result["circuit_id"] == ""
+    assert result["serial"] == ""
+    assert [tool for tool, _ in call_tool.calls] == ["tinkercad_create_circuit"]
+    assert len(result["records"]) == 1
+    assert result["records"][0].tool == "tinkercad_create_circuit"
+
+
+def test_create_non_json_output_cuts_without_raising():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(create_output="no-json-no-id")
+
+    result = run_build(fixture, CODE, call_tool, "Sin json")
+
+    assert result["ok"] is False
+    assert [tool for tool, _ in call_tool.calls] == ["tinkercad_create_circuit"]
+    assert len(result["records"]) == 1
