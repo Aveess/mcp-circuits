@@ -62,6 +62,24 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 1": "positive",
         "Terminal 2": "negative",
     },
+    # Acotado a l293d: en los wires de inspect los pines salen con los
+    # nombres del esquematico interno (con espacios y "&"); la fixture usa
+    # enable1/enable2/vss/vs/inputN/outputN. Los GND ya salen como
+    # gnd/gnd1/gnd2/gnd3 y pasan sin cambios.
+    "l293d": {
+        "Enable 1 & 2": "enable1",
+        "Enable 3 & 4": "enable2",
+        "Power 1": "vss",
+        "Power 2": "vs",
+        "Input 1": "input1",
+        "Input 2": "input2",
+        "Input 3": "input3",
+        "Input 4": "input4",
+        "Output 1": "output1",
+        "Output 2": "output2",
+        "Output 3": "output3",
+        "Output 4": "output4",
+    },
     "potentiometer": {
         "Terminal 1": "1",
         "Terminal 2": "3",

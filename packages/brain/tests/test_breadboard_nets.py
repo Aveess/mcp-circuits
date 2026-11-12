@@ -348,6 +348,53 @@ def test_dc_motor_terminal_pins_positive_negative():
     assert any("uno.GND1" in net and any(ep.endswith(".negative") for ep in net) for net in nets)
 
 
+def test_l293d_internal_schematic_pin_names():
+    # Nombres del esquematico interno en los wires de inspect (en vivo);
+    # la fixture usa enable1/enable2/vss/vs/inputN/outputN. Los GND ya
+    # salen como gnd/gnd1/gnd2/gnd3 y deben pasar sin cambios.
+    drv = "H-bridge Motor Driver [L293D]"
+    cases = [
+        ("Enable 1 & 2", "D9", "enable1"),
+        ("Enable 3 & 4", "D10", "enable2"),
+        ("Power 1", "5V", "vss"),
+        ("Power 2", "A5", "vs"),
+        ("Input 1", "D7", "input1"),
+        ("Input 2", "D8", "input2"),
+        ("Input 3", "D11", "input3"),
+        ("Input 4", "D12", "input4"),
+        ("Output 1", "D2", "output1"),
+        ("Output 2", "D3", "output2"),
+        ("Output 3", "D4", "output3"),
+        ("Output 4", "D5", "output4"),
+        ("gnd", "GND", "gnd"),
+        ("gnd1", "A1", "gnd1"),
+        ("gnd2", "A2", "gnd2"),
+        ("gnd3", "A3", "gnd3"),
+    ]
+    data = {
+        "components": [_comp("Arduino Uno R3", "uno1"), _comp(drv, "drv_a")],
+        "wires": [
+            _wire(
+                _ep(drv, live_pin, "drv_a"),
+                _ep("Arduino Uno R3", uno_pin, "uno1"),
+            )
+            for live_pin, uno_pin, _fixture_pin in cases
+        ],
+    }
+    nets = derive_nets(data)
+    flat = {ep for net in nets for ep in net}
+    for _live_pin, uno_pin, fixture_pin in cases:
+        uno_ep = "uno.GND1" if uno_pin == "GND" else f"uno.{uno_pin}"
+        assert any(
+            uno_ep in net and f"l293d1.{fixture_pin}" in net for net in nets
+        ), fixture_pin
+    assert not any(
+        ep.startswith("l293d1.")
+        and any(ch in ep for ch in (" ", "&"))
+        for ep in flat
+    )
+
+
 def test_live24_artifact_transistor_nets():
     if not LIVE24.exists():
         pytest.skip("live24.json no disponible")
