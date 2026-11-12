@@ -662,14 +662,37 @@ def test_motor_l293d_bateria_angle180_real_fixture_parts_and_wires(monkeypatch):
     assert by_pair[("uno.D9", "17f")] not in ("red", "black")
 
 
-def test_pushbutton_pin2_raises_build_error_unknown_geometry():
-    # Supuesto documentado: solo se conoce la geometria del pin "1" del
-    # boton (en `at`). El pin "2" de boton-pullup no se adivina: sin una
-    # medicion de la geometria completa del pushbutton, es BuildError.
-    with pytest.raises(BuildError) as excinfo:
-        fixture_to_model_call(_fixture("boton-pullup"))
+def test_boton_pullup_pushbutton_geometry_real_fixture():
+    # Geometria verificada en vivo (bWmMIRN5dwi): btn en <c>f, senal
+    # (pin "1") por <c+2>j y tierra (pin "2") por <c>j.
+    fixture = _fixture("boton-pullup")
+    layout = plan_layout(fixture)
+    assert layout["placements"]["btn1"] == {
+        "at": "7f", "pin": "1", "angle": 0,
+    }
 
-    assert "btn1.2" in str(excinfo.value)
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["btn1"] == {
+        "ref": "btn1", "did": 144786, "at": "7f", "pin": "1", "angle": 0,
+    }
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    assert ("uno.D2", "9j") in pairs  # btn1.1 -> columna at+2
+    assert ("7j", "uno.GND1") in pairs  # btn1.2 -> columna at
+    by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
+    assert by_pair[("7j", "uno.GND1")] == "black"
+    assert by_pair[("uno.D2", "9j")] not in ("red", "black")
+
+
+def test_pushbutton_unknown_pin_raises_build_error():
+    fixture = _fixture("boton-pullup")
+    fixture["nets"] = [["btn1.3", "uno.GND1"]]
+
+    with pytest.raises(BuildError) as excinfo:
+        fixture_to_model_call(fixture)
+
+    assert "btn1.3" in str(excinfo.value)
 
 
 def test_net_with_more_than_two_endpoints_splits_into_consecutive_pairs():
