@@ -8,6 +8,7 @@ from tinkercad_brain.sketches import (
     blink_sketch,
     pin_of_fixture,
     servo_knob_sketch,
+    tmp36_sketch,
     traffic_sketch,
     ultrasonic_sketch,
 )
@@ -189,6 +190,58 @@ def test_ultrasonic_rejects_unusable_pins(kwargs):
 def test_ultrasonic_rejects_same_trig_and_echo():
     with pytest.raises(ValueError):
         ultrasonic_sketch(trig=7, echo=7)
+
+
+# --- tmp36 ---
+
+
+def test_tmp36_default_contains_key_content():
+    sketch = tmp36_sketch()
+    assert "pinMode(13, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "analogRead(A0)" in sketch
+    assert "lectura * 5.0/1023.0" in sketch
+    assert "(volts - 0.5) * 100.0" in sketch
+    assert 'Serial.print("TEST:TEMP=");' in sketch
+    assert "Serial.println(temp);" in sketch
+    assert "digitalWrite(13, temp > 25.0 ? HIGH : LOW)" in sketch
+    assert "delay(500)" in sketch
+
+
+def test_tmp36_custom_pin_analog_and_threshold():
+    sketch = tmp36_sketch(pin=8, analog_pin="A2", threshold=30.5)
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "analogRead(A2)" in sketch
+    assert "digitalWrite(8, temp > 30.5 ? HIGH : LOW)" in sketch
+
+
+def test_tmp36_threshold_formatting_no_scientific():
+    assert "temp > -10.0" in tmp36_sketch(threshold=-10.0)
+    assert "temp > 0.5" in tmp36_sketch(threshold=0.5)
+
+
+def test_tmp36_accepts_boundary_thresholds():
+    assert "temp > -40.0" in tmp36_sketch(threshold=-40.0)
+    assert "temp > 125.0" in tmp36_sketch(threshold=125.0)
+
+
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_tmp36_rejects_unusable_pins(pin):
+    with pytest.raises(ValueError):
+        tmp36_sketch(pin=pin)
+
+
+@pytest.mark.parametrize("analog_pin", ["A6", "13", "A-1", "a0", ""])
+def test_tmp36_rejects_unusable_analog_pins(analog_pin):
+    with pytest.raises(ValueError):
+        tmp36_sketch(analog_pin=analog_pin)
+
+
+@pytest.mark.parametrize("threshold", [-40.1, 125.1, -100.0, 200.0])
+def test_tmp36_rejects_out_of_range_thresholds(threshold):
+    with pytest.raises(ValueError):
+        tmp36_sketch(threshold=threshold)
 
 
 # --- pin_of_fixture ---
