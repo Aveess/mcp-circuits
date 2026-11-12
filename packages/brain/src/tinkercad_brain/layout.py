@@ -9,6 +9,12 @@ MAX_COLUMN = 30
 # Blocks start at 1, 7, 13, 19: a block starting at 25 would need
 # column 31 (start + BLOCK_WIDTH) as its end boundary, beyond the board.
 LAST_BLOCK_START = 19
+# First (leftmost) pin per 3-pin type, physical order left to right:
+# servo gnd/vcc/signal, potentiometer 1/2/3, tmp36 vcc/vout/gnd.
+THREE_PIN_FIRST_PIN = {"servo": "gnd", "potentiometer": "1", "tmp36": "vcc"}
+THREE_PIN_PINS = 3
+# Cursor advance per 3-pin block: 3 pin columns + 1 separation column.
+THREE_PIN_WIDTH = 4
 
 
 class LayoutError(Exception):
@@ -115,7 +121,9 @@ def plan_layout(fixture: dict) -> dict:
         if led_ref:
             placements[led_ref] = {"at": f"{column + 4}i", "pin": "anode", "angle": 180}
 
-    # Pushbuttons cross the central gap, after the LED/resistor blocks.
+    # Pushbuttons and 3-pin parts, after the LED/resistor blocks. All
+    # share the next_column cursor (LED block: 6, pushbutton: 1, 3-pin:
+    # 4), so no two blocks share a start column or overlap in range.
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "arduino-uno" or ref in placements:
@@ -126,6 +134,16 @@ def plan_layout(fixture: dict) -> dict:
             else:
                 placements[ref] = {"at": f"{next_column}f", "pin": "1", "angle": 0}
                 next_column += 1
+        elif ctype in THREE_PIN_FIRST_PIN:
+            if next_column + THREE_PIN_PINS - 1 > MAX_COLUMN:
+                unplaced.append(ref)
+            else:
+                placements[ref] = {
+                    "at": f"{next_column}c",
+                    "pin": THREE_PIN_FIRST_PIN[ctype],
+                    "angle": 0,
+                }
+                next_column += THREE_PIN_WIDTH
         elif ctype not in ("led", "resistor"):
             unplaced.append(ref)
 

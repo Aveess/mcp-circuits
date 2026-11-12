@@ -54,6 +54,20 @@ def test_unknown_type_goes_to_unplaced():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+        ],
+        "nets": [["uno.D9", "us1.echo"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result == {"placements": {}, "unplaced": ["us1"]}
+
+
+def test_servo_alone_is_placed_at_1c_with_gnd_first():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
             {"ref": "servo1", "type": "servo"},
         ],
         "nets": [["uno.D9", "servo1.signal"]],
@@ -61,7 +75,105 @@ def test_unknown_type_goes_to_unplaced():
 
     result = plan_layout(fixture)
 
-    assert result == {"placements": {}, "unplaced": ["servo1"]}
+    assert result == {
+        "placements": {"servo1": {"at": "1c", "pin": "gnd", "angle": 0}},
+        "unplaced": [],
+    }
+
+
+def test_servo_and_potentiometer_blocks_do_not_overlap():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "servo1", "type": "servo"},
+            {"ref": "pot1", "type": "potentiometer"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["placements"] == {
+        "servo1": {"at": "1c", "pin": "gnd", "angle": 0},
+        "pot1": {"at": "5c", "pin": "1", "angle": 0},
+    }
+    assert result["unplaced"] == []
+    ranges = []
+    for placement in result["placements"].values():
+        start = int(placement["at"][:-1])
+        ranges.append(set(range(start, start + 3)))
+    assert ranges[0].isdisjoint(ranges[1])
+
+
+def test_servo_is_placed_after_led_block():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "servo1", "type": "servo"},
+        ],
+        "nets": [["r1.2", "led1.anode"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["servo1"] == {"at": "7c", "pin": "gnd", "angle": 0}
+    assert result["unplaced"] == []
+
+
+def test_tmp36_is_placed_with_vcc_first():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "tmp1", "type": "tmp36"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result == {
+        "placements": {"tmp1": {"at": "1c", "pin": "vcc", "angle": 0}},
+        "unplaced": [],
+    }
+
+
+def test_servo_that_does_not_fit_goes_to_unplaced_after_led_blocks_fill_board():
+    components = [{"ref": "uno", "type": "arduino-uno"}]
+    nets = []
+    for i in range(1, 5):
+        components.append({"ref": f"led{i}", "type": "led"})
+        components.append({"ref": f"r{i}", "type": "resistor"})
+        nets.append([f"r{i}.2", f"led{i}.anode"])
+    components.append({"ref": "servo1", "type": "servo"})
+    components.append({"ref": "servo2", "type": "servo"})
+    fixture = {"components": components, "nets": nets}
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["servo1"] == {"at": "25c", "pin": "gnd", "angle": 0}
+    assert "servo2" not in result["placements"]
+    assert result["unplaced"] == ["servo2"]
+
+
+def test_pushbutton_and_servo_do_not_share_columns():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "btn1", "type": "pushbutton"},
+            {"ref": "servo1", "type": "servo"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == []
+    button_start = int(result["placements"]["btn1"]["at"][:-1])
+    servo_start = int(result["placements"]["servo1"]["at"][:-1])
+    assert button_start != servo_start
+    assert button_start not in range(servo_start, servo_start + 3)
 
 
 def test_fifth_led_block_goes_to_unplaced():
