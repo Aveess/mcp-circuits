@@ -1,6 +1,7 @@
 from tinkercad_brain.fase0.metrics import (
     classify_compile_result,
     compare_circuits,
+    compare_connectivity,
     latency_summary,
 )
 
@@ -84,6 +85,124 @@ def test_empty_expected_does_not_divide_by_zero():
     assert result["score"] == 1.0
     assert result["missing_components"] == []
     assert result["missing_nets"] == []
+
+
+def _semaforo_expected():
+    return {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led_rojo", "type": "led"},
+            {"ref": "led_amarillo", "type": "led"},
+            {"ref": "led_verde", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r3", "type": "resistor"},
+        ],
+        "nets": [
+            ["uno.D11", "r1.1"], ["r1.2", "led_rojo.anode"],
+            ["led_rojo.cathode", "uno.GND1"],
+            ["uno.D10", "r2.1"], ["r2.2", "led_amarillo.anode"],
+            ["led_amarillo.cathode", "uno.GND1"],
+            ["uno.D9", "r3.1"], ["r3.2", "led_verde.anode"],
+            ["led_verde.cathode", "uno.GND1"],
+        ],
+    }
+
+
+def test_connectivity_semaforo_unified_ground_generic_refs_score_one():
+    actual = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "led2", "type": "led"},
+            {"ref": "led3", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r3", "type": "resistor"},
+        ],
+        "nets": [
+            ["uno.D11", "r1.1"], ["r1.2", "led1.anode"],
+            ["uno.D10", "r2.1"], ["r2.2", "led2.anode"],
+            ["uno.D9", "r3.1"], ["r3.2", "led3.anode"],
+            ["led1.cathode", "led2.cathode", "led3.cathode", "uno.GND1"],
+        ],
+    }
+    result = compare_connectivity(_semaforo_expected(), actual)
+    assert result["score"] == 1.0
+    assert result["components_score"] == 1.0
+    assert result["connectivity_score"] == 1.0
+    assert result["shorts"] == []
+    assert result["missing_components"] == []
+    assert result["extra_components"] == []
+
+
+def test_connectivity_real_short_d13_to_gnd_detected_and_penalized():
+    expected = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [["uno.D13", "r1.1"], ["r1.2", "led1.anode"],
+                 ["led1.cathode", "uno.GND1"]],
+    }
+    actual = {
+        "components": list(expected["components"]),
+        "nets": [["uno.D13", "r1.1", "uno.GND1"], ["r1.2", "led1.anode"],
+                 ["led1.cathode", "uno.GND1"]],
+    }
+    result = compare_connectivity(expected, actual)
+    assert ["uno.D13", "uno.GND1"] in result["shorts"]
+    assert result["shorts"] == sorted(result["shorts"])
+    assert result["score"] == 0.5  # (1+1)/2 castigado x0.5 por el corto
+
+
+def test_connectivity_missing_net_lowers_connectivity():
+    expected = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [["uno.D13", "r1.1"], ["r1.2", "led1.anode"],
+                 ["led1.cathode", "uno.GND1"]],
+    }
+    actual = {
+        "components": list(expected["components"]),
+        "nets": [["uno.D13", "r1.1"], ["led1.cathode", "uno.GND1"]],
+    }
+    result = compare_connectivity(expected, actual)
+    assert result["connectivity_score"] < 1.0
+    assert result["connectivity_score"] == 2 / 3
+    assert result["shorts"] == []
+
+
+def test_connectivity_extra_component_reported():
+    expected = {
+        "components": [{"ref": "led_rojo", "type": "led"}],
+        "nets": [["led_rojo.anode", "led_rojo.cathode"]],
+    }
+    actual = {
+        "components": [
+            {"ref": "led1", "type": "led"},
+            {"ref": "led2", "type": "led"},
+        ],
+        "nets": [["led1.anode", "led1.cathode"], ["led2.anode", "led2.cathode"]],
+    }
+    result = compare_connectivity(expected, actual)
+    assert result["extra_components"] == ["led2"]
+    assert result["missing_components"] == []
+    assert result["components_score"] == 0.5
+
+
+def test_connectivity_empty_circuits_no_division_by_zero():
+    result = compare_connectivity(
+        {"components": [], "nets": []}, {"components": [], "nets": []}
+    )
+    assert result["score"] == 1.0
+    assert result["components_score"] == 1.0
+    assert result["connectivity_score"] == 1.0
+    assert result["shorts"] == []
 
 
 def test_latency_summary_known_values_and_empty_list():
