@@ -38,9 +38,9 @@ def test_blink_basico_produces_exact_parts_and_wires():
             {"ref": "led1", "did": 58422, "at": "5i", "pin": "anode", "angle": 180},
         ],
         "wires": [
-            ["uno.D13", "1g"],
-            ["5g", "5i"],
-            ["6i", "uno.GND1"],
+            {"from": "6i", "to": "uno.GND1", "color": "black"},
+            {"from": "5g", "to": "5i", "color": "blue"},
+            {"from": "uno.D13", "to": "1g", "color": "green"},
         ],
         "code": "void setup() {}",
     }
@@ -64,8 +64,53 @@ def test_blink_basico_wrapped_with_types_passes_validate_spec():
 
     validated = validate_spec(wrapped)
     assert validated["wires"] == [
-        {"from": a, "to": b} for a, b in result["wires"]
+        {"from": w["from"], "to": w["to"]} for w in result["wires"]
     ]
+
+
+def test_blink_wires_exact_order_and_colors_by_group():
+    result = fixture_to_model_call(_fixture("blink-basico"))
+
+    # Sin alimentacion: primero tierra (black), luego senales por "from".
+    assert result["wires"] == [
+        {"from": "6i", "to": "uno.GND1", "color": "black"},
+        {"from": "5g", "to": "5i", "color": "blue"},
+        {"from": "uno.D13", "to": "1g", "color": "green"},
+    ]
+
+
+def test_semaforo_wires_exact_order_and_colors_by_group():
+    result = fixture_to_model_call(_fixture("semaforo-3-leds"))
+
+    # Sin alimentacion: tierra ordenada por "from", luego senales por
+    # "from" con la paleta rotando sin repetir consecutivos.
+    assert result["wires"] == [
+        {"from": "12i", "to": "uno.GND1", "color": "black"},
+        {"from": "18i", "to": "uno.GND1", "color": "black"},
+        {"from": "6i", "to": "uno.GND1", "color": "black"},
+        {"from": "11g", "to": "11i", "color": "blue"},
+        {"from": "17g", "to": "17i", "color": "green"},
+        {"from": "5g", "to": "5i", "color": "orange"},
+        {"from": "uno.D10", "to": "7g", "color": "yellow"},
+        {"from": "uno.D11", "to": "1g", "color": "purple"},
+        {"from": "uno.D9", "to": "13g", "color": "turquoise"},
+    ]
+
+
+def test_wires_are_bridge_dicts_with_from_to_color():
+    for fixture_id in ("blink-basico", "semaforo-3-leds"):
+        wires = fixture_to_model_call(_fixture(fixture_id))["wires"]
+        assert wires
+        for wire in wires:
+            assert isinstance(wire, dict)
+            assert set(wire) == {"from", "to", "color"}
+            assert all(isinstance(wire[k], str) and wire[k] for k in wire)
+        signal_colors = [
+            w["color"] for w in wires if w["color"] not in ("black", "red")
+        ]
+        assert all(
+            a != b for a, b in zip(signal_colors, signal_colors[1:])
+        )
 
 
 _FIRST_PIN_3PIN = {"servo": "gnd", "potentiometer": "1", "tmp36": "vcc"}
@@ -151,19 +196,19 @@ def test_servo_potentiometer_real_fixture_parts_and_wires(monkeypatch):
     # Sin huecos repetidos como ancla.
     assert len({p["at"] for p in result["parts"]}) == len(result["parts"])
 
-    expected_wires = []
-    for net in fixture["nets"]:
-        translated = []
-        for endpoint in net:
-            ref, pin = endpoint.split(".", 1)
-            if ref == "uno":
-                translated.append(endpoint)
-            else:
-                translated.append(
-                    _hole_for(placements[ref], type_by_ref[ref], pin)
-                )
-        expected_wires.append(translated)
-    assert result["wires"] == expected_wires
+    def hole(ref, pin):
+        return _hole_for(placements[ref], type_by_ref[ref], pin)
+
+    # Alimentacion (red, "from" empatado: orden estable de las nets),
+    # tierra (black) y senales (paleta), cada grupo ordenado por "from".
+    assert result["wires"] == [
+        {"from": "uno.5V", "to": hole("servo1", "vcc"), "color": "red"},
+        {"from": "uno.5V", "to": hole("pot1", "1"), "color": "red"},
+        {"from": hole("servo1", "gnd"), "to": "uno.GND1", "color": "black"},
+        {"from": hole("pot1", "3"), "to": "uno.GND1", "color": "black"},
+        {"from": hole("pot1", "2"), "to": "uno.A0", "color": "blue"},
+        {"from": "uno.D9", "to": hole("servo1", "signal"), "color": "green"},
+    ]
     assert len(result["wires"]) == 6
 
 
@@ -194,9 +239,17 @@ def test_tmp36_synthetic_fixture_parts_and_wires(monkeypatch):
         }
     ]
     assert result["wires"] == [
-        ["uno.5V", placement["at"]],
-        [_shift(placement["at"], 1), "uno.A0"],
-        [_shift(placement["at"], 2), "uno.GND1"],
+        {"from": "uno.5V", "to": placement["at"], "color": "red"},
+        {
+            "from": _shift(placement["at"], 2),
+            "to": "uno.GND1",
+            "color": "black",
+        },
+        {
+            "from": _shift(placement["at"], 1),
+            "to": "uno.A0",
+            "color": "blue",
+        },
     ]
 
 
@@ -235,9 +288,9 @@ def test_net_with_more_than_two_endpoints_splits_into_consecutive_pairs():
     result = fixture_to_model_call(fixture)
 
     assert result["wires"] == [
-        ["uno.5V", "1g"],
-        ["1g", "5i"],
-        ["6i", "uno.GND1"],
+        {"from": "uno.5V", "to": "1g", "color": "red"},
+        {"from": "6i", "to": "uno.GND1", "color": "black"},
+        {"from": "1g", "to": "5i", "color": "blue"},
     ]
 
 

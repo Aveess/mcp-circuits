@@ -2,9 +2,10 @@
 
 Traduce una fixture a los argumentos de la tool
 `tinkercad_build_circuit_model(parts, wires, code)` del puente, donde los
-wires son pares de extremos por hueco ("uno.D13", "1i", "led1.anode" ya
-traducido a su hueco, etc.). El Arduino no va como part: el puente crea
-el Uno. Solo stdlib + modulos del proyecto.
+wires son dicts {"from", "to", "color"} de extremos por hueco ("uno.D13",
+"1i", "led1.anode" ya traducido a su hueco, etc.), ordenados alimentacion,
+tierra y senales para un ruteo ortogonal por carriles estable. El Arduino
+no va como part: el puente crea el Uno. Solo stdlib + modulos del proyecto.
 """
 
 from __future__ import annotations
@@ -46,6 +47,46 @@ _THREE_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
+
+_POWER_ENDPOINTS = frozenset({"uno.5V", "uno.3V3", "uno.VIN"})
+_RAIL_POWER_RE = re.compile(r"[TB]\+(?:[1-9]|[12][0-9]|30)?")
+_RAIL_GROUND_RE = re.compile(r"[TB]-(?:[1-9]|[12][0-9]|30)?")
+_SIGNAL_PALETTE = (
+    "blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown",
+)
+
+
+def _wire_group(first: str, second: str) -> int:
+    endpoints = (first, second)
+    if any(
+        e in _POWER_ENDPOINTS or _RAIL_POWER_RE.fullmatch(e) for e in endpoints
+    ):
+        return 0
+    if any(
+        e.startswith("uno.GND") or _RAIL_GROUND_RE.fullmatch(e)
+        for e in endpoints
+    ):
+        return 1
+    return 2
+
+
+def _ordered_colored_wires(pairs) -> list[dict[str, str]]:
+    grouped: dict[int, list[tuple[str, str]]] = {0: [], 1: [], 2: []}
+    for first, second in pairs:
+        grouped[_wire_group(first, second)].append((first, second))
+    wires = []
+    signal_index = 0
+    for group in (0, 1, 2):
+        for first, second in sorted(grouped[group], key=lambda wire: wire[0]):
+            if group == 0:
+                color = "red"
+            elif group == 1:
+                color = "black"
+            else:
+                color = _SIGNAL_PALETTE[signal_index % len(_SIGNAL_PALETTE)]
+                signal_index += 1
+            wires.append({"from": first, "to": second, "color": color})
+    return wires
 
 
 def _shift_hole(hole: str, columns: int, endpoint: str) -> str:
@@ -157,7 +198,7 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             }
         )
 
-    wires = []
+    pairs = []
     for net in fixture.get("nets") or []:
         if not isinstance(net, (list, tuple)) or len(net) < 2:
             raise BuildError(f"net invalida (se esperaban 2+ extremos): {net!r}")
@@ -165,10 +206,9 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             _translate_endpoint(endpoint, placements, type_by_ref)
             for endpoint in net
         ]
-        for first, second in zip(translated, translated[1:]):
-            wires.append([first, second])
+        pairs.extend(zip(translated, translated[1:]))
 
-    return {"parts": parts, "wires": wires, "code": code}
+    return {"parts": parts, "wires": _ordered_colored_wires(pairs), "code": code}
 
 
 def build_circuit(fixture, code, call_tool) -> dict:
