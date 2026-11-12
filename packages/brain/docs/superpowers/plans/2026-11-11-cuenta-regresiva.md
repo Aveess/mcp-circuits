@@ -6,7 +6,7 @@ Criterio de "proyecto cumplido": describir un circuito simple (LED/boton/semafor
 Todo lo demas es secundario frente a eso.
 
 - [x] Fase 0: lectura/nets/simulacion medidos en vivo (2 circuitos)
-- [ ] Ronda 4: nets derivadas con protoboard + verificador de comportamiento + builder fixture->spec->MCP
+- [x] Ronda 4: nets derivadas con protoboard + verificador de comportamiento + builder fixture->spec->MCP
 - [ ] Vivo: construir 3 circuitos mas con el builder (boton, semaforo, servo o sensor)
-- [ ] Documentador minimo: reporte markdown por circuito desde el journal
+- [x] Documentador minimo: reporte markdown por circuito desde el journal
 - [ ] Cierre: benchmark chico (esos circuitos), README de uso, demo reproducible
