@@ -265,6 +265,31 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertIn("routed", js)
         self.assertIn("wireSpec", js)  # accepts objects as well as pairs
 
+    def test_build_js_uses_getbreadboardpos_and_indexed_addpoint(self):
+        # Weak content check by necessity: the suite has no JS runtime for
+        # the real editor API, so it can only pin the required call shapes.
+        js = mbs._BUILD_JS
+        self.assertIn("getBreadboardPos", js)  # tried before bbDesc/pos fallbacks
+        self.assertLess(js.index("getBreadboardPos"), js.index("term?.bbDesc"))
+        self.assertIn("p.constructor", js)  # coord ctor from breadboard().pos()
+        self.assertRegex(js, r"addPoint\(C \? new C\(pt\.x, pt\.y\) : pt, i \+ 1\)")
+        self.assertIn("[pUno, pDest]", js)  # Uno -> destination order
+        self.assertIn("route_failed", js)  # addPoint errors surface, not swallowed
+
+    def test_build_js_syntax_with_node_if_available(self):
+        import shutil
+        import subprocess
+        import tempfile
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+            f.write(mbs._BUILD_JS)
+            path = f.name
+        res = subprocess.run([node, "--check", path], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+
     async def test_evaluate_receives_styled_plan_for_dict_wires(self):
         svc, _, mock_page = make_service({"placed": {}, "errors": [], "routed": 1})
         res = await svc.build_from_holes(

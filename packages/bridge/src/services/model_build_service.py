@@ -356,6 +356,12 @@ _BUILD_JS = r"""
       return null;
     }
     function termAbs(dev, term) {
+      try {
+        if (term && typeof term.getBreadboardPos === 'function') {
+          const p = term.getBreadboardPos();
+          if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
+        }
+      } catch (e) {}
       const d = term?.bbDesc || term?.breadboardDescription;
       if (d && isFinite(d.x) && isFinite(d.y)) {
         const base = devPos(dev), off = { x: Number(d.x), y: Number(d.y) };
@@ -365,6 +371,16 @@ _BUILD_JS = r"""
         const p = typeof term?.pos === 'function' ? term.pos() : term?.pos;
         if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
       } catch (e) {}
+      return null;
+    }
+    function coordCtor() {
+      for (const dev of [bbDev, uno]) {
+        try {
+          const bb = typeof dev?.breadboard === 'function' ? dev.breadboard() : dev?.breadboard;
+          const p = bb && (typeof bb.pos === 'function' ? bb.pos() : bb.pos);
+          if (p && typeof p.constructor === 'function' && p.constructor !== Object) return p.constructor;
+        } catch (e) {}
+      }
       return null;
     }
 
@@ -407,10 +423,18 @@ _BUILD_JS = r"""
                 ? ORIGIN.y - 115 - lane * 5
                 : ORIGIN.y + 115 + lane * 5;
               const pUno = { x: unoPos.x, y: laneY }, pDest = { x: destPos.x, y: laneY };
+              const C = coordCtor();
               try {
-                for (const pt of (fromIsUno ? [pUno, pDest] : [pDest, pUno])) w.addPoint(pt);
+                // Always Uno -> destination, indexed from 1 (netchuu).
+                const pts = [pUno, pDest];
+                for (let i = 0; i < pts.length; i++) {
+                  const pt = pts[i];
+                  w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+                }
                 didRoute = true;
-              } catch (e) {}
+              } catch (e) {
+                errors.push('wire ' + from + ' -> ' + to + ': route_failed ' + e.toString());
+              }
             }
           }
           if (didRoute) routed++;
