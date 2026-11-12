@@ -57,6 +57,23 @@ _PIN_ALIASES_BY_TYPE = {
         "Echo": "echo",
         "Ground": "gnd",
     },
+    # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
+    # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
+    # entra aqui, asi que no afecta a LED/resistencia/etc.
+    "led-rgb-common-cathode": {
+        "Red": "red",
+        "Green": "green",
+        "Blue": "blue",
+        "Cathode": "cathode",
+        "terminal-red": "red",
+        "terminal-green": "green",
+        "terminal-blue": "blue",
+        "terminal-cathode": "cathode",
+        "Terminal Red": "red",
+        "Terminal Green": "green",
+        "Terminal Blue": "blue",
+        "Terminal Cathode": "cathode",
+    },
 }
 
 _HOLE_RE = re.compile(r"^([a-j])(\d+)$")

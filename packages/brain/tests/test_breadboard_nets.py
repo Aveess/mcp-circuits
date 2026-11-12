@@ -143,6 +143,52 @@ def test_servo_potentiometer_real_pin_aliases():
     assert derive_nets(data) == EXPECTED_SERVO_POT
 
 
+def test_led_rgb_live_pin_names_red_green_blue_cathode():
+    # Tipo y pines en vivo (circuito 6CynuRekrD2): "LED RGB", Red/Green/Blue/cathode.
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("LED RGB", "rgb_a"),
+        ],
+        "wires": [
+            _wire(_ep("LED RGB", "Red", "rgb_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+            _wire(_ep("LED RGB", "Green", "rgb_a"), _ep("Arduino Uno R3", "D10", "uno1")),
+            _wire(_ep("LED RGB", "Blue", "rgb_a"), _ep("Arduino Uno R3", "D11", "uno1")),
+            _wire(_ep("LED RGB", "cathode", "rgb_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    assert not any(
+        ep.endswith((".Red", ".Green", ".Blue", ".Cathode")) for net in nets for ep in net
+    )
+    by_uno = {ep: net for net in nets for ep in net if ep.startswith("uno.")}
+    assert any(ep.endswith(".red") for ep in by_uno["uno.D9"])
+    assert any(ep.endswith(".green") for ep in by_uno["uno.D10"])
+    assert any(ep.endswith(".blue") for ep in by_uno["uno.D11"])
+    assert any(ep.endswith(".cathode") for ep in by_uno["uno.GND1"])
+
+
+def test_led_rgb_terminal_aliases():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("LED RGB", "rgb_a"),
+        ],
+        "wires": [
+            _wire(_ep("LED RGB", "terminal-red", "rgb_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+            _wire(_ep("LED RGB", "terminal-green", "rgb_a"), _ep("Arduino Uno R3", "D10", "uno1")),
+            _wire(_ep("LED RGB", "terminal-blue", "rgb_a"), _ep("Arduino Uno R3", "D11", "uno1")),
+            _wire(_ep("LED RGB", "terminal-cathode", "rgb_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    by_uno = {ep: net for net in nets for ep in net if ep.startswith("uno.")}
+    assert any(ep.endswith(".red") for ep in by_uno["uno.D9"])
+    assert any(ep.endswith(".green") for ep in by_uno["uno.D10"])
+    assert any(ep.endswith(".blue") for ep in by_uno["uno.D11"])
+    assert any(ep.endswith(".cathode") for ep in by_uno["uno.GND1"])
+
+
 def test_generic_power_aliases_tmp36():
     data = {
         "components": [_comp("Arduino Uno R3", "uno1"), _comp("TMP36", "tmp_a")],

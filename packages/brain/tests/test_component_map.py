@@ -19,6 +19,7 @@ EXPECTED = {
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
     "RGB LED": "led-rgb-common-cathode",
+    "LED RGB": "led-rgb-common-cathode",
     "TMP36": "tmp36",
     "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",
@@ -60,6 +61,14 @@ def test_hcsr04_real_ezhil_name_resolves_without_duplicate_slug():
     assert fixture_type("  ultrasonic   distance   sensor (4 pin) ") == "ultrasonic-hcsr04"
     assert fixture_type("Ultrasonic Distance Sensor") == "ultrasonic-hcsr04"
     assert known_slugs().count("ultrasonic-hcsr04") == 1
+
+
+def test_led_rgb_real_ezhil_name_resolves_without_duplicate_slug():
+    # Nombre real ezhil en circuito 6CynuRekrD2.
+    assert fixture_type("LED RGB") == "led-rgb-common-cathode"
+    assert fixture_type("RGB LED") == "led-rgb-common-cathode"
+    assert fixture_type("  led   rgb ") == "led-rgb-common-cathode"
+    assert known_slugs().count("led-rgb-common-cathode") == 1
 
 
 def test_fixture_type_hyphen_underscore_equivalent_to_space():
