@@ -35,6 +35,7 @@ DID_BY_TYPE: dict[str, int] = {
     "servo": 142073,
     "potentiometer": 45547,
     "tmp36": 112324,
+    "ultrasonic-hcsr04": 219295,
 }
 
 # Partes de 3 pines en fila unica: orden fisico (nombre de fixture) y
@@ -44,6 +45,19 @@ _THREE_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
     "servo": (("gnd", "Ground"), ("vcc", "Power"), ("signal", "Signal")),
     "potentiometer": (("1", "term0"), ("2", "wiper"), ("3", "term1")),
     "tmp36": (("vcc", "Vcc"), ("vout", "Vout"), ("gnd", "Gnd")),
+}
+
+# HC-SR04 (4 pines): evidencia en vivo DID 219295, pin real "pos" en un
+# hueco de la fila d deja pos=+0, trig=+1, echo=+2, neg=+3 columnas.
+_FOUR_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
+    "ultrasonic-hcsr04": (
+        ("vcc", "pos"), ("trig", "trig"), ("echo", "echo"), ("gnd", "neg")
+    ),
+}
+
+_LINEAR_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
+    **_THREE_PIN_PINS,
+    **_FOUR_PIN_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
@@ -124,8 +138,8 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
             return at
         if pin == "2":
             return _shift_hole(at, 4, endpoint)
-    elif ctype in _THREE_PIN_PINS:
-        for index, (fixture_pin, _real_pin) in enumerate(_THREE_PIN_PINS[ctype]):
+    elif ctype in _LINEAR_PIN_PINS:
+        for index, (fixture_pin, _real_pin) in enumerate(_LINEAR_PIN_PINS[ctype]):
             if pin == fixture_pin:
                 return at if index == 0 else _shift_hole(at, index, endpoint)
     elif ctype == "pushbutton":
@@ -180,8 +194,8 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
                 f"type sin DID conocido para ref {ref!r}: {ctype!r}"
             )
         part_pin = placement["pin"]
-        if ctype in _THREE_PIN_PINS:
-            real_by_fixture = dict(_THREE_PIN_PINS[ctype])
+        if ctype in _LINEAR_PIN_PINS:
+            real_by_fixture = dict(_LINEAR_PIN_PINS[ctype])
             if part_pin not in real_by_fixture:
                 raise BuildError(
                     f"pin ancla sin nombre real para ref {ref!r}: "

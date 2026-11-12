@@ -253,10 +253,106 @@ def test_tmp36_synthetic_fixture_parts_and_wires(monkeypatch):
     ]
 
 
+_ULTRASONIC_PIN_ORDER = ["vcc", "trig", "echo", "gnd"]
+
+
+def _ensure_ultrasonic_placement(monkeypatch):
+    """Inyecta el placement esperado del layout si aun no lo emite.
+
+    Contrato (agente layout): {"at": "<col>d", "pin": "vcc", "angle": 0}.
+    Si plan_layout ya lo coloca, este parche no altera nada.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = []
+        for ref in layout["unplaced"]:
+            if type_by_ref.get(ref) != "ultrasonic-hcsr04":
+                unplaced.append(ref)
+                continue
+            placements[ref] = {"at": "20d", "pin": "vcc", "angle": 0}
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def _ultrasonic_hole(placement, pin):
+    index = _ULTRASONIC_PIN_ORDER.index(pin)
+    return placement["at"] if index == 0 else _shift(placement["at"], index)
+
+
+def test_ultrasonic_synthetic_parts_and_wires(monkeypatch):
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+        ],
+        "nets": [
+            ["uno.5V", "us1.vcc"],
+            ["us1.gnd", "uno.GND1"],
+            ["uno.D7", "us1.trig"],
+            ["uno.D6", "us1.echo"],
+        ],
+    }
+    _ensure_ultrasonic_placement(monkeypatch)
+    placement = builder_module.plan_layout(fixture)["placements"]["us1"]
+    # Contrato del layout para el ancla.
+    assert placement["pin"] == "vcc"
+    assert placement["at"].endswith("d")
+
+    result = fixture_to_model_call(fixture)
+
+    assert result["parts"] == [
+        {
+            "ref": "us1",
+            "did": 219295,
+            "at": placement["at"],
+            "pin": "pos",
+            "angle": placement["angle"],
+        }
+    ]
+    assert result["wires"] == [
+        {"from": "uno.5V", "to": _ultrasonic_hole(placement, "vcc"), "color": "red"},
+        {
+            "from": _ultrasonic_hole(placement, "gnd"),
+            "to": "uno.GND1",
+            "color": "black",
+        },
+        {"from": "uno.D6", "to": _ultrasonic_hole(placement, "echo"), "color": "blue"},
+        {"from": "uno.D7", "to": _ultrasonic_hole(placement, "trig"), "color": "green"},
+    ]
+
+
+def test_ultrasonic_real_fixture_parts_and_wires(monkeypatch):
+    fixture = _fixture("sensor-ultrasonico")
+    _ensure_ultrasonic_placement(monkeypatch)
+    placement = builder_module.plan_layout(fixture)["placements"]["us1"]
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["us1"] == {
+        "ref": "us1",
+        "did": 219295,
+        "at": placement["at"],
+        "pin": "pos",
+        "angle": placement["angle"],
+    }
+    # Los 4 huecos del HC-SR04 aparecen como extremos de wire.
+    wire_ends = {w["from"] for w in result["wires"]} | {
+        w["to"] for w in result["wires"]
+    }
+    for pin in _ULTRASONIC_PIN_ORDER:
+        assert _ultrasonic_hole(placement, pin) in wire_ends
+
+
 def test_ultrasonic_real_fixture_raises_build_error_unplaced():
-    # Verificado hoy: plan_layout deja us1 en unplaced, asi que el
-    # BuildError es por "sin layout" (antes de cualquier chequeo de DID;
-    # ultrasonic-hcsr04 tampoco tiene DID en el builder).
+    # En esta rama plan_layout aun deja us1 en unplaced, asi que el
+    # BuildError es por "sin layout" (el builder ya tiene DID/alias;
+    # la integracion final depende de que el layout lo coloque).
     with pytest.raises(BuildError) as excinfo:
         fixture_to_model_call(_fixture("sensor-ultrasonico"))
 
