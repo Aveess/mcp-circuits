@@ -19,6 +19,7 @@ EXPECTED = {
     "DC Motor": "dc-motor",
     "RGB LED": "led-rgb-common-cathode",
     "TMP36": "tmp36",
+    "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",
 }
 
@@ -45,6 +46,12 @@ def test_fixture_type_unknown_returns_none():
     assert fixture_type("Componente Inventado") is None
     assert fixture_type("") is None
     assert fixture_type("Arduino") is None
+
+
+def test_tmp36_real_ezhil_name_resolves_without_duplicate_slug():
+    assert fixture_type("Temperature Sensor [TMP36]") == "tmp36"
+    assert fixture_type("TMP36") == "tmp36"
+    assert known_slugs().count("tmp36") == 1
 
 
 def test_known_slugs_are_unique_and_sorted():
