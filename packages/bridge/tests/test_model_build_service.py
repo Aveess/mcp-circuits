@@ -379,6 +379,64 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(res["success"])
 
 
+class TestTermByNameExactPlusMinus(unittest.TestCase):
+    def _run_term_by_name(self):
+        import json
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        harness = r"""
+const src = __SRC__;
+const start = src.indexOf('const unwrap');
+const end = src.indexOf('function termOffset');
+if (start < 0 || end <= start) throw new Error('termByName chunk not found');
+const termByName = new Function(src.slice(start, end) + '\nreturn termByName;')();
+function dev(entries) {
+  const content = {};
+  for (const [k, id] of entries) content[k] = { val: { id } };
+  return { name2terminal: { _content: content } };
+}
+// '+' first on purpose: the old norm('') bug resolved '-' to '+'.
+const both = dev([['+', 'plus'], ['-', 'minus']]);
+const onlyPlus = dev([['+', 'plus']]);
+const pick = (r) => (r ? { name: r.name, id: r.term.id } : null);
+console.log(JSON.stringify({
+  plus: pick(termByName(both, '+')),
+  minus: pick(termByName(both, '-')),
+  missingMinus: pick(termByName(onlyPlus, '-')),
+  emptyNormMissing: pick(termByName(onlyPlus, '++')),
+}));
+"""
+        script = harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))
+        res = subprocess.run(
+            [node, "-e", script], capture_output=True, text=True, timeout=30
+        )
+        self.assertEqual(res.returncode, 0, res.stderr)
+        import json as _json
+
+        return _json.loads(res.stdout.strip().splitlines()[-1])
+
+    def test_exact_plus_and_minus_resolve_to_their_own_terminals(self):
+        out = self._run_term_by_name()
+        self.assertEqual(out["plus"], {"name": "+", "id": "plus"})
+        self.assertEqual(out["minus"], {"name": "-", "id": "minus"})
+
+    def test_minus_without_exact_terminal_does_not_resolve_to_plus(self):
+        out = self._run_term_by_name()
+        self.assertIsNone(out["missingMinus"])
+        self.assertIsNone(out["emptyNormMissing"])
+
+    def test_build_js_exact_match_precedes_normalized_match(self):
+        js = mbs._BUILD_JS
+        segment = js[js.index("function termByName") : js.index("function termOffset")]
+        self.assertIn("k === pin", segment)
+        self.assertLess(segment.index("k === pin"), segment.index("norm(k) === norm(pin)"))
+        self.assertIn("if (!norm(pin)) return null;", segment)
+
+
 class TestModelBuildFreeParts(unittest.IsolatedAsyncioTestCase):
     FREE = {"ref": "motor1", "did": 114158, "free": {"x": 560, "y": 60}, "angle": 0}
     PLACED = {"motor1": {"angle": 0, "holes": {}, "free": {"x": 560, "y": 60}}}
