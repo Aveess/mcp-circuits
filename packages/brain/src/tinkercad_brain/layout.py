@@ -45,6 +45,14 @@ DIODE_WIDTH = 6
 FREE_MOTOR_X = 560
 FREE_MOTOR_Y = 60
 FREE_MOTOR_STEP_X = 120
+# L293D (did 112326) with enable1 at 10f, angle 0: pins span columns
+# 10-17 on rows f (enable1..vs) and i (vss..enable2).
+L293D_START_COLUMN = 10
+L293D_END_COLUMN = 17
+# 9V batteries are free like motors, below them so they do not stack.
+FREE_BATTERY_X = 560
+FREE_BATTERY_Y = 300
+FREE_BATTERY_STEP_X = 120
 
 
 class LayoutError(Exception):
@@ -205,6 +213,16 @@ def plan_layout(fixture: dict) -> dict:
             units.append((order[ref], None, ref))
     units.sort(key=lambda unit: unit[0])
 
+    occupied_columns = set()
+
+    def skip_occupied(start, footprint_width):
+        while any(
+            col in occupied_columns
+            for col in range(start, start + footprint_width)
+        ):
+            start += 1
+        return start
+
     next_column = 1
     for _, led_ref, resistor_ref in units:
         if next_column > LAST_BLOCK_START:
@@ -215,6 +233,7 @@ def plan_layout(fixture: dict) -> dict:
             continue
         column = next_column
         next_column += BLOCK_WIDTH
+        occupied_columns.update(range(column, column + BLOCK_WIDTH))
         if resistor_ref:
             placements[resistor_ref] = {"at": f"{column}g", "pin": "1", "angle": 90}
         if led_ref:
@@ -225,6 +244,7 @@ def plan_layout(fixture: dict) -> dict:
     # 1, 3-pin: 4, ultrasonic: 5, diode: 6), so no two blocks share a start
     # column or overlap in range. DC motors are free and consume no columns.
     motor_count = 0
+    battery_count = 0
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "arduino-uno" or ref in placements:
@@ -232,6 +252,7 @@ def plan_layout(fixture: dict) -> dict:
         if ctype == RGB_TYPE:
             if ref in unsupported_rgb:
                 continue
+            next_column = skip_occupied(next_column, RGB_WIDTH)
             base = next_column + 4
             if base - 4 < 1 or base + 3 > MAX_COLUMN:
                 unplaced.append(ref)
@@ -249,14 +270,29 @@ def plan_layout(fixture: dict) -> dict:
                 }
             # Registers B..B+3 (and the resistor columns before them):
             # the next block starts after the last RGB pin.
+            occupied_columns.update(range(base - 4, base + 4))
             next_column = base + 4
+        elif ctype == "l293d":
+            l293d_columns = set(range(L293D_START_COLUMN, L293D_END_COLUMN + 1))
+            if l293d_columns & occupied_columns:
+                unplaced.append(ref)
+            else:
+                placements[ref] = {
+                    "at": f"{L293D_START_COLUMN}f",
+                    "pin": "enable1",
+                    "angle": 0,
+                }
+                occupied_columns.update(l293d_columns)
         elif ctype == "pushbutton":
+            next_column = skip_occupied(next_column, 1)
             if next_column > MAX_COLUMN:
                 unplaced.append(ref)
             else:
                 placements[ref] = {"at": f"{next_column}f", "pin": "1", "angle": 0}
+                occupied_columns.add(next_column)
                 next_column += 1
         elif ctype in THREE_PIN_FIRST_PIN:
+            next_column = skip_occupied(next_column, THREE_PIN_PINS)
             if next_column + THREE_PIN_PINS - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:
@@ -265,8 +301,12 @@ def plan_layout(fixture: dict) -> dict:
                     "pin": THREE_PIN_FIRST_PIN[ctype],
                     "angle": 0,
                 }
+                occupied_columns.update(
+                    range(next_column, next_column + THREE_PIN_PINS)
+                )
                 next_column += THREE_PIN_WIDTH
         elif ctype == "ultrasonic-hcsr04":
+            next_column = skip_occupied(next_column, ULTRASONIC_PINS)
             if next_column + ULTRASONIC_PINS - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:
@@ -275,8 +315,12 @@ def plan_layout(fixture: dict) -> dict:
                     "pin": "vcc",
                     "angle": 0,
                 }
+                occupied_columns.update(
+                    range(next_column, next_column + ULTRASONIC_PINS)
+                )
                 next_column += ULTRASONIC_WIDTH
         elif ctype == "diode":
+            next_column = skip_occupied(next_column, 5)
             if next_column + 4 > MAX_COLUMN:
                 unplaced.append(ref)
             else:
@@ -285,6 +329,7 @@ def plan_layout(fixture: dict) -> dict:
                     "pin": "anode",
                     "angle": 90,
                 }
+                occupied_columns.update(range(next_column, next_column + 5))
                 next_column += DIODE_WIDTH
         elif ctype == "dc-motor":
             placements[ref] = {
@@ -294,6 +339,14 @@ def plan_layout(fixture: dict) -> dict:
                 }
             }
             motor_count += 1
+        elif ctype == "battery-9v":
+            placements[ref] = {
+                "free": {
+                    "x": FREE_BATTERY_X + battery_count * FREE_BATTERY_STEP_X,
+                    "y": FREE_BATTERY_Y,
+                }
+            }
+            battery_count += 1
         elif ctype not in ("led", "resistor"):
             unplaced.append(ref)
 

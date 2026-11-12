@@ -437,6 +437,60 @@ def test_diode_transistor_motor_do_not_overlap_led_or_rgb_blocks():
     assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
 
 
+def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
+    from tinkercad_brain.fase0.fixtures import load_fixtures
+
+    circuits = load_fixtures(REAL_FIXTURES)
+    assert len(circuits) == 11
+    fixture = next(c for c in circuits if c["id"] == "motor-l293d-bateria")
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    assert result["placements"]["pot1"] == {"at": "1c", "pin": "1", "angle": 0}
+    assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
+    assert result["placements"]["bat1"] == {"free": {"x": 560, "y": 300}}
+    assert result["placements"]["motor1"] != result["placements"]["bat1"]
+    assert result["unplaced"] == []
+    pot_columns = set(range(1, 4))
+    assert pot_columns.isdisjoint(range(10, 18))
+
+
+def test_l293d_goes_to_unplaced_when_columns_10_to_17_are_occupied():
+    # Two LED blocks occupy columns 1-6 and 7-12, overlapping 10-17.
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "led2", "type": "led"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "drv1", "type": "l293d"},
+        ],
+        "nets": [["r1.2", "led1.anode"], ["r2.2", "led2.anode"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert "drv1" not in result["placements"]
+    assert result["unplaced"] == ["drv1"]
+
+
+def test_blocks_after_l293d_do_not_overlap_its_columns():
+    components = [{"ref": "uno", "type": "arduino-uno"}, {"ref": "drv1", "type": "l293d"}]
+    for i in range(1, 6):
+        components.append({"ref": f"pot{i}", "type": "potentiometer"})
+    fixture = {"components": components, "nets": []}
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    for i in range(1, 6):
+        placement = result["placements"][f"pot{i}"]
+        start = int(placement["at"][:-1])
+        assert set(range(start, start + 3)).isdisjoint(range(10, 18))
+
+
 def test_output_is_deterministic_and_anchors_are_unique():
     fixture = _fixture("semaforo-3-leds")
 
