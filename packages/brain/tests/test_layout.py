@@ -288,6 +288,86 @@ def test_led_resistor_association_via_resistor_pin_1():
     assert result["placements"]["led1"] == {"at": "5i", "pin": "anode", "angle": 180}
 
 
+def test_led_rgb_real_fixture_places_rgb_and_resistors_by_color_net():
+    # Nets map by color, not by name: r1->red (D9), r2->green (D10),
+    # r3->blue (D11). First block: B=5.
+    result = plan_layout(_fixture("led-rgb"))
+
+    assert result == {
+        "placements": {
+            "rgb1": {"at": "5i", "pin": "red", "angle": 0},
+            "r1": {"at": "1g", "pin": "1", "angle": 90},
+            "r2": {"at": "4h", "pin": "1", "angle": 90},
+            "r3": {"at": "3j", "pin": "1", "angle": 90},
+        },
+        "unplaced": [],
+    }
+
+
+def test_led_rgb_after_led_block_is_displaced_without_overlap():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r0", "type": "resistor"},
+            {"ref": "rgb1", "type": "led-rgb-common-cathode"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r3", "type": "resistor"},
+        ],
+        "nets": [
+            ["r0.2", "led1.anode"],
+            ["r1.2", "rgb1.red"],
+            ["r2.2", "rgb1.green"],
+            ["r3.2", "rgb1.blue"],
+        ],
+    }
+
+    result = plan_layout(fixture)
+
+    # LED block occupies the first cursor block (next free column 7), so
+    # B = 7 + 4 = 11 and the RGB range 11..14 does not overlap it.
+    assert result["placements"] == {
+        "r0": {"at": "1g", "pin": "1", "angle": 90},
+        "led1": {"at": "5i", "pin": "anode", "angle": 180},
+        "rgb1": {"at": "11i", "pin": "red", "angle": 0},
+        "r1": {"at": "7g", "pin": "1", "angle": 90},
+        "r2": {"at": "10h", "pin": "1", "angle": 90},
+        "r3": {"at": "9j", "pin": "1", "angle": 90},
+    }
+    assert result["unplaced"] == []
+    rgb_columns = set(range(11, 15))
+    assert rgb_columns.isdisjoint(range(1, 7))
+
+
+def test_led_rgb_without_a_resistor_goes_all_to_unplaced():
+    fixture = _fixture("led-rgb")
+    fixture["components"] = [
+        c for c in fixture["components"] if c["ref"] != "r3"
+    ]
+    fixture["nets"] = [
+        net for net in fixture["nets"] if not any(e.startswith("r3.") for e in net)
+    ]
+
+    result = plan_layout(fixture)
+
+    assert result == {"placements": {}, "unplaced": ["rgb1", "r1", "r2"]}
+
+
+def test_led_rgb_without_a_color_net_goes_all_to_unplaced():
+    fixture = _fixture("led-rgb")
+    fixture["nets"] = [
+        net for net in fixture["nets"] if net != ["r3.2", "rgb1.blue"]
+    ]
+
+    result = plan_layout(fixture)
+
+    assert result == {
+        "placements": {},
+        "unplaced": ["rgb1", "r1", "r2", "r3"],
+    }
+
+
 def test_output_is_deterministic_and_anchors_are_unique():
     fixture = _fixture("semaforo-3-leds")
 
