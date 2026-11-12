@@ -94,22 +94,23 @@ def traffic_sketch(
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}
-    led_by_resistor: dict[str, str] = {}
+    leds_by_resistor: dict[str, set[str]] = {}
 
     for net in fixture.get("nets") or []:
         endpoints = [e for e in net if isinstance(e, str)]
         for a, b in zip(endpoints, endpoints[1:]):
-            _scan_pair(a, b, pin_by_resistor, led_by_resistor)
-            _scan_pair(b, a, pin_by_resistor, led_by_resistor)
+            _scan_pair(a, b, pin_by_resistor, leds_by_resistor)
+            _scan_pair(b, a, pin_by_resistor, leds_by_resistor)
 
     return {
         led: pin_by_resistor[resistor]
-        for resistor, led in led_by_resistor.items()
+        for resistor, leds in leds_by_resistor.items()
         if resistor in pin_by_resistor
+        for led in leds
     }
 
 
-def _scan_pair(a: str, b: str, pin_by_resistor: dict, led_by_resistor: dict) -> None:
+def _scan_pair(a: str, b: str, pin_by_resistor: dict, leds_by_resistor: dict) -> None:
     ref_a, _, pin_a = a.rpartition(".")
     ref_b, _, pin_b = b.rpartition(".")
     if not ref_a or not ref_b:
@@ -118,4 +119,4 @@ def _scan_pair(a: str, b: str, pin_by_resistor: dict, led_by_resistor: dict) -> 
     if match and pin_b == "1":
         pin_by_resistor[ref_b] = int(match.group(1))
     elif pin_a == "2" and pin_b == "anode":
-        led_by_resistor[ref_a] = ref_b
+        leds_by_resistor.setdefault(ref_a, set()).add(ref_b)
