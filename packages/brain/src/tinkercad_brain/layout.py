@@ -45,8 +45,9 @@ DIODE_WIDTH = 6
 FREE_MOTOR_X = 560
 FREE_MOTOR_Y = 60
 FREE_MOTOR_STEP_X = 120
-# L293D (did 112326) with enable1 at 10f, angle 0: pins span columns
-# 10-17 on rows f (enable1..vs) and i (vss..enable2).
+# L293D (did 112326) with enable1 at 17f, angle 180: pins span columns
+# 10-17 on rows f (enable1..vs, 17 down to 10) and e (vss..enable2,
+# 10 up to 17), crossing the centre gap.
 L293D_START_COLUMN = 10
 L293D_END_COLUMN = 17
 # 9V batteries are free like motors, below them so they do not stack.
@@ -278,9 +279,9 @@ def plan_layout(fixture: dict) -> dict:
                 unplaced.append(ref)
             else:
                 placements[ref] = {
-                    "at": f"{L293D_START_COLUMN}f",
+                    "at": f"{L293D_END_COLUMN}f",
                     "pin": "enable1",
-                    "angle": 0,
+                    "angle": 180,
                 }
                 occupied_columns.update(l293d_columns)
         elif ctype == "pushbutton":
