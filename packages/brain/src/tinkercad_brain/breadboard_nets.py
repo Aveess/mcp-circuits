@@ -120,8 +120,6 @@ def derive_nets(inspect_data: dict) -> list[list[str]]:
             if is_bb:
                 breadboard_instances.add(instance_id)
 
-    fallback_refs = {}
-
     def _resolve(endpoint):
         """Devuelve (nodo, es_real) o None si el endpoint no es usable."""
         if not isinstance(endpoint, dict):
@@ -135,28 +133,16 @@ def derive_nets(inspect_data: dict) -> list[list[str]]:
         component = endpoint.get("component")
 
         record = None
-        if instance_id and instance_id in by_instance:
-            record = by_instance[instance_id]
-        elif component and component in by_instance:
-            record = by_instance[component]
+        if instance_id:
+            record = by_instance.get(instance_id)
+        elif component:
+            record = by_instance.get(component)
 
-        if record is not None:
-            ref, canonical, is_bb = record
-            bb_key = instance_id or component
-        else:
-            canonical = _canonical_type(component)
-            is_bb = _is_breadboard(canonical, component)
-            if canonical is None:
-                return None
-            if is_bb:
-                ref = None
-                bb_key = instance_id or component
-            else:
-                key = instance_id or (component, endpoint.get("name"))
-                if key not in fallback_refs:
-                    fallback_refs[key] = _assign_ref(canonical)
-                ref = fallback_refs[key]
-                bb_key = None
+        if record is None:
+            return None
+
+        ref, canonical, is_bb = record
+        bb_key = instance_id or component
 
         if is_bb:
             lowered = pin.casefold()
