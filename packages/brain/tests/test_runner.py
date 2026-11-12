@@ -68,12 +68,20 @@ def _fake_call_tool(
     serial_output="blink: 1\n",
     inspect_sequence=None,
     fail_preset=False,
+    list_output=None,
+    fail_list=False,
 ):
     calls = []
     state = {"inspect": 0}
 
     def call_tool(tool, arguments):
         calls.append((tool, arguments))
+        if tool == "tinkercad_list_circuits":
+            if fail_list:
+                raise RuntimeError("list exploto")
+            if list_output is not None:
+                return list_output
+            return json.dumps({"circuits": []})
         if tool == "tinkercad_create_circuit":
             if create_output is not None:
                 return create_output
@@ -106,6 +114,7 @@ def test_happy_path_ok_true_full_order_and_serial():
 
     tools = [tool for tool, _ in call_tool.calls]
     assert tools == [
+        "tinkercad_list_circuits",
         "tinkercad_create_circuit",
         "tinkercad_build_circuit_model",
         "tinkercad_set_code",
@@ -115,11 +124,15 @@ def test_happy_path_ok_true_full_order_and_serial():
         "tinkercad_read_serial_monitor",
         "tinkercad_stop_simulation",
     ]
-    assert call_tool.calls[0][1] == {"title": "Blink runner"}
-    assert call_tool.calls[1][1] == fixture_to_model_call(fixture)
-    assert call_tool.calls[2][1] == {"code": CODE}
-    assert call_tool.calls[3][1] == {"circuit_id_or_url": CIRCUIT_ID}
-    assert call_tool.calls[5][1] == {"wait_seconds": 5}
+    assert call_tool.calls[1][1] == {"title": "Blink runner"}
+    assert call_tool.calls[2][1] == {
+        **fixture_to_model_call(fixture),
+        "clear_existing": False,
+    }
+    assert call_tool.calls[3][1] == {"code": CODE}
+    assert call_tool.calls[4][1] == {"circuit_id_or_url": CIRCUIT_ID}
+    assert call_tool.calls[6][1] == {"wait_seconds": 5}
+    assert result["reused"] is False
 
     assert result["circuit_id"] == CIRCUIT_ID
     assert result["url"] == f"https://www.tinkercad.com/things/{CIRCUIT_ID}/editel"
@@ -139,6 +152,7 @@ def test_no_code_skips_set_code():
 
     assert result["ok"] is True
     assert [tool for tool, _ in call_tool.calls] == [
+        "tinkercad_list_circuits",
         "tinkercad_create_circuit",
         "tinkercad_build_circuit_model",
         "tinkercad_open_circuit",
@@ -182,9 +196,13 @@ def test_create_without_id_cuts_without_calling_rest():
     assert result["ok"] is False
     assert result["circuit_id"] == ""
     assert result["serial"] == ""
-    assert [tool for tool, _ in call_tool.calls] == ["tinkercad_create_circuit"]
-    assert len(result["records"]) == 1
-    assert result["records"][0].tool == "tinkercad_create_circuit"
+    assert result["reused"] is False
+    assert [tool for tool, _ in call_tool.calls] == [
+        "tinkercad_list_circuits",
+        "tinkercad_create_circuit",
+    ]
+    assert len(result["records"]) == 2
+    assert result["records"][1].tool == "tinkercad_create_circuit"
 
 
 def test_happy_path_no_repair_when_score_already_perfect():
@@ -291,5 +309,104 @@ def test_create_non_json_output_cuts_without_raising():
     result = run_build(fixture, CODE, call_tool, "Sin json")
 
     assert result["ok"] is False
-    assert [tool for tool, _ in call_tool.calls] == ["tinkercad_create_circuit"]
-    assert len(result["records"]) == 1
+    assert [tool for tool, _ in call_tool.calls] == [
+        "tinkercad_list_circuits",
+        "tinkercad_create_circuit",
+    ]
+    assert len(result["records"]) == 2
+
+
+def test_reuse_match_does_not_create_opens_existing_and_clears():
+    fixture = _fixture()
+    list_output = json.dumps(
+        {
+            "circuits": [
+                {"title": "otro circuito", "id": "zzz999"},
+                # slug en vivo: id prefijado + titulo con guiones
+                {"title": "existing42-blink-runner", "id": "existing42"},
+            ]
+        }
+    )
+    call_tool = _fake_call_tool(list_output=list_output)
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert "tinkercad_create_circuit" not in tools
+    assert result["reused"] is True
+    assert result["circuit_id"] == "existing42"
+    assert result["url"] == "https://www.tinkercad.com/things/existing42/editel"
+    assert result["ok"] is True
+    open_calls = [c for c in call_tool.calls if c[0] == "tinkercad_open_circuit"]
+    assert open_calls[0][1] == {"circuit_id_or_url": "existing42"}
+    assert tools.index("tinkercad_open_circuit") < tools.index(
+        "tinkercad_build_circuit_model"
+    )
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert builds[0][1] == {
+        **fixture_to_model_call(fixture),
+        "clear_existing": True,
+    }
+
+
+def test_reuse_without_match_creates():
+    fixture = _fixture()
+    list_output = json.dumps(
+        {"circuits": [{"title": "otro circuito", "id": "zzz999"}]}
+    )
+    call_tool = _fake_call_tool(list_output=list_output)
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert "tinkercad_create_circuit" in tools
+    assert result["reused"] is False
+    assert result["circuit_id"] == CIRCUIT_ID
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert builds[0][1]["clear_existing"] is False
+
+
+def test_reuse_false_creates_even_with_match():
+    fixture = _fixture()
+    list_output = json.dumps(
+        {"circuits": [{"title": "Blink runner", "id": "existing42"}]}
+    )
+    call_tool = _fake_call_tool(list_output=list_output)
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner", reuse=False)
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert "tinkercad_list_circuits" not in tools
+    assert "tinkercad_create_circuit" in tools
+    assert result["reused"] is False
+    assert result["circuit_id"] == CIRCUIT_ID
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert builds[0][1]["clear_existing"] is False
+
+
+def test_list_failure_falls_back_to_create():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(fail_list=True)
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert tools[0] == "tinkercad_list_circuits"
+    assert "tinkercad_create_circuit" in tools
+    assert result["reused"] is False
+    assert result["circuit_id"] == CIRCUIT_ID
+    assert result["ok"] is True
+    assert result["records"][0].tool == "tinkercad_list_circuits"
+    assert result["records"][0].ok is False
+
+
+def test_list_non_json_falls_back_to_create():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(list_output="no-json")
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert "tinkercad_create_circuit" in tools
+    assert result["reused"] is False
+    assert result["circuit_id"] == CIRCUIT_ID

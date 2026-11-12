@@ -72,6 +72,58 @@ def _success_false(output) -> bool:
     return _is_false(_parse_json_dict(output).get("success"))
 
 
+def _circuit_id_from_entry(entry: dict) -> str:
+    for key in ("circuit_id", "circuitId", "id"):
+        value = entry.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, int):
+            return str(value)
+    url = entry.get("url")
+    if isinstance(url, str):
+        match = _THINGS_RE.search(url)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _normalize_title(value) -> str:
+    if not isinstance(value, str):
+        return ""
+    return re.sub(r"[\s\-_]+", "", value.casefold())
+
+
+def _find_reusable_circuit(output, title: str) -> str:
+    searched = _normalize_title(title)
+    if not searched:
+        return ""
+    try:
+        parsed = json.loads(output)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return ""
+    candidates = None
+    if isinstance(parsed, list):
+        candidates = parsed
+    elif isinstance(parsed, dict):
+        for key in ("circuits", "items", "data", "results"):
+            if isinstance(parsed.get(key), list):
+                candidates = parsed[key]
+                break
+    if not candidates:
+        return ""
+    for entry in candidates:
+        if not isinstance(entry, dict):
+            continue
+        returned = _normalize_title(entry.get("title") or entry.get("name"))
+        if not returned:
+            continue
+        if searched == returned or searched in returned:
+            circuit_id = _circuit_id_from_entry(entry)
+            if circuit_id:
+                return circuit_id
+    return ""
+
+
 def run_build(
     fixture: dict,
     code: str | None,
@@ -79,13 +131,20 @@ def run_build(
     title: str,
     presets=None,
     repair: bool = True,
+    reuse: bool = True,
 ) -> dict:
     """Ejecuta un build completo y devuelve el resumen del intento.
 
     Devuelve {"circuit_id", "url", "fidelity", "serial", "records", "ok",
-    "repair_attempted", "fidelity_before_repair"}.
+    "repair_attempted", "fidelity_before_repair", "reused"}.
     Si `create` no devuelve un circuit_id parseable, se corta ahi:
     ok=False, sin lanzar y sin llamar al resto de tools.
+
+    Con `reuse=True` (defecto), antes de crear se lista la cuenta y, si un
+    circuito coincide con `title`, se reutiliza: se abre ese circuito y el
+    build lleva ``clear_existing: True`` (reemplazo limpio). Si la lista
+    falla o no parsea, se cae a crear como siempre, sin lanzar. Con
+    `reuse=False` siempre se crea un circuito nuevo.
 
     `presets`: lista opcional de {"component", "property", "value"} que se
     aplica tras el build y antes de recargar; un preset que falla queda en
@@ -100,21 +159,34 @@ def run_build(
         records.extend(step_records)
         return step_records[0]
 
-    create_record = _run("tinkercad_create_circuit", {"title": title})
-    circuit_id = _parse_circuit_id(create_record.output) if create_record.ok else ""
-    if not circuit_id:
-        return {
-            "circuit_id": "",
-            "url": "",
-            "fidelity": {"score": 0.0},
-            "serial": "",
-            "records": records,
-            "ok": False,
-            "repair_attempted": False,
-            "fidelity_before_repair": None,
-        }
+    circuit_id = ""
+    reused = False
+    if reuse:
+        list_record = _run("tinkercad_list_circuits", {})
+        if list_record.ok:
+            circuit_id = _find_reusable_circuit(list_record.output, title)
+        reused = bool(circuit_id)
+
+    if reused:
+        _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
+    else:
+        create_record = _run("tinkercad_create_circuit", {"title": title})
+        circuit_id = _parse_circuit_id(create_record.output) if create_record.ok else ""
+        if not circuit_id:
+            return {
+                "circuit_id": "",
+                "url": "",
+                "fidelity": {"score": 0.0},
+                "serial": "",
+                "records": records,
+                "ok": False,
+                "repair_attempted": False,
+                "fidelity_before_repair": None,
+                "reused": False,
+            }
 
     model_call = fixture_to_model_call(fixture)
+    model_call["clear_existing"] = reused
     build_record = _run("tinkercad_build_circuit_model", model_call)
     build_ok = _build_persisted(build_record.output)
     build_success_false = _success_false(build_record.output)
@@ -187,4 +259,5 @@ def run_build(
         "ok": ok,
         "repair_attempted": repair_attempted,
         "fidelity_before_repair": fidelity_before_repair,
+        "reused": reused,
     }
