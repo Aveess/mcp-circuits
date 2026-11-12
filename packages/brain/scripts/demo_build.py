@@ -28,6 +28,24 @@ DEFAULT_FIXTURES_PATH = REPO_ROOT / "fixtures" / "fase0" / "circuits.json"
 DEFAULT_BRIDGE_PATH = Path("~/Documentos/StartUp/TInkercad/tinkercad-mcp").expanduser()
 REPORTS_DIR = REPO_ROOT / "docs" / "reportes"
 
+# fixture_id -> presets a aplicar tras el build (valor calibrado en vivo)
+_PRESETS_BY_FIXTURE = {
+    "sensor-ultrasonico": [
+        {
+            "component": "Ultrasonic Distance Sensor (4-pin)",
+            "property": "Target Y",
+            "value": -105,
+        }
+    ],
+}
+
+
+def select_presets(fixture: dict):
+    """Presets de la fixture, o None si no tiene ninguno."""
+    presets = _PRESETS_BY_FIXTURE.get(fixture.get("id"))
+    return [dict(p) for p in presets] if presets else None
+
+
 # fixture_id -> nombre de la funcion en tinkercad_brain.sketches
 _SKETCH_BY_FIXTURE = {
     "blink-basico": "blink_sketch",
@@ -154,7 +172,9 @@ def run_via_bridge(fixture: dict, code: str | None, title: str, bridge_path=DEFA
         return text
 
     try:
-        return run_build(fixture, code, call_tool, title)
+        return run_build(
+            fixture, code, call_tool, title, presets=select_presets(fixture)
+        )
     finally:
 
         async def _close():

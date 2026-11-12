@@ -68,12 +68,26 @@ def _build_persisted(output) -> bool:
     return not (_is_false(data.get("success")) or _is_false(data.get("persisted")))
 
 
-def run_build(fixture: dict, code: str | None, call_tool, title: str) -> dict:
+def run_build(
+    fixture: dict,
+    code: str | None,
+    call_tool,
+    title: str,
+    presets=None,
+    repair: bool = True,
+) -> dict:
     """Ejecuta un build completo y devuelve el resumen del intento.
 
-    Devuelve {"circuit_id", "url", "fidelity", "serial", "records", "ok"}.
+    Devuelve {"circuit_id", "url", "fidelity", "serial", "records", "ok",
+    "repair_attempted", "fidelity_before_repair"}.
     Si `create` no devuelve un circuit_id parseable, se corta ahi:
     ok=False, sin lanzar y sin llamar al resto de tools.
+
+    `presets`: lista opcional de {"component", "property", "value"} que se
+    aplica tras el build y antes de recargar; un preset que falla queda en
+    `records` y no aborta. Con `repair=True`, si la primera fidelidad es
+    < 0.99, no hay cortos y el build no reporto success False, se
+    re-cablea una vez (solo wires) y se re-mide.
     """
     records = []
 
@@ -92,25 +106,56 @@ def run_build(fixture: dict, code: str | None, call_tool, title: str) -> dict:
             "serial": "",
             "records": records,
             "ok": False,
+            "repair_attempted": False,
+            "fidelity_before_repair": None,
         }
 
     model_call = fixture_to_model_call(fixture)
     build_record = _run("tinkercad_build_circuit_model", model_call)
     build_ok = _build_persisted(build_record.output)
+    build_success_false = _is_false(_parse_json_dict(build_record.output).get("success"))
+
+    for preset in presets or []:
+        _run(
+            "tinkercad_set_component_property_model",
+            {
+                "component_name": preset.get("component"),
+                "property_name": preset.get("property"),
+                "value": preset.get("value"),
+            },
+        )
 
     if code is not None:
         _run("tinkercad_set_code", {"code": code})
 
-    _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
+    def _measure():
+        _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
+        inspect_record = _run("tinkercad_inspect_circuit", {})
+        inspect_data = _parse_json_dict(inspect_record.output)
+        normalized = normalize_circuit(inspect_data, {"nets": []})
+        actual = {
+            "components": normalized.get("components", []),
+            "nets": derive_nets(inspect_data),
+        }
+        return compare_connectivity(fixture, actual)
 
-    inspect_record = _run("tinkercad_inspect_circuit", {})
-    inspect_data = _parse_json_dict(inspect_record.output)
-    normalized = normalize_circuit(inspect_data, {"nets": []})
-    actual = {
-        "components": normalized.get("components", []),
-        "nets": derive_nets(inspect_data),
-    }
-    fidelity = compare_connectivity(fixture, actual)
+    fidelity = _measure()
+
+    repair_attempted = False
+    fidelity_before_repair = None
+    if (
+        repair
+        and fidelity.get("score", 0.0) < 0.99
+        and not fidelity.get("shorts")
+        and not build_success_false
+    ):
+        repair_attempted = True
+        fidelity_before_repair = fidelity
+        _run(
+            "tinkercad_build_circuit_model",
+            {"parts": [], "wires": model_call.get("wires", [])},
+        )
+        fidelity = _measure()
 
     _run("tinkercad_start_simulation", {"wait_seconds": 5})
     serial_record = _run("tinkercad_read_serial_monitor", {})
@@ -125,4 +170,6 @@ def run_build(fixture: dict, code: str | None, call_tool, title: str) -> dict:
         "serial": serial,
         "records": records,
         "ok": ok,
+        "repair_attempted": repair_attempted,
+        "fidelity_before_repair": fidelity_before_repair,
     }
