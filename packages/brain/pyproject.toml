@@ -7,7 +7,7 @@ name = "tinkercad-brain"
 version = "0.1.0"
 description = "Cerebro local para construir y verificar circuitos en Tinkercad (destino unico: diseno guardado en Tinkercad)"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["mcp>=2.3.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
