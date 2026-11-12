@@ -231,6 +231,7 @@ def test_r2_fixture_type_solo_espacios_devuelve_none():
 
 
 def test_r2_type_map_no_tiene_slugs_duplicados():
-    values = list(TYPE_MAP.values())
-    assert len(values) == len(set(values))
-    assert len(known_slugs()) == len(values)
+    # Ruling: un slug puede tener varios nombres visibles (alias reales de
+    # Tinkercad, ej. "TMP36" y "Temperature Sensor [TMP36]"); lo que no puede
+    # pasar es que known_slugs() los duplique.
+    assert len(known_slugs()) == len(set(known_slugs()))
