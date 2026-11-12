@@ -2,6 +2,19 @@ import statistics
 
 _ERROR_MARKERS = ("error", "failed to compile", "compilation", "no compila")
 
+_GND_PINS = {"GND", "GND1", "GND2", "GND3"}
+_OPAQUE_PREFIX = "__unpaired__:"
+
+
+def _median(values):
+    ordered = sorted(values)
+    n = len(ordered)
+    mid = n // 2
+    if n % 2:
+        return ordered[mid]
+    a, b = ordered[mid - 1], ordered[mid]
+    return a + (b - a) / 2
+
 
 def compare_circuits(expected, actual) -> dict:
     expected_components = expected.get("components", [])
@@ -102,22 +115,43 @@ def compare_connectivity(expected: dict, actual: dict) -> dict:
     denom = max(len(expected_components), len(actual_unique))
     components_score = correct / denom if denom else 1.0
 
+    uno_refs = {"uno"}
+    for comp in expected_components:
+        if comp.get("type") == "arduino-uno" or comp.get("ref") == "uno":
+            uno_refs.add(comp.get("ref"))
+    if "uno" in mapping.values():
+        uno_refs.add("uno")
+    actual_type_by_ref = {c.get("ref"): c.get("type") for c in actual_components}
+
+    def _canonical(endpoint):
+        ref, dot, pin = str(endpoint).partition(".")
+        if dot and ref in uno_refs and pin in _GND_PINS:
+            return f"{ref}.GND1"
+        return endpoint
+
     def _translate(endpoint):
         ref, dot, pin = str(endpoint).partition(".")
         if ref not in mapping:
-            return None
-        return f"{mapping[ref]}.{pin}" if dot else mapping[ref]
+            opaque = str(endpoint)
+            if dot and pin in _GND_PINS and (
+                ref == "uno" or actual_type_by_ref.get(ref) == "arduino-uno"
+            ):
+                opaque = f"{ref}.GND1"
+            return f"{_OPAQUE_PREFIX}{opaque}"
+        translated = f"{mapping[ref]}.{pin}" if dot else mapping[ref]
+        return _canonical(translated)
 
     translated_nets = []
     for net in actual.get("nets", []) or []:
-        translated = [t for ep in net if (t := _translate(ep)) is not None]
+        translated = [_translate(ep) for ep in net]
         if translated:
             translated_nets.append(translated)
 
     actual_groups, actual_group_of = _merged_groups(translated_nets)
-    _, expected_group_of = _merged_groups(expected.get("nets", []) or [])
-
-    expected_nets = expected.get("nets", []) or []
+    expected_nets = [
+        [_canonical(ep) for ep in net] for net in (expected.get("nets", []) or [])
+    ]
+    _, expected_group_of = _merged_groups(expected_nets)
     if expected_nets:
         connected = 0
         for net in expected_nets:
@@ -169,7 +203,7 @@ def latency_summary(samples: dict[str, list[float]]) -> dict:
         else:
             summary[tool] = {
                 "n": len(values),
-                "median": statistics.median(values),
+                "median": _median(values),
                 "worst": max(values),
                 "mean": statistics.mean(values),
             }
