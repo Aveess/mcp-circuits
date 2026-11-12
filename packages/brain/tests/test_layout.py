@@ -368,6 +368,75 @@ def test_led_rgb_without_a_color_net_goes_all_to_unplaced():
     }
 
 
+def test_motor_dc_transistor_real_fixture_places_all_parts():
+    result = plan_layout(_fixture("motor-dc-transistor"))
+
+    assert result["placements"]["q1"] == {"at": "7c", "pin": "collector", "angle": 0}
+    assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
+    diode = result["placements"]["d1"]
+    assert diode["pin"] == "anode" and diode["angle"] == 90
+    assert diode["at"].endswith("g")
+    anode_column = int(diode["at"][:-1])
+    cathode_column = anode_column - 4
+    assert cathode_column == 11
+    assert result["placements"]["r1"] == {"at": "1g", "pin": "1", "angle": 90}
+    assert result["unplaced"] == []
+
+
+def test_two_dc_motors_get_distinct_free_x():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "motor1", "type": "dc-motor"},
+            {"ref": "motor2", "type": "dc-motor"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
+    assert result["placements"]["motor2"] == {"free": {"x": 680, "y": 60}}
+    assert result["unplaced"] == []
+
+
+def test_diode_transistor_motor_do_not_overlap_led_or_rgb_blocks():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r0", "type": "resistor"},
+            {"ref": "rgb1", "type": "led-rgb-common-cathode"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r3", "type": "resistor"},
+            {"ref": "q1", "type": "transistor-npn"},
+            {"ref": "d1", "type": "diode"},
+            {"ref": "motor1", "type": "dc-motor"},
+        ],
+        "nets": [
+            ["r0.2", "led1.anode"],
+            ["r1.2", "rgb1.red"],
+            ["r2.2", "rgb1.green"],
+            ["r3.2", "rgb1.blue"],
+        ],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == []
+    led_block = set(range(1, 7))
+    rgb_column = int(result["placements"]["rgb1"]["at"][:-1])
+    rgb_range = set(range(rgb_column - 4, rgb_column + 4))
+    q_column = int(result["placements"]["q1"]["at"][:-1])
+    q_range = set(range(q_column, q_column + 3))
+    anode_column = int(result["placements"]["d1"]["at"][:-1])
+    diode_range = set(range(anode_column - 4, anode_column + 1))
+    assert diode_range.isdisjoint(led_block) and diode_range.isdisjoint(rgb_range)
+    assert q_range.isdisjoint(led_block) and q_range.isdisjoint(rgb_range)
+    assert result["placements"]["motor1"] == {"free": {"x": 560, "y": 60}}
+
+
 def test_output_is_deterministic_and_anchors_are_unique():
     fixture = _fixture("semaforo-3-leds")
 
