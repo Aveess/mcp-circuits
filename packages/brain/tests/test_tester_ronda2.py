@@ -28,6 +28,10 @@ def _normalized_type(ezhil_name):
     out = normalize_circuit(
         {"components": [{"type": ezhil_name, "instance_id": "x1"}]}, {"nets": []}
     )
+    if ezhil_name == "Breadboard Small":
+        # Ruling: el protoboard es infraestructura; ya no sale en components.
+        assert out["components"] == []
+        return "breadboard"
     return out["components"][0]["type"]
 
 
