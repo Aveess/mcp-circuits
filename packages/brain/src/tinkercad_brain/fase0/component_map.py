@@ -8,6 +8,7 @@ TYPE_MAP: dict[str, str] = {
     "Micro Servo": "servo",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Potentiometer": "potentiometer",
     "Ultrasonic Distance Sensor": "ultrasonic-hcsr04",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "Ultrasonic Distance Sensor (4 Pin)": "ultrasonic-hcsr04",  # Verificado: nombre real ezhil en circuito 0W49xkaR18y (inspect_circuit).
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",

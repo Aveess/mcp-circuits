@@ -14,6 +14,7 @@ EXPECTED = {
     "Micro Servo": "servo",
     "Potentiometer": "potentiometer",
     "Ultrasonic Distance Sensor": "ultrasonic-hcsr04",
+    "Ultrasonic Distance Sensor (4 Pin)": "ultrasonic-hcsr04",
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
@@ -52,6 +53,13 @@ def test_tmp36_real_ezhil_name_resolves_without_duplicate_slug():
     assert fixture_type("Temperature Sensor [TMP36]") == "tmp36"
     assert fixture_type("TMP36") == "tmp36"
     assert known_slugs().count("tmp36") == 1
+
+
+def test_hcsr04_real_ezhil_name_resolves_without_duplicate_slug():
+    assert fixture_type("Ultrasonic Distance Sensor (4 Pin)") == "ultrasonic-hcsr04"
+    assert fixture_type("  ultrasonic   distance   sensor (4 pin) ") == "ultrasonic-hcsr04"
+    assert fixture_type("Ultrasonic Distance Sensor") == "ultrasonic-hcsr04"
+    assert known_slugs().count("ultrasonic-hcsr04") == 1
 
 
 def test_known_slugs_are_unique_and_sorted():
