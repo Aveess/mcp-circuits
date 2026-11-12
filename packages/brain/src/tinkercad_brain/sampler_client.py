@@ -93,6 +93,19 @@ def simulate_and_verify(
             "results": [],
             "error": "tinkercad_simulate_samples output is not a JSON object",
         }
+    errors = parsed.get("errors")
+    if isinstance(errors, list) and errors:
+        try:
+            evaluated = evaluate_contract(contract, to_verifier_format(parsed, led_ref=led_ref))
+            results = evaluated.get("results", [])
+        except Exception:
+            results = []
+        return {
+            "passed": False,
+            "results": results,
+            "error": "; ".join(str(error) for error in errors),
+            "raw": parsed,
+        }
     result = evaluate_contract(contract, to_verifier_format(parsed, led_ref=led_ref))
     result["raw"] = parsed
     return result
