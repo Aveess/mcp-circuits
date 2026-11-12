@@ -20,7 +20,7 @@ TYPE_MAP: dict[str, str] = {
 
 
 def _normalize(name: str) -> str:
-    return " ".join(name.split()).casefold()
+    return " ".join(name.replace("-", " ").replace("_", " ").split()).casefold()
 
 
 _NORMALIZED_MAP: dict[str, str] = {_normalize(name): slug for name, slug in TYPE_MAP.items()}
