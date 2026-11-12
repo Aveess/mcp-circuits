@@ -314,6 +314,40 @@ def test_transistor_npn_bjt_live_pin_names():
     ]
 
 
+def test_dc_motor_numeric_pins_positive_negative_and_resistor_unchanged():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("DC Motor", "motor_a"),
+            _comp("Resistor", "r_a"),
+        ],
+        "wires": [
+            _wire(_ep("DC Motor", "1", "motor_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("DC Motor", "2", "motor_a"), _ep("Resistor", "Terminal 1", "r_a")),
+        ],
+    }
+    nets = derive_nets(data)
+    flat = {ep for net in nets for ep in net}
+    assert any(ep.endswith(".positive") for ep in flat)
+    assert any(ep.endswith(".negative") for ep in flat)
+    # El "1" (via Terminal 1) de la resistencia no se convierte.
+    assert "r1.1" in flat
+    assert not any(ep.startswith("r1.") and ep.endswith((".positive", ".negative")) for ep in flat)
+
+
+def test_dc_motor_terminal_pins_positive_negative():
+    data = {
+        "components": [_comp("Arduino Uno R3", "uno1"), _comp("DC Motor", "motor_a")],
+        "wires": [
+            _wire(_ep("DC Motor", "Terminal 1", "motor_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("DC Motor", "Terminal 2", "motor_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    assert any("uno.5V" in net and any(ep.endswith(".positive") for ep in net) for net in nets)
+    assert any("uno.GND1" in net and any(ep.endswith(".negative") for ep in net) for net in nets)
+
+
 def test_live24_artifact_transistor_nets():
     if not LIVE24.exists():
         pytest.skip("live24.json no disponible")
@@ -324,6 +358,13 @@ def test_live24_artifact_transistor_nets():
     assert not any(ep.endswith((".Collector", ".Base", ".Emitter")) for net in nets for ep in net)
     flat = {ep for net in nets for ep in net}
     assert {"transistornpn1.collector", "transistornpn1.base", "transistornpn1.emitter"} <= flat
+    # Motor DC: positive en la net de 5V, negative en la del colector.
+    assert any("uno.5V" in net and any(ep.endswith(".positive") for ep in net) for net in nets)
+    assert any(
+        "transistornpn1.collector" in net and any(ep.endswith(".negative") for ep in net)
+        for net in nets
+    )
+    assert not any(ep.endswith((".1", ".2")) and "motor" in ep for net in nets for ep in net)
 
 
 def test_live19_artifact_tmp36_nets():
