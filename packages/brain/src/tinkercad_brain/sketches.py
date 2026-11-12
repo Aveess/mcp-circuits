@@ -99,6 +99,48 @@ def traffic_sketch(
     return "\n".join(lines) + "\n"
 
 
+_DWELL_MIN, _DWELL_MAX = 50, 60000
+
+
+def _validate_dwell(value: int) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or not _DWELL_MIN <= value <= _DWELL_MAX:
+        raise ValueError(f"dwell_ms fuera de {_DWELL_MIN}..{_DWELL_MAX} ms: {value!r}")
+
+
+def rgb_cycle_sketch(red: int = 9, green: int = 10, blue: int = 11, dwell_ms: int = 900) -> str:
+    for pin in (red, green, blue):
+        _validate_pin(pin)
+    if len({red, green, blue}) != 3:
+        raise ValueError(f"pines repetidos en RGB: red={red}, green={green}, blue={blue}")
+    _validate_dwell(dwell_ms)
+
+    pins = (red, green, blue)
+    phases = (
+        ("RED", red),
+        ("GREEN", green),
+        ("BLUE", blue),
+    )
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({red}, OUTPUT);",
+        f"  pinMode({green}, OUTPUT);",
+        f"  pinMode({blue}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+    ]
+    for name, active in phases:
+        for pin in pins:
+            lines.append(f"  digitalWrite({pin}, {'HIGH' if pin == active else 'LOW'});")
+        lines.append(f'  Serial.println("TEST:COLOR={name}");')
+        lines.append(f"  delay({dwell_ms});")
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
 # Nota: Servo usa timer1 y analogWrite en 9/10 deja de funcionar al usarla
 # (dato real de la skill de netchuu).
 def servo_knob_sketch(servo_pin: int = 9, pot_pin: str = "A0") -> str:
