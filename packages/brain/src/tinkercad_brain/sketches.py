@@ -242,6 +242,28 @@ def tmp36_sketch(pin: int = 13, analog_pin: str = "A0", threshold: float = 25.0)
     return "\n".join(lines) + "\n"
 
 
+def motor_sketch(pin: int = 9) -> str:
+    _validate_pin(pin)
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({pin}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  digitalWrite({pin}, HIGH);",
+        '  Serial.println("TEST:MOTOR=ON");',
+        "  delay(2000);",
+        f"  digitalWrite({pin}, LOW);",
+        '  Serial.println("TEST:MOTOR=OFF");',
+        "  delay(1000);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}

@@ -18,6 +18,11 @@ EXPECTED = {
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
+    "Motor DC": "dc-motor",
+    "NPN Transistor": "transistor-npn",
+    "Transistor NPN": "transistor-npn",
+    "Transistor": "transistor-npn",
+    "Diode": "diode",
     "RGB LED": "led-rgb-common-cathode",
     "LED RGB": "led-rgb-common-cathode",
     "TMP36": "tmp36",
@@ -76,6 +81,18 @@ def test_fixture_type_hyphen_underscore_equivalent_to_space():
     assert fixture_type("Ultrasonic Distance Sensor (4 Pin)") == "ultrasonic-hcsr04"
     assert fixture_type("Ultrasonic Distance Sensor (4 pin)") == "ultrasonic-hcsr04"
     assert fixture_type("Ultrasonic Distance Sensor (4_pin)") == "ultrasonic-hcsr04"
+
+
+def test_transistor_diode_motor_resolve_without_duplicate_slugs():
+    assert fixture_type("NPN Transistor") == "transistor-npn"
+    assert fixture_type("  transistor   npn ") == "transistor-npn"
+    assert fixture_type("Transistor") == "transistor-npn"
+    assert fixture_type("Diode") == "diode"
+    assert fixture_type("DC Motor") == "dc-motor"
+    assert fixture_type("motor dc") == "dc-motor"
+    assert known_slugs().count("transistor-npn") == 1
+    assert known_slugs().count("diode") == 1
+    assert known_slugs().count("dc-motor") == 1
 
 
 def test_known_slugs_are_unique_and_sorted():

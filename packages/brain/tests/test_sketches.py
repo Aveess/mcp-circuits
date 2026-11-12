@@ -6,6 +6,7 @@ import pytest
 
 from tinkercad_brain.sketches import (
     blink_sketch,
+    motor_sketch,
     pin_of_fixture,
     rgb_cycle_sketch,
     servo_knob_sketch,
@@ -295,6 +296,33 @@ def test_tmp36_rejects_unusable_analog_pins(analog_pin):
 def test_tmp36_rejects_out_of_range_thresholds(threshold):
     with pytest.raises(ValueError):
         tmp36_sketch(threshold=threshold)
+
+
+# --- motor ---
+
+
+def test_motor_default_contains_key_content():
+    sketch = motor_sketch()
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert _digital_writes(sketch) == [(9, "HIGH"), (9, "LOW")]
+    assert 'Serial.println("TEST:MOTOR=ON")' in sketch
+    assert 'Serial.println("TEST:MOTOR=OFF")' in sketch
+    assert [int(d) for d in re.findall(r"delay\((\d+)\)", sketch)] == [2000, 1000]
+
+
+def test_motor_custom_pin():
+    sketch = motor_sketch(pin=5)
+    assert "pinMode(5, OUTPUT)" in sketch
+    assert _digital_writes(sketch) == [(5, "HIGH"), (5, "LOW")]
+    assert "pinMode(9" not in sketch
+
+
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_motor_rejects_unusable_pins(pin):
+    with pytest.raises(ValueError):
+        motor_sketch(pin=pin)
 
 
 # --- pin_of_fixture ---
