@@ -111,16 +111,18 @@ def _find_reusable_circuit(output, title: str) -> str:
                 break
     if not candidates:
         return ""
-    for entry in candidates:
-        if not isinstance(entry, dict):
-            continue
-        returned = _normalize_title(entry.get("title") or entry.get("name"))
-        if not returned:
-            continue
-        if searched == returned or searched in returned:
-            circuit_id = _circuit_id_from_entry(entry)
-            if circuit_id:
-                return circuit_id
+    for exact in (True, False):
+        for entry in candidates:
+            if not isinstance(entry, dict):
+                continue
+            returned = _normalize_title(entry.get("title") or entry.get("name"))
+            if not returned:
+                continue
+            matched = searched == returned if exact else searched in returned
+            if matched:
+                circuit_id = _circuit_id_from_entry(entry)
+                if circuit_id:
+                    return circuit_id
     return ""
 
 
@@ -168,8 +170,11 @@ def run_build(
         reused = bool(circuit_id)
 
     if reused:
-        _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
-    else:
+        open_record = _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
+        if not open_record.ok or _success_false(open_record.output):
+            reused = False
+            circuit_id = ""
+    if not reused:
         create_record = _run("tinkercad_create_circuit", {"title": title})
         circuit_id = _parse_circuit_id(create_record.output) if create_record.ok else ""
         if not circuit_id:
