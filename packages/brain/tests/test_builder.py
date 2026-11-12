@@ -450,6 +450,72 @@ def test_led_rgb_real_fixture_parts_and_wires(monkeypatch):
     assert all(w["color"] not in ("black", "red") for w in signal_wires)
 
 
+def test_motor_dc_transistor_real_fixture_parts_and_wires():
+    fixture = _fixture("motor-dc-transistor")
+    placements = plan_layout(fixture)["placements"]
+    # Contratos del layout ya mergeado.
+    assert placements["q1"]["pin"] == "collector"
+    assert placements["q1"]["at"].endswith("c")
+    assert placements["d1"]["pin"] == "anode"
+    assert placements["motor1"] == {"free": {"x": 560, "y": 60}}
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert set(parts_by_ref) == {"r1", "motor1", "q1", "d1"}
+    assert parts_by_ref["q1"] == {
+        "ref": "q1", "did": 58468, "at": placements["q1"]["at"],
+        "pin": "collector", "angle": placements["q1"]["angle"],
+    }
+    assert parts_by_ref["d1"] == {
+        "ref": "d1", "did": 58320, "at": placements["d1"]["at"],
+        "pin": "anode", "angle": placements["d1"]["angle"],
+    }
+    # Motor libre: sin at/pin/angle.
+    assert parts_by_ref["motor1"] == {
+        "ref": "motor1", "did": 114158, "free": {"x": 560, "y": 60},
+    }
+    assert parts_by_ref["r1"]["did"] == 53184
+
+    q1, d1, r1 = placements["q1"]["at"], placements["d1"]["at"], placements["r1"]["at"]
+    base, emitter = _shift(q1, 1), _shift(q1, 2)
+    cathode = _shift(d1, -4)  # catodo 4 columnas antes que el anodo
+    expected_pairs = {
+        ("uno.D9", r1),
+        (_shift(r1, 4), base),
+        (emitter, "uno.GND1"),
+        (q1, "motor1.2"),
+        ("motor1.2", d1),
+        ("motor1.1", "uno.5V"),
+        ("uno.5V", cathode),
+    }
+    assert len(result["wires"]) == 7
+    assert {(w["from"], w["to"]) for w in result["wires"]} == expected_pairs
+
+    # Conectividad de las nets de 3 extremos tras descomponer en pares.
+    graph = {}
+    for w in result["wires"]:
+        graph.setdefault(w["from"], set()).add(w["to"])
+        graph.setdefault(w["to"], set()).add(w["from"])
+
+    def connected(a, b):
+        seen, stack = set(), [a]
+        while stack:
+            node = stack.pop()
+            if node == b:
+                return True
+            if node not in seen:
+                seen.add(node)
+                stack.extend(graph.get(node, ()))
+        return False
+
+    assert connected(q1, "motor1.2") and connected("motor1.2", d1)
+    assert connected("motor1.1", "uno.5V") and connected("uno.5V", cathode)
+    # Colores por grupo: 5V rojo, GND negro.
+    assert next(w for w in result["wires"] if w["to"] == "uno.5V")["color"] == "red"
+    assert next(w for w in result["wires"] if w["to"] == "uno.GND1")["color"] == "black"
+
+
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
     # Supuesto documentado: solo se conoce la geometria del pin "1" del
     # boton (en `at`). El pin "2" de boton-pullup no se adivina: sin una
@@ -541,6 +607,6 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
         return "{}"
 
     with pytest.raises(BuildError):
-        build_circuit(_fixture("motor-dc-transistor"), None, fake_call_tool)
+        build_circuit(_fixture("buzzer-activo"), None, fake_call_tool)
 
     assert calls == []
