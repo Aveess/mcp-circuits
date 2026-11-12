@@ -68,6 +68,10 @@ def _build_persisted(output) -> bool:
     return not (_is_false(data.get("success")) or _is_false(data.get("persisted")))
 
 
+def _success_false(output) -> bool:
+    return _is_false(_parse_json_dict(output).get("success"))
+
+
 def run_build(
     fixture: dict,
     code: str | None,
@@ -113,10 +117,11 @@ def run_build(
     model_call = fixture_to_model_call(fixture)
     build_record = _run("tinkercad_build_circuit_model", model_call)
     build_ok = _build_persisted(build_record.output)
-    build_success_false = _is_false(_parse_json_dict(build_record.output).get("success"))
+    build_success_false = _success_false(build_record.output)
 
+    preset_reported_failure = False
     for preset in presets or []:
-        _run(
+        preset_record = _run(
             "tinkercad_set_component_property_model",
             {
                 "component_name": preset.get("component"),
@@ -124,6 +129,9 @@ def run_build(
                 "value": preset.get("value"),
             },
         )
+        if _success_false(preset_record.output):
+            preset_record.ok = False
+            preset_reported_failure = True
 
     if code is not None:
         _run("tinkercad_set_code", {"code": code})
@@ -143,6 +151,7 @@ def run_build(
 
     repair_attempted = False
     fidelity_before_repair = None
+    repair_ok = True
     if (
         repair
         and fidelity.get("score", 0.0) < 0.99
@@ -151,10 +160,11 @@ def run_build(
     ):
         repair_attempted = True
         fidelity_before_repair = fidelity
-        _run(
+        repair_record = _run(
             "tinkercad_build_circuit_model",
             {"parts": [], "wires": model_call.get("wires", [])},
         )
+        repair_ok = _build_persisted(repair_record.output)
         fidelity = _measure()
 
     _run("tinkercad_start_simulation", {"wait_seconds": 5})
@@ -162,7 +172,12 @@ def run_build(
     serial = serial_record.output if serial_record.ok else ""
     _run("tinkercad_stop_simulation", {})
 
-    ok = bool(fidelity.get("score", 0.0) >= 0.99 and build_ok)
+    ok = bool(
+        fidelity.get("score", 0.0) >= 0.99
+        and build_ok
+        and repair_ok
+        and not preset_reported_failure
+    )
     return {
         "circuit_id": circuit_id,
         "url": f"https://www.tinkercad.com/things/{circuit_id}/editel",
