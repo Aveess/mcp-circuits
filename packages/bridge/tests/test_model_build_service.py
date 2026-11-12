@@ -379,6 +379,77 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(res["success"])
 
 
+class TestModelBuildFreeParts(unittest.IsolatedAsyncioTestCase):
+    FREE = {"ref": "motor1", "did": 114158, "free": {"x": 560, "y": 60}, "angle": 0}
+    PLACED = {"motor1": {"angle": 0, "holes": {}, "free": {"x": 560, "y": 60}}}
+
+    async def test_free_part_accepted_without_at_or_pin(self):
+        svc, _, mock_page = make_service({"placed": self.PLACED, "errors": []})
+        res = await svc.build_from_holes(parts=[self.FREE], wires=[["motor1.1", "5e"]])
+        self.assertTrue(res["success"])
+        self.assertTrue(res["persisted"])
+        self.assertEqual(res["placed"], self.PLACED)
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertEqual(plan["parts"], [self.FREE])
+        # wire to a free terminal is not routed (no breadboard endpoint)
+        self.assertEqual(plan["wires"][0]["route"], False)
+
+    async def test_free_part_float_and_negative_coords_accepted(self):
+        svc, _, _ = make_service({"placed": {}, "errors": []})
+        part = {"ref": "bat1", "did": 123, "free": {"x": 560.5, "y": -10}}
+        res = await svc.build_from_holes(parts=[part], wires=[])
+        self.assertTrue(res["success"], res["errors"])
+
+    async def test_free_mixed_with_at_part_accepted(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": []})
+        parts = [self.FREE, {"ref": "led1", "did": 58422, "at": "9i", "pin": "anode"}]
+        res = await svc.build_from_holes(parts=parts, wires=[])
+        self.assertTrue(res["success"], res["errors"])
+        self.assertEqual(mock_page.evaluate.call_args_list[0].args[1]["parts"], parts)
+
+    async def test_at_and_free_together_rejected_without_touching_page(self):
+        svc, mock_bm, _ = make_service()
+        part = {"ref": "motor1", "did": 114158, "at": "9i", "free": {"x": 560, "y": 60}}
+        res = await svc.build_from_holes(parts=[part], wires=[])
+        self.assertFalse(res["success"])
+        self.assertTrue(any("free" in e and "at" in e for e in res["errors"]), res["errors"])
+        self.assertEqual(res["placed"], {})
+        self.assertFalse(res["persisted"])
+        mock_bm.get_page.assert_not_called()
+
+    async def test_free_without_numeric_xy_rejected_without_touching_page(self):
+        svc, mock_bm, _ = make_service()
+        for bad in ({}, {"x": 560}, {"y": 60}, {"x": "560", "y": 60},
+                    {"x": 560, "y": None}, {"x": True, "y": 60},
+                    {"x": float("nan"), "y": 60}, "560,60", 560, [560, 60]):
+            res = await svc.build_from_holes(
+                parts=[{"ref": "motor1", "did": 114158, "free": bad}], wires=[]
+            )
+            self.assertFalse(res["success"], bad)
+            self.assertTrue(any("free" in e for e in res["errors"]), (bad, res["errors"]))
+        mock_bm.get_page.assert_not_called()
+
+    def test_build_js_free_branch_places_without_insert_wires(self):
+        js = mbs._BUILD_JS
+        self.assertIn("part.free", js)
+        self.assertIn("cannot specify both at and free", js)
+        self.assertIn("free requires numeric x and y", js)
+        self.assertIn("setName(part.ref)", js)
+        self.assertIn("setAngle(angle)", js)
+        self.assertIn("bb.setPos({ x: fx, y: fy })", js)
+        self.assertIn("placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy } }", js)
+        # free branch runs (and continues) before the hole/insert-wire path
+        self.assertLess(js.index("holes: {}, free:"), js.index("Register each leg"))
+
+    def test_build_js_resolve_endpoint_free_falls_through_to_terminal(self):
+        js = mbs._BUILD_JS
+        self.assertIn("const holes = placed[ref].holes || {};", js)
+        self.assertIn("Free parts have holes == {}", js)
+        # after the hole lookup, the real device terminal is the fallback
+        hole_lookup = js.index("const holes = placed[ref].holes || {};")
+        self.assertLess(hole_lookup, js.index("const found = termByName(dev, pin);", hole_lookup))
+
+
 class TestBuildCircuitModelToolSchema(unittest.TestCase):
     def test_tool_wires_schema_accepts_dict_wires(self):
         import inspect
