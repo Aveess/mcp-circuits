@@ -61,3 +61,15 @@ potenciometro en A0, construido con builder+layout de 3 pines. Tras recarga:
 conectividad 1.0 (hubo que enseñar a derive_nets los alias por tipo: el
 "Terminal 2" del potenciometro es el pin 3, el de la resistencia es el 2).
 Simulacion: TEST:ANGLE=180 (el potenciometro arranca al maximo en Tinkercad).
+
+## Sexta corrida: organizacion de cables + TMP36 (2026-11-11)
+
+Regla nueva de Eddie: cableado organizado siempre. Implementado en 3 capas:
+cerebro ordena (alimentacion, tierra, senales) y colorea (negro tierra, rojo
+5V, paleta senales); el puente rutea ortogonal con carriles (route_debug por
+cable, nada silencioso). Prueba limpia: "Fase organizada blink v3"
+(https://www.tinkercad.com/things/2tMhkuosDyj/editel) — routed 2/2, foto con
+ambos cables por carril horizontal bajando a la placa.
+TMP36 (https://www.tinkercad.com/things/3Dh7FcuvaEQ/editel): routed 5/5,
+serial TEST:TEMP=24.78, conectividad 1.0 tras agregar el nombre real
+"Temperature Sensor [TMP36]" al mapa y los alias Power/GND por tipo.
