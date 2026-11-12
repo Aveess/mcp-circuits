@@ -62,6 +62,13 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 1": "positive",
         "Terminal 2": "negative",
     },
+    # Acotado a battery-9v: en vivo reporta "Positive"/"Negative" con
+    # mayuscula; la fixture usa positive/negative. Ningun otro tipo entra
+    # aqui (dc-motor/buzzer, que comparten vocabulario, no se ven tocados).
+    "battery-9v": {
+        "Positive": "positive",
+        "Negative": "negative",
+    },
     # Acotado a l293d: en los wires de inspect los pines salen con los
     # nombres del esquematico interno (con espacios y "&"); la fixture usa
     # enable1/enable2/vss/vs/inputN/outputN. Los GND ya salen como
