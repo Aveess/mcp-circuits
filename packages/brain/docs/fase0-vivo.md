@@ -53,3 +53,11 @@ Circuito "Fase0 modelo-directo blink": https://www.tinkercad.com/things/aBcCq6Hf
 - Semaforo (dlhJ966IRvA) y boton (bWmMIRN5dwi) construidos en protoboard con
   el builder; conectividad 1.0 y 0.8 (el 0.8 es por nombres de pin del
   pushbutton, no por electricidad). Reportes en docs/reportes/.
+
+## Quinta corrida: servo + potenciometro (2026-11-11)
+
+https://www.tinkercad.com/things/9Rpc2a0C6te/editel — servo en D9 controlado por
+potenciometro en A0, construido con builder+layout de 3 pines. Tras recarga:
+conectividad 1.0 (hubo que enseñar a derive_nets los alias por tipo: el
+"Terminal 2" del potenciometro es el pin 3, el de la resistencia es el 2).
+Simulacion: TEST:ANGLE=180 (el potenciometro arranca al maximo en Tinkercad).
