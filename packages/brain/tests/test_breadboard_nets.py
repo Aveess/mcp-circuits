@@ -348,6 +348,28 @@ def test_dc_motor_terminal_pins_positive_negative():
     assert any("uno.GND1" in net and any(ep.endswith(".negative") for ep in net) for net in nets)
 
 
+def test_battery_9v_capitalized_pins_positive_negative_and_others_unchanged():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("9V Battery", "bat_a"),
+            _comp("Resistor", "r_a"),
+        ],
+        "wires": [
+            _wire(_ep("9V Battery", "Positive", "bat_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("9V Battery", "Negative", "bat_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+            # Un "Positive" de otro tipo no entra en el alias acotado.
+            _wire(_ep("Resistor", "Positive", "r_a"), _ep("Arduino Uno R3", "D9", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    flat = {ep for net in nets for ep in net}
+    assert any("uno.5V" in net and "battery9v1.positive" in net for net in nets)
+    assert any("uno.GND1" in net and "battery9v1.negative" in net for net in nets)
+    assert "r1.Positive" in flat
+    assert not any(ep.startswith("battery9v1.") and ep.endswith((".Positive", ".Negative")) for ep in flat)
+
+
 def test_l293d_internal_schematic_pin_names():
     # Nombres del esquematico interno en los wires de inspect (en vivo);
     # la fixture usa enable1/enable2/vss/vs/inputN/outputN. Los GND ya
