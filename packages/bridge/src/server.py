@@ -19,6 +19,7 @@ from .services import (
     SchematicService,
 )
 from .services.model_build_service import ModelBuildService
+from .services.simulation_sampler_service import SimulationSamplerService
 from .config import logger
 
 # Initialize MCP Server
@@ -34,6 +35,12 @@ code_service = CodeService(browser)
 simulation_service = SimulationService(browser)
 serial_service = SerialService(browser)
 schematic_service = SchematicService(browser)
+simulation_sampler_service = SimulationSamplerService(
+    browser,
+    simulation_service=simulation_service,
+    serial_service=serial_service,
+    wiring_service=wiring_service,
+)
 model_build_service = ModelBuildService(browser)
 composite_service = CompositeService(
     circuits=circuits_service,
@@ -830,6 +837,39 @@ async def tinkercad_stop_simulation() -> str:
         return json.dumps(res, indent=2)
     except Exception as e:
         return _format_error("tinkercad_stop_simulation", e)
+
+
+@server.tool()
+async def tinkercad_simulate_samples(
+    samples_ms: List[int],
+    led_component: str = "LED",
+    read_serial: bool = True,
+    brightness_threshold: float = 144.0,
+) -> str:
+    """Sample the LED state at timed offsets (ms) after starting the simulation.
+
+    Locates the LED before starting, starts the simulation, takes a screenshot
+    at each requested instant, classifies the LED from the 9x9px brightness
+    around its position (on if brightness > brightness_threshold, default
+    144.0 — calibrated from ~128 off / 160-190 on, recalibrate live), then
+    reads the serial monitor (if read_serial) and stops the simulation.
+
+    Args:
+        samples_ms: Offsets in milliseconds from simulation start, e.g. [0, 250, 500].
+        led_component: Component name/type of the LED (default 'LED').
+        read_serial: If True, include serial monitor output captured before stopping.
+        brightness_threshold: Brightness (0-255) above which the LED counts as on.
+    """
+    try:
+        res = await simulation_sampler_service.sample(
+            samples_ms=samples_ms,
+            led_component=led_component,
+            read_serial=read_serial,
+            brightness_threshold=brightness_threshold,
+        )
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        return _format_error("tinkercad_simulate_samples", e)
 
 
 @server.tool()
