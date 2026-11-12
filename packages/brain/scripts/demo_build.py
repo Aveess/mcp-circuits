@@ -56,6 +56,7 @@ _SKETCH_BY_FIXTURE = {
     "led-rgb": "rgb_cycle_sketch",
     "motor-dc-transistor": "motor_sketch",
     "motor-l293d-bateria": "motor_driver_sketch",
+    "boton-pullup": "button_led_sketch",
 }
 
 
