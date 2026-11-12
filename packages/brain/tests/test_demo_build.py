@@ -67,6 +67,21 @@ def test_select_code_led_rgb_mockeado(monkeypatch):
     assert demo.select_code(fixture) == "// rgb mock\n"
 
 
+def test_select_presets_sensor_ultrasonico():
+    fixture = demo.find_fixture("sensor-ultrasonico")
+    assert demo.select_presets(fixture) == [
+        {
+            "component": "Ultrasonic Distance Sensor (4-pin)",
+            "property": "Target Y",
+            "value": -105,
+        }
+    ]
+
+
+def test_select_presets_otras_fixtures_sin_presets():
+    assert demo.select_presets(demo.find_fixture("blink-basico")) is None
+
+
 def test_bridge_launch_spec():
     spec = demo.bridge_launch_spec("/tmp/puente-x")
     assert spec["command"] == "/tmp/puente-x/.venv/bin/python"

@@ -45,8 +45,32 @@ def _inspect_blink():
     }
 
 
-def _fake_call_tool(build_output=None, create_output=None, serial_output="blink: 1\n"):
+def _inspect_blink_missing():
+    data = _inspect_blink()
+    data["wires"] = data["wires"][:-1]
+    return data
+
+
+def _inspect_blink_short():
+    data = _inspect_blink()
+    data["wires"].append(
+        {
+            "source": _ep("Arduino Uno R3", "D13", "uno1"),
+            "target": _ep("Arduino Uno R3", "GND", "uno1"),
+        }
+    )
+    return data
+
+
+def _fake_call_tool(
+    build_output=None,
+    create_output=None,
+    serial_output="blink: 1\n",
+    inspect_sequence=None,
+    fail_preset=False,
+):
     calls = []
+    state = {"inspect": 0}
 
     def call_tool(tool, arguments):
         calls.append((tool, arguments))
@@ -58,7 +82,13 @@ def _fake_call_tool(build_output=None, create_output=None, serial_output="blink:
             if build_output is not None:
                 return build_output
             return json.dumps({"success": True, "persisted": True})
+        if tool == "tinkercad_set_component_property_model" and fail_preset:
+            raise RuntimeError("tool no existe: tinkercad_set_component_property_model")
         if tool == "tinkercad_inspect_circuit":
+            if inspect_sequence:
+                index = min(state["inspect"], len(inspect_sequence) - 1)
+                state["inspect"] += 1
+                return json.dumps(inspect_sequence[index])
             return json.dumps(_inspect_blink())
         if tool == "tinkercad_read_serial_monitor":
             return serial_output
@@ -155,6 +185,103 @@ def test_create_without_id_cuts_without_calling_rest():
     assert [tool for tool, _ in call_tool.calls] == ["tinkercad_create_circuit"]
     assert len(result["records"]) == 1
     assert result["records"][0].tool == "tinkercad_create_circuit"
+
+
+def test_happy_path_no_repair_when_score_already_perfect():
+    fixture = _fixture()
+    call_tool = _fake_call_tool()
+
+    result = run_build(fixture, CODE, call_tool, "Sin reparacion")
+
+    assert result["fidelity"]["score"] == 1.0
+    assert result["repair_attempted"] is False
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert len(builds) == 1
+
+
+def test_repair_recables_once_and_recovers_fidelity():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(
+        inspect_sequence=[_inspect_blink_missing(), _inspect_blink()]
+    )
+
+    result = run_build(fixture, CODE, call_tool, "Con reparacion")
+
+    assert result["repair_attempted"] is True
+    assert result["fidelity_before_repair"]["score"] < 0.99
+    assert result["fidelity"]["score"] == 1.0
+    assert result["ok"] is True
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert len(builds) == 2
+    assert builds[1][1] == {
+        "parts": [],
+        "wires": fixture_to_model_call(fixture)["wires"],
+    }
+    tools = [tool for tool, _ in call_tool.calls]
+    assert tools.count("tinkercad_open_circuit") == 2
+    assert tools.count("tinkercad_inspect_circuit") == 2
+
+
+def test_repair_disabled_does_not_retry():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(
+        inspect_sequence=[_inspect_blink_missing(), _inspect_blink()]
+    )
+
+    result = run_build(fixture, CODE, call_tool, "Sin repair", repair=False)
+
+    assert result["repair_attempted"] is False
+    assert result["fidelity"]["score"] < 0.99
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert len(builds) == 1
+
+
+def test_shorts_do_not_trigger_repair():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(inspect_sequence=[_inspect_blink_short()])
+
+    result = run_build(fixture, CODE, call_tool, "Con corto")
+
+    assert result["fidelity"]["shorts"]
+    assert result["fidelity"]["score"] < 0.99
+    assert result["repair_attempted"] is False
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert len(builds) == 1
+
+
+def test_preset_applied_after_build_before_reopen():
+    fixture = _fixture()
+    call_tool = _fake_call_tool()
+    presets = [{"component": "Comp X", "property": "Target Y", "value": -105}]
+
+    result = run_build(fixture, CODE, call_tool, "Con preset", presets=presets)
+
+    assert result["ok"] is True
+    tools = [tool for tool, _ in call_tool.calls]
+    preset_index = tools.index("tinkercad_set_component_property_model")
+    assert tools.index("tinkercad_build_circuit_model") < preset_index
+    assert preset_index < tools.index("tinkercad_open_circuit")
+    assert call_tool.calls[preset_index][1] == {
+        "component_name": "Comp X",
+        "property_name": "Target Y",
+        "value": -105,
+    }
+
+
+def test_preset_failure_is_recorded_and_does_not_abort():
+    fixture = _fixture()
+    call_tool = _fake_call_tool(fail_preset=True)
+    presets = [{"component": "Comp X", "property": "Target Y", "value": -105}]
+
+    result = run_build(fixture, CODE, call_tool, "Preset roto", presets=presets)
+
+    assert result["ok"] is True
+    assert result["fidelity"]["score"] == 1.0
+    preset_records = [
+        r for r in result["records"] if r.tool == "tinkercad_set_component_property_model"
+    ]
+    assert len(preset_records) == 1
+    assert preset_records[0].ok is False
 
 
 def test_create_non_json_output_cuts_without_raising():
