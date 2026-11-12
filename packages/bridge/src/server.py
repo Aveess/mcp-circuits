@@ -19,6 +19,7 @@ from .services import (
     SchematicService,
 )
 from .services.model_build_service import ModelBuildService
+from .services.model_props_service import ModelPropsService
 from .services.simulation_sampler_service import SimulationSamplerService
 from .config import logger
 
@@ -42,6 +43,7 @@ simulation_sampler_service = SimulationSamplerService(
     wiring_service=wiring_service,
 )
 model_build_service = ModelBuildService(browser)
+model_props_service = ModelPropsService(browser)
 composite_service = CompositeService(
     circuits=circuits_service,
     components=components_service,
@@ -416,6 +418,38 @@ async def tinkercad_set_component_property(
         return json.dumps(res, indent=2)
     except Exception as e:
         return _format_error("tinkercad_set_component_property", e)
+
+
+@server.tool()
+async def tinkercad_set_component_property_model(
+    component_name: str,
+    property_name: str,
+    value: Union[str, int, float],
+    unit: Optional[str] = None,
+) -> str:
+    """Set a component property directly in the editor model (no UI selection needed).
+
+    Use when the UI tool fails with "Inspector popover is not visible", e.g.
+    the HC-SR04 "Target Y" distance or a potentiometer position. Resolves the
+    device by visible type or instance name; ambiguous names fail with the
+    candidate list.
+
+    Args:
+        component_name: Visible type (e.g. 'Ultrasonic Distance Sensor (4-pin)') or instance name.
+        property_name: Model property name (e.g. 'Target Y').
+        value: New value, passed to the model as-is (str/int/float).
+        unit: Optional unit/prefix passed to setProperty (e.g. 'cm').
+    """
+    try:
+        res = await model_props_service.set_property(
+            component_name=component_name,
+            property_name=property_name,
+            value=value,
+            unit=unit,
+        )
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        return _format_error("tinkercad_set_component_property_model", e)
 
 
 # ============================================================================
