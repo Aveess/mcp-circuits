@@ -12,7 +12,8 @@ TYPE_MAP: dict[str, str] = {
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
     "RGB LED": "led-rgb-common-cathode",
-    "TMP36": "tmp36",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "TMP36": "tmp36",
+    "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
 }
 
