@@ -349,16 +349,13 @@ def test_ultrasonic_real_fixture_parts_and_wires(monkeypatch):
         assert _ultrasonic_hole(placement, pin) in wire_ends
 
 
-def test_ultrasonic_real_fixture_raises_build_error_unplaced():
-    # En esta rama plan_layout aun deja us1 en unplaced, asi que el
-    # BuildError es por "sin layout" (el builder ya tiene DID/alias;
-    # la integracion final depende de que el layout lo coloque).
-    with pytest.raises(BuildError) as excinfo:
-        fixture_to_model_call(_fixture("sensor-ultrasonico"))
-
-    message = str(excinfo.value)
-    assert "sin layout" in message
-    assert "us1" in message
+def test_ultrasonic_real_fixture_builds_with_did():
+    # Integracion final: el layout ya coloca el HC-SR04 (fila d) y el
+    # builder lo traduce con su DID real.
+    result = fixture_to_model_call(_fixture("sensor-ultrasonico"))
+    us = next(p for p in result["parts"] if p["ref"] == "us1")
+    assert us["did"] == 219295
+    assert us["pin"] == "pos"
 
 
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
@@ -452,6 +449,6 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
         return "{}"
 
     with pytest.raises(BuildError):
-        build_circuit(_fixture("sensor-ultrasonico"), None, fake_call_tool)
+        build_circuit(_fixture("motor-dc-transistor"), None, fake_call_tool)
 
     assert calls == []
