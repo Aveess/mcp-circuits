@@ -251,17 +251,30 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
             if pin == fixture_pin:
                 return at if index == 0 else _shift_hole(at, index, endpoint)
     elif ctype == "pushbutton":
-        if pin == "1":
-            return at
-        # Supuesto explicito: solo se conoce la posicion del pin "1" del
-        # boton (en `at`). La geometria completa del pushbutton (pines al
-        # otro lado del canal central) aun no esta medida, asi que el
-        # resto de pines no se adivina: es BuildError. Esto hace que la
-        # fixture boton-pullup (que usa btn1.2) no sea construible todavia.
-        raise BuildError(
-            f"geometria de pin de pushbutton desconocida: {endpoint!r} "
-            f"(solo se conoce el pin '1' en {at})"
-        )
+        # Geometria verificada en vivo (circuito bWmMIRN5dwi): el boton
+        # se coloca con pin "1" en <c>f; sus columnas utiles son la del
+        # ancla <c> y la <c+2>. En la fixture, btn.1 es el lado de la
+        # senal y btn.2 el de tierra, pero en el circuito real que
+        # funciono la senal entro por <c+2> y la tierra por <c>. La fila
+        # j es un hueco libre de la misma columna en la mitad superior;
+        # cualquier hueco de esa columna conecta con el terminal.
+        if pin not in ("1", "2"):
+            raise BuildError(
+                f"geometria de pin de pushbutton desconocida: {endpoint!r} "
+                f"(solo se conocen los pines '1' y '2' en {at})"
+            )
+        match = _HOLE_RE.fullmatch(at)
+        if match is None:
+            raise BuildError(
+                f"hueco de layout invalido {at!r} para {endpoint!r}"
+            )
+        column = int(match.group(1)) + (2 if pin == "1" else 0)
+        if not 1 <= column <= 30:
+            raise BuildError(
+                f"hueco derivado fuera de la protoboard para "
+                f"{endpoint!r}: {column}j"
+            )
+        return f"{column}j"
     else:
         raise BuildError(
             f"geometria de pines desconocida para {endpoint!r} "
