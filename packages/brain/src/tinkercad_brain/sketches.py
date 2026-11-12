@@ -158,6 +158,48 @@ def ultrasonic_sketch(trig: int = 7, echo: int = 6) -> str:
     return "\n".join(lines) + "\n"
 
 
+_THRESHOLD_MIN, _THRESHOLD_MAX = -40.0, 125.0
+
+
+def _validate_threshold(threshold: float) -> None:
+    if (
+        not isinstance(threshold, (int, float))
+        or isinstance(threshold, bool)
+        or not _THRESHOLD_MIN <= threshold <= _THRESHOLD_MAX
+    ):
+        raise ValueError(f"threshold fuera de {_THRESHOLD_MIN}..{_THRESHOLD_MAX}: {threshold!r}")
+
+
+def _format_threshold(threshold: float) -> str:
+    text = f"{float(threshold):f}".rstrip("0")
+    return text + "0" if text.endswith(".") else text
+
+
+def tmp36_sketch(pin: int = 13, analog_pin: str = "A0", threshold: float = 25.0) -> str:
+    _validate_pin(pin)
+    _validate_pot_pin(analog_pin)
+    _validate_threshold(threshold)
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({pin}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int lectura = analogRead({analog_pin});",
+        "  float volts = lectura * 5.0/1023.0;",
+        "  float temp = (volts - 0.5) * 100.0;",
+        '  Serial.print("TEST:TEMP=");',
+        "  Serial.println(temp);",
+        f"  digitalWrite({pin}, temp > {_format_threshold(threshold)} ? HIGH : LOW);",
+        "  delay(500);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}
