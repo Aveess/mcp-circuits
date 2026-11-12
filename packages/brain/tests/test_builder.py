@@ -569,7 +569,7 @@ def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
     }
     _ensure_l293d_battery_placements(monkeypatch)
     placements = builder_module.plan_layout(fixture)["placements"]
-    assert placements["drv1"] == {"at": "10f", "pin": "enable1", "angle": 0}
+    assert placements["drv1"] == {"at": "17f", "pin": "enable1", "angle": 180}
     assert placements["bat1"] == {"free": {"x": 560, "y": 300}}
 
     result = fixture_to_model_call(fixture)
