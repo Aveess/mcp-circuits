@@ -195,6 +195,14 @@ _BUILD_JS = r"""
   function termByName(dev, pin) {
     const map = dev?.name2terminal?._content || {};
     for (const [k, e] of Object.entries(map)) {
+      if (k === pin) return { name: k, term: unwrap(e) };
+    }
+    for (const [k, e] of Object.entries(map)) {
+      const t = unwrap(e);
+      if (t?.pinName === pin || t?.name === pin) return { name: k, term: t };
+    }
+    if (!norm(pin)) return null;
+    for (const [k, e] of Object.entries(map)) {
       if (norm(k) === norm(pin)) return { name: k, term: unwrap(e) };
     }
     for (const [k, e] of Object.entries(map)) {
