@@ -230,6 +230,36 @@ _BUILD_JS = r"""
     const byRef = { uno: uno };
     for (const part of (plan.parts || [])) {
       try {
+        const hasFree = part.free !== undefined && part.free !== null;
+        const hasAt = part.at !== undefined && part.at !== null && String(part.at).trim() !== '';
+        if (hasFree && hasAt) { errors.push(part.ref + ': cannot specify both at and free'); continue; }
+        if (hasFree) {
+          const fx = part.free?.x, fy = part.free?.y;
+          if (typeof fx !== 'number' || typeof fy !== 'number' || !isFinite(fx) || !isFinite(fy)) {
+            errors.push(part.ref + ': free requires numeric x and y'); continue;
+          }
+          const dev = data.createDeviceInstance(part.did);
+          if (!dev) { errors.push(part.ref + ': device creation failed'); continue; }
+          if (data.devices && typeof data.devices.add === 'function') {
+            try { data.devices.add(dev); } catch (e) {}
+          }
+          byRef[part.ref] = dev;
+          const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
+          if (!bb || typeof bb.setPos !== 'function') {
+            errors.push(part.ref + ': no breadboard placement'); continue;
+          }
+          const angle = (part.angle !== undefined && part.angle !== null) ? part.angle : 0;
+          try {
+            if (typeof dev.setName === 'function') dev.setName(part.ref);
+            else if (typeof bb.setName === 'function') bb.setName(part.ref);
+            else dev.name = part.ref;
+          } catch (e) {}
+          if (typeof bb.setAngle === 'function') bb.setAngle(angle);
+          bb.setPos({ x: fx, y: fy });
+          // Free part: no legs in holes, so no insert wires are created.
+          placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy } };
+          continue;
+        }
         const anchor = parseHole(part.at);
         if (!anchor) { errors.push(part.ref + ': invalid hole ' + part.at); continue; }
         const dev = data.createDeviceInstance(part.did);
@@ -303,10 +333,12 @@ _BUILD_JS = r"""
         const dev = byRef[ref] || (norm(ref) === 'uno' ? uno : null);
         if (!dev) return null;
         if (norm(ref) !== 'uno' && placed[ref]) {
-          const h = placed[ref].holes[pin] || Object.entries(placed[ref].holes)
+          const holes = placed[ref].holes || {};
+          const h = holes[pin] || Object.entries(holes)
             .find(([k]) => norm(k) === norm(pin))?.[1];
           const parsed = h ? parseHole(h) : null;
           if (parsed) return bbTerminal(bbDev, parsed.col, ROW_Y[parsed.row]);
+          // Free parts have holes == {}: fall through to the real terminal.
         }
         const found = termByName(dev, pin);
         return found ? found.term : null;
@@ -550,6 +582,13 @@ class ModelBuildService:
     ) -> dict:
         """Place parts so their pins land in breadboard holes, then wire endpoints.
 
+        A part may instead be free (off-breadboard, e.g. DC motor / 9V
+        battery): ``{"ref": ..., "did": ..., "free": {"x": 560, "y": 60},
+        "angle": 0}`` places it at editor coordinates with no insert wires;
+        its wire endpoints (``ref.pin``) resolve to its real terminals.
+        A part with both ``at`` and ``free``, or a ``free`` without numeric
+        ``x``/``y``, is reported in ``errors`` (no exception, page untouched).
+
         ``wires`` accepts pairs ``[a, b]`` and objects
         ``{"from": a, "to": b, "color": ...}``; see ``plan_wire_style``.
 
@@ -586,7 +625,26 @@ class ModelBuildService:
             if type(did) is not int or did <= 0:
                 errors.append(f"part '{ref}': did must be int > 0, got {did!r}")
             at = part.get("at")
-            if not isinstance(at, str) or not _HOLE_RE.match(at.strip()):
+            free = part.get("free")
+            has_free = free is not None
+            has_at = at is not None and str(at).strip() != ""
+            if has_free and has_at:
+                errors.append(f"part '{ref}': specify only one of 'at' and 'free', not both")
+            if has_free:
+                def _num(v: Any) -> bool:
+                    return (
+                        isinstance(v, (int, float))
+                        and not isinstance(v, bool)
+                        and math.isfinite(v)
+                    )
+
+                if not isinstance(free, dict) or not (
+                    _num(free.get("x")) and _num(free.get("y"))
+                ):
+                    errors.append(
+                        f"part '{ref}': 'free' requires numeric x and y, got {free!r}"
+                    )
+            elif not isinstance(at, str) or not _HOLE_RE.match(at.strip()):
                 errors.append(f"part '{ref}': invalid 'at' hole {at!r} (expected 1-30 + a-j)")
             angle = part.get("angle")
             if angle is not None and angle not in (0, 90, 180, 270):
