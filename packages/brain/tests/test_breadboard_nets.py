@@ -7,6 +7,7 @@ from tinkercad_brain.breadboard_nets import derive_nets
 
 LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
 LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
+LIVE19 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live19.json")
 
 EXPECTED_SERVO_POT = [
     ["potentiometer1.1", "servo1.vcc", "uno.5V"],
@@ -155,6 +156,46 @@ def test_generic_power_aliases_tmp36():
         ["tmp361.vcc", "uno.5V"],
         ["tmp361.vout", "uno.A0"],
     ]
+
+
+def test_tmp36_live_pin_names_power_gnd_and_uno_gnd_unchanged():
+    data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno1"),
+            _comp("Temperature Sensor [TMP36]", "tmp_a"),
+        ],
+        "wires": [
+            _wire(_ep("Temperature Sensor [TMP36]", "Power", "tmp_a"), _ep("Arduino Uno R3", "5V", "uno1")),
+            _wire(_ep("Temperature Sensor [TMP36]", "Vout", "tmp_a"), _ep("Arduino Uno R3", "A0", "uno1")),
+            _wire(_ep("Temperature Sensor [TMP36]", "GND", "tmp_a"), _ep("Arduino Uno R3", "GND", "uno1")),
+        ],
+    }
+    nets = derive_nets(data)
+    by_uno = {}
+    for net in nets:
+        for endpoint in net:
+            if endpoint.startswith("uno."):
+                by_uno[endpoint] = net
+    assert any(ep.endswith(".vcc") for ep in by_uno["uno.5V"])
+    assert any(ep.endswith(".vout") for ep in by_uno["uno.A0"])
+    # El GND del Uno sigue canonizado a GND1; el del sensor es gnd.
+    assert "uno.GND1" in by_uno["uno.GND1"]
+    assert any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in by_uno["uno.GND1"])
+    assert not any(ep.endswith((".Power", ".GND")) for net in nets for ep in net)
+
+
+def test_live19_artifact_tmp36_nets():
+    if not LIVE19.exists():
+        pytest.skip("live19.json no disponible")
+    inspect_data = _inspect_from_artifact(LIVE19)
+    if inspect_data is None:
+        pytest.skip("live19.json sin inspect_circuit")
+    nets = derive_nets(inspect_data)
+    assert not any(ep.endswith((".Power", ".GND")) for net in nets for ep in net)
+    net_5v = next(net for net in nets if "uno.5V" in net)
+    net_gnd = next(net for net in nets if "uno.GND1" in net and any(ep.endswith(".gnd") for ep in net))
+    assert any(ep.endswith(".vcc") and not ep.startswith("uno.") for ep in net_5v)
+    assert any(ep.endswith(".gnd") and not ep.startswith("uno.") for ep in net_gnd)
 
 
 def _inspect_from_artifact(path):

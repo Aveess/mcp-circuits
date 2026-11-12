@@ -86,8 +86,15 @@ def _normalize_pin(pin, canonical):
         return _PIN_ALIASES[pin]
     # Supuesto: en los wires el Uno reporta "GND", pero en components y en
     # las fixtures el pin se llama "GND1". Solo aplica al Arduino Uno.
-    if pin == "GND" and canonical == "arduino-uno":
-        return "GND1"
+    if canonical == "arduino-uno":
+        return "GND1" if pin == "GND" else pin
+    # Alias genéricos seguros en componentes no-Uno (p. ej. TMP36 reporta
+    # "Power"/"GND" y su fixture usa vcc/gnd). Resistor/LED no usan estos
+    # nombres, por lo que no se ven afectados.
+    if pin == "Power":
+        return "vcc"
+    if pin == "GND":
+        return "gnd"
     return pin
 
 
