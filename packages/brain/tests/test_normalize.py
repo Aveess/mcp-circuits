@@ -51,11 +51,46 @@ def test_dos_leds_numerados_en_orden():
 
 
 def test_tipo_desconocido_usa_slug():
-    inspect_data = {"components": [_comp("Breadboard Small", "bb_1")]}
+    inspect_data = {"components": [_comp("Gadget Xyz", "g_1")]}
 
     assert normalize_circuit(inspect_data, {"nets": []}) == {
-        "components": [{"ref": "breadboard1", "type": "breadboard"}],
+        "components": [{"ref": "gadgetxyz1", "type": "gadget-xyz"}],
         "nets": [],
+    }
+
+
+def test_breadboard_es_infraestructura_y_se_excluye():
+    inspect_data = {
+        "components": [
+            _comp("Arduino Uno R3", "uno_1"),
+            _comp("Breadboard Small", "bb_1"),
+            _comp("Resistor", "r_1"),
+        ]
+    }
+    schematic_data = {
+        "nets": [
+            {
+                "pins": [
+                    {"component": "Arduino Uno R3", "pin": "D13"},
+                    {"component": "Breadboard Small", "pin": "a1"},
+                    {"component": "Resistor", "pin": "1"},
+                ]
+            },
+            {
+                "pins": [
+                    {"component": "Breadboard Small", "pin": "a2"},
+                    {"component": "Resistor", "pin": "2"},
+                ]
+            },
+        ]
+    }
+
+    assert normalize_circuit(inspect_data, schematic_data) == {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [["uno.D13", "r1.1"]],
     }
 
 
