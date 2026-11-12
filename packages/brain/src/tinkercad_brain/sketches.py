@@ -20,6 +20,14 @@ def _validate_pin(pin: int) -> None:
         raise ValueError(f"pin fuera de {_PIN_MIN}..{_PIN_MAX}: {pin!r}")
 
 
+_ANALOG_PINS = frozenset(f"A{i}" for i in range(6))
+
+
+def _validate_pot_pin(pot_pin: str) -> None:
+    if pot_pin not in _ANALOG_PINS:
+        raise ValueError(f"pot_pin fuera de A0..A5: {pot_pin!r}")
+
+
 def _validate_ms(name: str, value: int) -> None:
     if not isinstance(value, int) or isinstance(value, bool) or not _MS_MIN <= value <= _MS_MAX:
         raise ValueError(f"{name} fuera de {_MS_MIN}..{_MS_MAX} ms: {value!r}")
@@ -88,6 +96,65 @@ def traffic_sketch(
         lines.append(f'  Serial.println("TEST:{name}");')
         lines.append(f"  delay({duration});")
     lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+# Nota: Servo usa timer1 y analogWrite en 9/10 deja de funcionar al usarla
+# (dato real de la skill de netchuu).
+def servo_knob_sketch(servo_pin: int = 9, pot_pin: str = "A0") -> str:
+    _validate_pin(servo_pin)
+    _validate_pot_pin(pot_pin)
+
+    lines = [
+        "#include <Servo.h>",
+        "",
+        "Servo servo;",
+        "",
+        "void setup() {",
+        f"  servo.attach({servo_pin});",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int lectura = analogRead({pot_pin});",
+        "  int angulo = map(lectura, 0, 1023, 0, 180);",
+        "  servo.write(angulo);",
+        '  Serial.print("TEST:ANGLE=");',
+        "  Serial.println(angulo);",
+        "  delay(50);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def ultrasonic_sketch(trig: int = 7, echo: int = 6) -> str:
+    _validate_pin(trig)
+    _validate_pin(echo)
+    if trig == echo:
+        raise ValueError(f"trig y echo deben ser distintos: {trig!r}")
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({trig}, OUTPUT);",
+        f"  pinMode({echo}, INPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  digitalWrite({trig}, LOW);",
+        "  delayMicroseconds(2);",
+        f"  digitalWrite({trig}, HIGH);",
+        "  delayMicroseconds(10);",
+        f"  digitalWrite({trig}, LOW);",
+        f"  long duracion = pulseIn({echo}, HIGH);",
+        "  float distancia = duracion * 0.034 / 2;",
+        '  Serial.print("TEST:DIST=");',
+        "  Serial.println(distancia);",
+        "  delay(200);",
+        "}",
+    ]
     return "\n".join(lines) + "\n"
 
 

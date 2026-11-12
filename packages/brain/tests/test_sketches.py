@@ -4,7 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from tinkercad_brain.sketches import blink_sketch, pin_of_fixture, traffic_sketch
+from tinkercad_brain.sketches import (
+    blink_sketch,
+    pin_of_fixture,
+    servo_knob_sketch,
+    traffic_sketch,
+    ultrasonic_sketch,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 REAL_FIXTURES = ROOT / "fixtures" / "fase0" / "circuits.json"
@@ -114,6 +120,75 @@ def test_traffic_rejects_repeated_pins(kwargs):
 def test_traffic_rejects_out_of_range_times(kwargs):
     with pytest.raises(ValueError):
         traffic_sketch(**kwargs)
+
+
+# --- servo_knob ---
+
+
+def test_servo_knob_default_contains_key_content():
+    sketch = servo_knob_sketch()
+    assert "#include <Servo.h>" in sketch
+    assert "servo.attach(9)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "analogRead(A0)" in sketch
+    assert "map(lectura, 0, 1023, 0, 180)" in sketch
+    assert "servo.write(angulo)" in sketch
+    assert "TEST:ANGLE=" in sketch
+    assert "delay(50)" in sketch
+
+
+def test_servo_knob_custom_pins():
+    sketch = servo_knob_sketch(servo_pin=5, pot_pin="A3")
+    assert "servo.attach(5)" in sketch
+    assert "analogRead(A3)" in sketch
+
+
+@pytest.mark.parametrize("servo_pin", [0, 1, 14])
+def test_servo_knob_rejects_unusable_servo_pins(servo_pin):
+    with pytest.raises(ValueError):
+        servo_knob_sketch(servo_pin=servo_pin)
+
+
+@pytest.mark.parametrize("pot_pin", ["A6", "13", "A-1", "a0", ""])
+def test_servo_knob_rejects_unusable_pot_pins(pot_pin):
+    with pytest.raises(ValueError):
+        servo_knob_sketch(pot_pin=pot_pin)
+
+
+# --- ultrasonic ---
+
+
+def test_ultrasonic_default_contains_key_content():
+    sketch = ultrasonic_sketch()
+    assert "pinMode(7, OUTPUT)" in sketch
+    assert "pinMode(6, INPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "delayMicroseconds(2)" in sketch
+    assert "delayMicroseconds(10)" in sketch
+    assert "pulseIn(6, HIGH)" in sketch
+    assert "duracion * 0.034 / 2" in sketch
+    assert "TEST:DIST=" in sketch
+    assert "delay(200)" in sketch
+
+
+def test_ultrasonic_custom_pins():
+    sketch = ultrasonic_sketch(trig=8, echo=12)
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "pinMode(12, INPUT)" in sketch
+    assert "pulseIn(12, HIGH)" in sketch
+
+
+@pytest.mark.parametrize("kwargs", [{"trig": 0}, {"trig": 14}, {"echo": 0}, {"echo": 14}])
+def test_ultrasonic_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        ultrasonic_sketch(**kwargs)
+
+
+def test_ultrasonic_rejects_same_trig_and_echo():
+    with pytest.raises(ValueError):
+        ultrasonic_sketch(trig=7, echo=7)
 
 
 # --- pin_of_fixture ---
