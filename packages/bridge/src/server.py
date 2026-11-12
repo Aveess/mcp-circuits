@@ -1026,6 +1026,7 @@ async def tinkercad_build_circuit_model(
     parts: List[Dict[str, Any]],
     wires: List[Any],
     code: Optional[str] = None,
+    clear_existing: bool = False,
 ) -> str:
     """Build a circuit by breadboard holes directly in the editor's internal model.
 
@@ -1035,9 +1036,12 @@ async def tinkercad_build_circuit_model(
         wires: Endpoint pairs, e.g. [["uno.D13", "5i"], ["led1.anode", "T-10"]],
             or dicts with optional color, e.g. [{"from": "uno.D13", "to": "5i", "color": "red"}]
         code: Optional Arduino sketch to store on the Uno.
+        clear_existing: If True, first remove all wires and devices except the
+            Arduino Uno (breadboard included; recreated if the plan needs it),
+            wait for persistence, then build. Result includes "cleared": bool.
     """
     try:
-        res = await model_build_service.build_from_holes(parts=parts, wires=wires, code=code)
+        res = await model_build_service.build_from_holes(parts=parts, wires=wires, code=code, clear_existing=clear_existing)
         return json.dumps(res, indent=2)
     except Exception as e:
         return _format_error("tinkercad_build_circuit_model", e)

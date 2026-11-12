@@ -449,8 +449,11 @@ class TestModelBuildFreeParts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res["placed"], self.PLACED)
         plan = mock_page.evaluate.call_args_list[0].args[1]
         self.assertEqual(plan["parts"], [self.FREE])
-        # wire to a free terminal is not routed (no breadboard endpoint)
-        self.assertEqual(plan["wires"][0]["route"], False)
+        # free terminal -> breadboard hole is orthogonally routed
+        self.assertEqual(
+            plan["wires"][0],
+            {"from": "motor1.1", "to": "5e", "color": "blue", "route": True, "lane": 0},
+        )
 
     async def test_free_part_float_and_negative_coords_accepted(self):
         svc, _, _ = make_service({"placed": {}, "errors": []})
@@ -508,6 +511,314 @@ class TestModelBuildFreeParts(unittest.IsolatedAsyncioTestCase):
         self.assertLess(hole_lookup, js.index("const found = termByName(dev, pin);", hole_lookup))
 
 
+def make_service_with_clear(build_return=None, clear_return=None, pending=None):
+    mock_bm = MagicMock()
+    mock_page = AsyncMock()
+    pending_iter = iter(pending if pending is not None else [0] * 20)
+    clear = clear_return if clear_return is not None else {
+        "cleared": True, "removed_wires": 2, "removed_devices": 1,
+        "kept_uno": True, "errors": [],
+    }
+
+    def _evaluate(*args, **kwargs):
+        if args and args[0] == mbs._CLEAR_JS:
+            return clear
+        if len(args) >= 2 or "plan" in kwargs:
+            return build_return
+        return next(pending_iter, 0)
+
+    mock_page.evaluate = AsyncMock(side_effect=_evaluate)
+    mock_bm.get_page = AsyncMock(return_value=mock_page)
+    return ModelBuildService(mock_bm), mock_bm, mock_page
+
+
+class TestModelBuildClearExisting(unittest.IsolatedAsyncioTestCase):
+    PARTS = [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode"}]
+    PLACED = {"led1": {"angle": 0, "holes": {"anode": "9i", "cathode": "9j"}}}
+
+    async def test_clear_true_runs_separate_clear_then_waits_then_builds(self):
+        svc, _, mock_page = make_service_with_clear({"placed": self.PLACED, "errors": []})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[], clear_existing=True)
+        self.assertTrue(res["success"])
+        self.assertTrue(res["cleared"])
+        self.assertTrue(res["persisted"])
+        calls = mock_page.evaluate.call_args_list
+        self.assertEqual(calls[0].args[0], mbs._CLEAR_JS)
+        self.assertEqual(len(calls[0].args), 1)  # separate edit, no plan
+        # clear + 3 pending polls + build + 3 pending polls
+        self.assertEqual(len(calls), 1 + 3 + 1 + 3)
+        self.assertEqual(calls[4].args[0], mbs._BUILD_JS)
+
+    async def test_clear_true_with_nothing_to_remove_still_builds(self):
+        clear = {"cleared": True, "removed_wires": 0, "removed_devices": 0,
+                 "kept_uno": False, "errors": []}
+        svc, _, mock_page = make_service_with_clear(
+            {"placed": self.PLACED, "errors": []}, clear_return=clear)
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[], clear_existing=True)
+        self.assertTrue(res["success"])
+        self.assertTrue(res["cleared"])
+        self.assertEqual(mock_page.evaluate.call_args_list[0].args[0], mbs._CLEAR_JS)
+
+    async def test_without_clear_existing_no_clear_call_and_cleared_false(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertFalse(res["cleared"])
+        self.assertTrue(all(c.args[0] != mbs._CLEAR_JS for c in mock_page.evaluate.call_args_list))
+        mock_page.evaluate.assert_called_once()
+
+    async def test_clear_persistence_timeout_aborts_build(self):
+        svc, _, mock_page = make_service_with_clear(
+            {"placed": self.PLACED, "errors": []}, pending=[7] * 100)
+        with patch.object(mbs, "_PERSIST_POLL_S", 0.01), patch.object(
+            mbs, "_PERSIST_TIMEOUT_S", 0.05):
+            res = await svc.build_from_holes(parts=self.PARTS, wires=[], clear_existing=True)
+        self.assertFalse(res["success"])
+        self.assertTrue(res["cleared"])
+        self.assertFalse(res["persisted"])
+        self.assertEqual(res["persistence_pending"], 7)
+        self.assertTrue(any("clear persistence" in e for e in res["errors"]))
+        self.assertTrue(all(
+            not (len(c.args) >= 2) for c in mock_page.evaluate.call_args_list))
+
+    async def test_validation_failure_with_clear_does_not_touch_page(self):
+        svc, mock_bm, _ = make_service_with_clear({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(
+            parts=[{"ref": "led1", "did": 0, "at": "9i", "pin": "anode"}],
+            wires=[], clear_existing=True)
+        self.assertFalse(res["success"])
+        self.assertFalse(res["cleared"])
+        mock_bm.get_page.assert_not_called()
+
+    def test_clear_js_keeps_only_d13_device_and_removes_wires_and_board(self):
+        js = mbs._CLEAR_JS
+        self.assertIn("hasD13", js)
+        self.assertIn("'d13'", js)
+        self.assertIn("data.wires.remove", js)
+        self.assertIn("data.devices.remove", js)
+        self.assertIn("rec()", js)
+        self.assertIn("stopRec", js)
+        # no did-based exemption: the breadboard (111211) must not be kept
+        self.assertNotIn("111211", js)
+        self.assertNotIn("132521", js)
+
+    def _run_clear_js(self, with_devices):
+        import json
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        harness = r"""
+const clearSrc = __CLEAR__;
+let rec = 0, stopRec = 0, saved = 0;
+function dev(termNames) {
+  const content = {};
+  for (const n of termNames) content[n] = { val: { pinName: n } };
+  return { name2terminal: { _content: content } };
+}
+const uno = dev(['D13', '5V']);
+const led = dev(['anode', 'cathode']);
+const bb = dev(['1a']);
+const devicesContent = __DEVICES__;
+const wiresContent = { w1: { val: { id: 'w1' } }, w2: { val: { id: 'w2' } } };
+global.window = { circuit_editor: {
+  root: { rec() { rec++; }, stopRec() { stopRec++; }, save() { saved++; } },
+  data: {
+    devices: { _content: devicesContent,
+      remove(d) { for (const [k, e] of Object.entries(devicesContent)) if ((e.val || e) === d) delete devicesContent[k]; } },
+    wires: { _content: wiresContent,
+      remove(w) { for (const [k, e] of Object.entries(wiresContent)) if ((e.val || e) === w) delete wiresContent[k]; } },
+  },
+} };
+const unoRef = uno, ledRef = led, bbRef = bb;
+const fn = eval('(' + clearSrc + ')');
+const out = fn();
+console.log(JSON.stringify({ out, rec, stopRec, saved,
+  keptUno: Object.values(devicesContent).some(e => (e.val || e) === unoRef),
+  keptLed: Object.values(devicesContent).some(e => (e.val || e) === ledRef),
+  keptBb: Object.values(devicesContent).some(e => (e.val || e) === bbRef),
+  remainingWires: Object.keys(wiresContent).length }));
+"""
+        devices = (
+            "{ u1: { val: uno }, l1: { val: led }, b1: { val: bb } }"
+            if with_devices else "{}"
+        )
+        # uno/led/bb must be defined before devices literal is evaluated:
+        # inject them ahead of the literal via placeholders order in harness.
+        script = harness.replace("__CLEAR__", json.dumps(mbs._CLEAR_JS))
+        script = script.replace("__DEVICES__", devices)
+        res = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        return json.loads(res.stdout.strip().splitlines()[-1])
+
+    def test_clear_js_execution_keeps_uno_removes_others(self):
+        out = self._run_clear_js(with_devices=True)
+        self.assertTrue(out["out"]["cleared"])
+        self.assertTrue(out["out"]["kept_uno"])
+        self.assertEqual(out["out"]["removed_devices"], 2)
+        self.assertEqual(out["out"]["removed_wires"], 2)
+        self.assertTrue(out["keptUno"])
+        self.assertFalse(out["keptLed"])
+        self.assertFalse(out["keptBb"])
+        self.assertEqual(out["remainingWires"], 0)
+        self.assertEqual((out["rec"], out["stopRec"], out["saved"]), (1, 1, 1))
+
+    def test_clear_js_execution_with_no_devices(self):
+        out = self._run_clear_js(with_devices=False)
+        self.assertTrue(out["out"]["cleared"])
+        self.assertFalse(out["out"]["kept_uno"])
+        self.assertEqual(out["out"]["removed_devices"], 0)
+        self.assertEqual(out["out"]["removed_wires"], 2)
+
+    def test_clear_js_syntax_with_node_if_available(self):
+        import shutil
+        import subprocess
+        import tempfile
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+            f.write(mbs._CLEAR_JS)
+            path = f.name
+        res = subprocess.run([node, "--check", path], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+
+
+class TestFreePartRouting(unittest.TestCase):
+    FREE_REFS = ["motor1"]
+
+    def test_free_to_hole_and_rail_routed(self):
+        styled = plan_wire_style(
+            [["motor1.1", "5e"], ["T-10", "motor1.2"]], free_refs=self.FREE_REFS)
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(True, 0), (True, 1)])
+
+    def test_free_to_uno_routed_both_directions(self):
+        styled = plan_wire_style(
+            [["motor1.1", "uno.D9"], ["uno.GND", "motor1.2"]], free_refs=self.FREE_REFS)
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(True, 0), (True, 1)])
+
+    def test_free_to_free_and_hole_to_hole_not_routed(self):
+        styled = plan_wire_style(
+            [["motor1.1", "bat1.+"], ["5e", "6e"]], free_refs=["motor1", "bat1"])
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(False, -1), (False, -1)])
+
+    def test_board_part_terminal_still_not_routed_without_free(self):
+        styled = plan_wire_style([["led1.anode", "5e"], ["motor1.1", "5e"]])
+        self.assertEqual([w["route"] for w in styled], [False, False])
+
+    def test_lanes_shared_with_uno_routes_in_arrival_order(self):
+        styled = plan_wire_style(
+            [["uno.D13", "5i"], ["motor1.1", "6e"], ["uno.D2", "7e"]],
+            free_refs=self.FREE_REFS)
+        self.assertEqual([w["lane"] for w in styled], [0, 1, 2])
+
+    def test_build_js_free_route_branch(self):
+        js = mbs._BUILD_JS
+        self.assertIn("isFreeEp", js)
+        self.assertIn("free_pos_null", js)
+        self.assertIn("pFree", js)
+        self.assertIn("freeIsFrom ? [pFree, pDestFree] : [pDestFree, pFree]", js)
+        self.assertIn("sideY > ORIGIN.y", js)
+
+    def _run_free_route(self, free_y, wire):
+        import json
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        harness = r"""
+const src = __SRC__;
+class Pt { constructor(x, y) { this.x = x; this.y = y; } }
+const wiresMade = [];
+class Wire {
+  constructor(root, a, b, opts) { this.a = a; this.b = b; this.opts = opts; this.points = []; wiresMade.push(this); }
+  addPoint(p, i) { this.points.push({ x: p.x, y: p.y, i }); return true; }
+  updateNets() {}
+}
+function term(x, y, desc) {
+  const t = { getBreadboardPos() { return new Pt(x, y); } };
+  if (desc) t.bbDesc = desc;
+  return t;
+}
+const bbTerm5e = term(765, 15, { x: -105, y: 15 });
+const bbDev = {
+  did: () => 111211,
+  breadboard: () => ({ setPos() {}, setAngle() {}, pos: () => new Pt(870, 0) }),
+  bbid2terminal: { _content: { t5e: { val: bbTerm5e } } },
+  name2terminal: { _content: {} },
+};
+const unoDev = {
+  did: () => 132521,
+  breadboard: () => ({ setPos() {}, setAngle() {}, pos: () => new Pt(200, 0) }),
+  name2terminal: { _content: { D13: { val: term(200, -50) }, D9: { val: term(200, -40) } } },
+};
+let motorPos = { x: 0, y: 0 };
+const motorDev = {
+  did: () => 999,
+  breadboard: () => ({
+    setPos(p) { motorPos = { x: p.x, y: p.y }; },
+    setAngle() {},
+    pos: () => new Pt(motorPos.x, motorPos.y),
+  }),
+  name2terminal: { _content: {
+    '1': { val: { getBreadboardPos() { return new Pt(motorPos.x, motorPos.y); } } },
+  } },
+};
+const data = {
+  devices: { _content: {}, add(d) { this._content['d' + Object.keys(this._content).length] = { val: d }; } },
+  wires: { _content: {}, add(w) { this._content['w' + Object.keys(this._content).length] = { val: w }; } },
+  createDeviceInstance(did) {
+    if (did === 132521) return unoDev;
+    if (did === 111211) return bbDev;
+    return motorDev;
+  },
+};
+global.window = {
+  circuit_editor: { data, root: { rec() {}, stopRec() {}, save() {} } },
+  Circuits: { BendableWireData: Wire },
+};
+const fn = eval('(' + src + ')');
+const plan = {
+  parts: [{ ref: 'motor1', did: 999, free: { x: 560, y: __FREE_Y__ } }],
+  wires: [__WIRE__],
+  code: null,
+};
+const out = fn(plan);
+console.log(JSON.stringify({ out,
+  points: wiresMade.length ? wiresMade[0].points : null }));
+"""
+        script = (
+            harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))
+            .replace("__FREE_Y__", json.dumps(free_y))
+            .replace("__WIRE__", json.dumps(wire))
+        )
+        res = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        return json.loads(res.stdout.strip().splitlines()[-1])
+
+    def test_free_to_hole_below_board_produces_lane_points(self):
+        out = self._run_free_route(
+            300, {"from": "motor1.1", "to": "5e", "color": "blue", "route": True, "lane": 0})
+        self.assertEqual(out["out"]["routed"], 1)
+        self.assertEqual(out["out"]["route_debug"],
+                         [{"wire": "motor1.1 -> 5e", "routed": True, "reason": "ok"}])
+        # free (560,300) is below board centre y=0 -> lane y=+115, dest col x=765
+        self.assertEqual(out["points"],
+                         [{"x": 560, "y": 115, "i": 1}, {"x": 765, "y": 115, "i": 2}])
+
+    def test_free_to_uno_above_board_produces_lane_points_reversed(self):
+        out = self._run_free_route(
+            -300, {"from": "uno.D9", "to": "motor1.1", "color": "blue", "route": True, "lane": 1})
+        self.assertEqual(out["out"]["routed"], 1)
+        # above centre -> lane y=-115-5; points follow wire direction uno->free
+        self.assertEqual(out["points"],
+                         [{"x": 200, "y": -120, "i": 1}, {"x": 560, "y": -120, "i": 2}])
+
+
 class TestBuildCircuitModelToolSchema(unittest.TestCase):
     def test_tool_wires_schema_accepts_dict_wires(self):
         import inspect
@@ -526,6 +837,20 @@ class TestBuildCircuitModelToolSchema(unittest.TestCase):
         self.assertNotEqual(items.get("type"), "array")
         ann = str(inspect.signature(tool.fn).parameters["wires"].annotation)
         self.assertNotIn("List[List[str]]", ann)
+
+    def test_tool_exposes_clear_existing_default_false(self):
+        import inspect
+
+        from src.server import server
+
+        tool = next(
+            t
+            for t in server._tool_manager.list_tools()
+            if t.name == "tinkercad_build_circuit_model"
+        )
+        self.assertIn("clear_existing", tool.parameters["properties"])
+        param = inspect.signature(tool.fn).parameters["clear_existing"]
+        self.assertEqual(param.default, False)
 
 
 if __name__ == "__main__":

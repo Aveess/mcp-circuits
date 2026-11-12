@@ -59,6 +59,12 @@ def _is_breadboard_endpoint(ep: str) -> bool:
     return bool(_HOLE_RE.match(s) or _RAIL_RE.match(s))
 
 
+def _is_free_endpoint(ep: str, free_norms: set) -> bool:
+    if "." not in str(ep or "") or not free_norms:
+        return False
+    return _norm_token(str(ep).split(".", 1)[0]) in free_norms
+
+
 def _convention_color(ep: str) -> Optional[str]:
     """black for GND/ground/negative rail, red for 5V/3V3/VIN/positive rail."""
     s = str(ep or "").strip()
@@ -80,17 +86,20 @@ def _convention_color(ep: str) -> Optional[str]:
     return None
 
 
-def plan_wire_style(wires: Any) -> List[Dict[str, Any]]:
+def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
     """Normalize wires to {"from", "to", "color", "route", "lane"} dicts.
 
     Accepts pairs ``[a, b]`` and objects ``{"from", "to", "color"}``.
     Color: explicit color wins; else GND/negative rail -> black,
     5V/3V3/VIN/positive rail -> red, else a rotating palette that never
-    repeats the immediately previous wire's color. ``route`` is True only
-    for Uno <-> breadboard hole/rail wires (hole<->hole stays straight);
+    repeats the immediately previous wire's color. ``route`` is True for
+    Uno <-> breadboard hole/rail wires and for free-part terminal <->
+    breadboard hole/rail or Uno wires (hole<->hole stays straight);
     routed wires get distinct lanes 0, 1, 2, ... in arrival order, and
-    non-routed wires get lane -1.
+    non-routed wires get lane -1. ``free_refs`` holds the refs of parts
+    placed with ``free`` (unknown/free-less callers keep the old routes).
     """
+    free_norms = {_norm_token(r) for r in (free_refs or []) if _norm_token(r)}
     styled: List[Dict[str, Any]] = []
     lane = 0
     palette_idx = 0
@@ -122,8 +131,17 @@ def plan_wire_style(wires: Any) -> List[Dict[str, Any]]:
                     color = _WIRE_PALETTE[palette_idx % len(_WIRE_PALETTE)]
                 palette_idx += 1
 
-        route = (_is_uno_endpoint(frm) and _is_breadboard_endpoint(to)) or (
-            _is_breadboard_endpoint(frm) and _is_uno_endpoint(to)
+        route = (
+            (_is_uno_endpoint(frm) and _is_breadboard_endpoint(to))
+            or (_is_breadboard_endpoint(frm) and _is_uno_endpoint(to))
+            or (
+                _is_free_endpoint(frm, free_norms)
+                and (_is_breadboard_endpoint(to) or _is_uno_endpoint(to))
+            )
+            or (
+                _is_free_endpoint(to, free_norms)
+                and (_is_breadboard_endpoint(frm) or _is_uno_endpoint(frm))
+            )
         )
         wire_lane = lane if route else -1
         if route:
@@ -133,6 +151,59 @@ def plan_wire_style(wires: Any) -> List[Dict[str, Any]]:
         )
         prev_color = color
     return styled
+
+_CLEAR_JS = r"""
+() => {
+  const errors = [];
+  let removed_wires = 0;
+  let removed_devices = 0;
+  let kept_uno = false;
+  const ce = window.circuit_editor;
+  if (!ce || !ce.data) return { cleared: false, removed_wires, removed_devices, kept_uno, errors: ['circuit_editor not available'] };
+  const data = ce.data;
+  const root = ce.root;
+  const unwrap = (e) => (e && e.val !== undefined ? e.val : e);
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  function hasD13(dev) {
+    const map = dev?.name2terminal?._content || {};
+    for (const [k, e] of Object.entries(map)) {
+      const t = unwrap(e);
+      if (norm(k) === 'd13' || norm(t?.pinName || t?.name || '') === 'd13') return true;
+    }
+    return false;
+  }
+  try { if (root && typeof root.rec === 'function') root.rec(); } catch (e) {}
+  try {
+    const wireEntries = Object.values(data.wires?._content || {});
+    for (const entry of wireEntries) {
+      const w = unwrap(entry);
+      if (!w) continue;
+      try {
+        if (data.wires && typeof data.wires.remove === 'function') { data.wires.remove(w); removed_wires++; }
+        else if (typeof w.remove === 'function') { w.remove(); removed_wires++; }
+        else errors.push('wire remove unavailable');
+      } catch (e) { errors.push('wire remove: ' + e.toString()); }
+    }
+    const devEntries = Object.entries(data.devices?._content || {})
+      .map(([id, e]) => ({ id, dev: unwrap(e) }));
+    for (const { dev } of devEntries) {
+      if (!dev) continue;
+      if (hasD13(dev)) { kept_uno = true; continue; }
+      try {
+        if (data.devices && typeof data.devices.remove === 'function') { data.devices.remove(dev); removed_devices++; }
+        else if (typeof dev.remove === 'function') { dev.remove(); removed_devices++; }
+        else errors.push('device remove unavailable');
+      } catch (e) { errors.push('device remove: ' + e.toString()); }
+    }
+  } catch (e) {
+    errors.push(e.toString());
+  } finally {
+    try { if (root && typeof root.stopRec === 'function') root.stopRec(); } catch (e) {}
+    try { if (root && typeof root.save === 'function') root.save(); } catch (e) {}
+  }
+  return { cleared: errors.length === 0, removed_wires, removed_devices, kept_uno, errors };
+}
+"""
 
 _BUILD_JS = r"""
 (plan) => {
@@ -367,6 +438,31 @@ _BUILD_JS = r"""
     function isBbEp(ep) {
       return !!parseHole(ep) || /^[TB][+-]\d{1,2}$/i.test(String(ep || '').trim());
     }
+    function epRef(ep) {
+      const s = String(ep || '').trim(), dot = s.indexOf('.');
+      return dot > 0 ? s.slice(0, dot) : '';
+    }
+    function placedEntryForEp(ep) {
+      const ref = epRef(ep);
+      if (!ref) return null;
+      for (const [k, v] of Object.entries(placed)) {
+        if (norm(k) === norm(ref)) return v;
+      }
+      return null;
+    }
+    function isFreeEp(ep) {
+      const entry = placedEntryForEp(ep);
+      return !!(entry && entry.free);
+    }
+    function devForEp(ep) {
+      const ref = epRef(ep);
+      if (!ref) return null;
+      if (byRef[ref]) return byRef[ref];
+      for (const [k, dev] of Object.entries(byRef)) {
+        if (norm(k) === norm(ref)) return dev;
+      }
+      return null;
+    }
     function convColor(ep) {
       const s = String(ep || '').trim();
       if (/^[TB][+-]\d{1,2}$/i.test(s)) return s.includes('-') ? 'black' : 'red';
@@ -462,7 +558,9 @@ _BUILD_JS = r"""
         }
         prevColor = color;
         const shouldRoute = (typeof spec.route === 'boolean') ? spec.route
-          : ((isUnoEp(from) && isBbEp(to)) || (isBbEp(from) && isUnoEp(to)));
+          : (((isUnoEp(from) && isBbEp(to)) || (isBbEp(from) && isUnoEp(to)))
+            || ((isFreeEp(from) && (isBbEp(to) || isUnoEp(to)))
+              || (isFreeEp(to) && (isBbEp(from) || isUnoEp(from)))));
         let lane = (typeof spec.lane === 'number' && spec.lane >= 0) ? spec.lane : -1;
         if (shouldRoute) {
           if (lane < 0) lane = fallbackLane;
@@ -485,6 +583,37 @@ _BUILD_JS = r"""
             let reason = null;
             if (!w || typeof w.addPoint !== 'function') {
               reason = 'addpoint_unavailable';
+            } else if (isFreeEp(from) || isFreeEp(to)) {
+              const freeIsFrom = isFreeEp(from);
+              const freeEp = freeIsFrom ? from : to;
+              const destEp = freeIsFrom ? to : from;
+              const freeDev = devForEp(freeEp);
+              const freePos = freeDev ? termAbs(freeDev, freeIsFrom ? a : b) : null;
+              const destPos = isBbEp(destEp) ? bbAbs(destEp)
+                : (isUnoEp(destEp) ? termAbs(uno, freeIsFrom ? b : a) : null);
+              if (!freePos) reason = 'free_pos_null';
+              else if (!destPos) reason = 'dest_pos_null';
+              else {
+                const freeEntry = placedEntryForEp(freeEp);
+                const sideY = (freeEntry && freeEntry.free && isFinite(freeEntry.free.y))
+                  ? Number(freeEntry.free.y) : freePos.y;
+                const laneY = sideY > ORIGIN.y
+                  ? ORIGIN.y + 115 + lane * 5
+                  : ORIGIN.y - 115 - lane * 5;
+                const pFree = { x: freePos.x, y: laneY }, pDestFree = { x: destPos.x, y: laneY };
+                const C = coordCtor();
+                try {
+                  const pts = freeIsFrom ? [pFree, pDestFree] : [pDestFree, pFree];
+                  for (let i = 0; i < pts.length; i++) {
+                    const pt = pts[i];
+                    const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+                    if (r === false) throw new Error('addPoint returned false');
+                  }
+                  didRoute = true;
+                } catch (e) {
+                  reason = 'addpoint_error: ' + e.toString();
+                }
+              }
             } else {
               const fromIsUno = isUnoEp(from);
               const unoPos = termAbs(uno, fromIsUno ? a : b);
@@ -587,6 +716,7 @@ class ModelBuildService:
         parts: list[dict],
         wires: list,
         code: str | None = None,
+        clear_existing: bool = False,
     ) -> dict:
         """Place parts so their pins land in breadboard holes, then wire endpoints.
 
@@ -600,8 +730,15 @@ class ModelBuildService:
         ``wires`` accepts pairs ``[a, b]`` and objects
         ``{"from": a, "to": b, "color": ...}``; see ``plan_wire_style``.
 
+        With ``clear_existing=True``, a separate registered edit first
+        removes every wire and every device except the Uno (the device
+        with a D13 terminal; the breadboard is removed too and recreated
+        by the build if the plan needs it), then waits for persistence
+        before building. The result always carries ``"cleared": bool``.
+
         Returns {"success": bool, "placed": {...}, "errors": [...],
-        "persisted": bool, "routed": int, "route_debug": [...]} plus
+        "persisted": bool, "routed": int, "route_debug": [...],
+        "cleared": bool} plus
         "persistence_pending": int|None on timeout. ``route_debug`` holds
         one {"wire", "routed", "reason"} entry per routable wire; a
         routable wire that could not be routed also adds a
@@ -666,12 +803,60 @@ class ModelBuildService:
                 "persisted": False,
                 "routed": 0,
                 "route_debug": [],
+                "cleared": False,
             }
 
         page = await self.browser.get_page()
+        cleared = False
+        if clear_existing:
+            clear_result = await page.evaluate(_CLEAR_JS)
+            if not isinstance(clear_result, dict):
+                return {
+                    "success": False,
+                    "placed": {},
+                    "errors": ["circuit clear returned invalid response"],
+                    "persisted": False,
+                    "routed": 0,
+                    "route_debug": [],
+                    "cleared": False,
+                }
+            clear_errors = [str(e) for e in (clear_result.get("errors") or [])]
+            cleared = clear_result.get("cleared") is True and not clear_errors
+            if not cleared:
+                return {
+                    "success": False,
+                    "placed": {},
+                    "errors": clear_errors or ["circuit clear failed"],
+                    "persisted": False,
+                    "routed": 0,
+                    "route_debug": [],
+                    "cleared": False,
+                }
+            cleared = True
+            clear_persisted, clear_pending = await self._wait_for_persistence(page)
+            if not clear_persisted:
+                return {
+                    "success": False,
+                    "placed": {},
+                    "errors": [
+                        "clear persistence timeout: shareJsDoc.numberPending() still "
+                        f"{clear_pending} after {_PERSIST_TIMEOUT_S:g}s; "
+                        "cleared devices/wires may reappear on reload"
+                    ],
+                    "persisted": False,
+                    "persistence_pending": clear_pending,
+                    "routed": 0,
+                    "route_debug": [],
+                    "cleared": True,
+                }
+        free_refs = [
+            part.get("ref")
+            for part in (parts or [])
+            if isinstance(part, dict) and part.get("free") is not None
+        ]
         plan: Dict[str, Any] = {
             "parts": parts or [],
-            "wires": plan_wire_style(wires),
+            "wires": plan_wire_style(wires, free_refs=free_refs),
             "code": code,
         }
         result = await page.evaluate(_BUILD_JS, plan)
@@ -683,6 +868,7 @@ class ModelBuildService:
                 "persisted": False,
                 "routed": 0,
                 "route_debug": [],
+                "cleared": cleared,
             }
 
         js_errors = list(result.get("errors") or [])
@@ -716,6 +902,7 @@ class ModelBuildService:
                 "persisted": True,
                 "routed": routed,
                 "route_debug": route_debug,
+                "cleared": cleared,
             }
 
         persisted, last_pending = await self._wait_for_persistence(page)
@@ -727,6 +914,7 @@ class ModelBuildService:
                 "persisted": True,
                 "routed": routed,
                 "route_debug": route_debug,
+                "cleared": cleared,
             }
         return {
             "success": False,
@@ -741,4 +929,5 @@ class ModelBuildService:
             "persistence_pending": last_pending,
             "routed": routed,
             "route_debug": route_debug,
+            "cleared": cleared,
         }
