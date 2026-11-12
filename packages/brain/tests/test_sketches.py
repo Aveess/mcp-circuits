@@ -6,6 +6,7 @@ import pytest
 
 from tinkercad_brain.sketches import (
     blink_sketch,
+    button_led_sketch,
     motor_driver_sketch,
     motor_sketch,
     pin_of_fixture,
@@ -371,6 +372,41 @@ def test_motor_driver_rejects_repeated_pins(kwargs):
 def test_motor_driver_rejects_unusable_pot_pins(pot_pin):
     with pytest.raises(ValueError):
         motor_driver_sketch(pot_pin=pot_pin)
+
+
+# --- button_led ---
+
+
+def test_button_led_default_contains_key_content():
+    sketch = button_led_sketch()
+    assert "pinMode(2, INPUT_PULLUP)" in sketch
+    assert "pinMode(13, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "digitalRead(2)" in sketch
+    assert "if (estado == LOW)" in sketch
+    assert _digital_writes(sketch) == [(13, "HIGH"), (13, "LOW")]
+    assert 'Serial.println("TEST:PRESSED")' in sketch
+    assert "delay(50)" in sketch
+
+
+def test_button_led_custom_pins():
+    sketch = button_led_sketch(button_pin=3, led_pin=8)
+    assert "pinMode(3, INPUT_PULLUP)" in sketch
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "digitalRead(3)" in sketch
+    assert _digital_writes(sketch) == [(8, "HIGH"), (8, "LOW")]
+
+
+@pytest.mark.parametrize("kwargs", [{"button_pin": 0}, {"button_pin": 14}, {"led_pin": 1}, {"led_pin": 14}])
+def test_button_led_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        button_led_sketch(**kwargs)
+
+
+def test_button_led_rejects_same_pins():
+    with pytest.raises(ValueError):
+        button_led_sketch(button_pin=5, led_pin=5)
 
 
 # --- pin_of_fixture ---

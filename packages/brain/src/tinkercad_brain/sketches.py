@@ -294,6 +294,34 @@ def motor_driver_sketch(enable_pin: int = 9, in1: int = 7, in2: int = 8, pot_pin
     return "\n".join(lines) + "\n"
 
 
+def button_led_sketch(button_pin: int = 2, led_pin: int = 13) -> str:
+    _validate_pin(button_pin)
+    _validate_pin(led_pin)
+    if button_pin == led_pin:
+        raise ValueError(f"button_pin y led_pin deben ser distintos: {button_pin!r}")
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({button_pin}, INPUT_PULLUP);",
+        f"  pinMode({led_pin}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int estado = digitalRead({button_pin});",
+        "  if (estado == LOW) {",
+        f"    digitalWrite({led_pin}, HIGH);",
+        '    Serial.println("TEST:PRESSED");',
+        "  } else {",
+        f"    digitalWrite({led_pin}, LOW);",
+        "  }",
+        "  delay(50);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}
