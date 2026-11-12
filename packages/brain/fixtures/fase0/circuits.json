@@ -121,5 +121,18 @@
     ],
     "nets": [["uno.5V", "tmp1.vcc"], ["tmp1.vout", "uno.A0"], ["tmp1.gnd", "uno.GND1"], ["uno.D13", "r1.1"], ["r1.2", "led1.anode"], ["led1.cathode", "uno.GND1"]],
     "code_features": ["pinMode", "analogRead", "digitalWrite", "Serial"]
+  },
+  {
+    "id": "motor-l293d-bateria",
+    "title": "Motor DC con driver L293D y batería de 9V, velocidad por potenciómetro en A0",
+    "components": [
+      {"ref": "uno", "type": "arduino-uno"},
+      {"ref": "drv1", "type": "l293d"},
+      {"ref": "bat1", "type": "battery-9v"},
+      {"ref": "motor1", "type": "dc-motor"},
+      {"ref": "pot1", "type": "potentiometer"}
+    ],
+    "nets": [["uno.D9", "drv1.enable1"], ["uno.D7", "drv1.input1"], ["uno.D8", "drv1.input2"], ["uno.5V", "drv1.vss"], ["uno.GND1", "drv1.gnd", "bat1.negative"], ["bat1.positive", "drv1.vs"], ["drv1.output1", "motor1.1"], ["drv1.output2", "motor1.2"], ["uno.5V", "pot1.1"], ["pot1.2", "uno.A0"], ["pot1.3", "uno.GND1"]],
+    "code_features": ["pinMode", "digitalWrite", "analogWrite", "analogRead"]
   }
 ]
