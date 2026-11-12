@@ -49,31 +49,31 @@ def test_r8_sensor_real_wires_completos_contra_las_7_nets_y_sin_colision_led():
 
     layout = plan_layout(fixture)
     assert layout["unplaced"] == []
-    assert layout["placements"]["us1"] == {"at": "7d", "pin": "vcc", "angle": 0}
+    assert layout["placements"]["us1"] == {"at": "18d", "pin": "vcc", "angle": 0}
 
     result = fixture_to_model_call(fixture)
 
     assert result["parts"] == [
         {"ref": "r1", "did": 53184, "at": "1g", "pin": "1", "angle": 90},
         {"ref": "led1", "did": 58422, "at": "5i", "pin": "anode", "angle": 180},
-        {"ref": "us1", "did": 219295, "at": "7d", "pin": "pos", "angle": 0},
+        {"ref": "us1", "did": 219295, "at": "18d", "pin": "pos", "angle": 0},
     ]
     # Orden del builder: alimentacion, tierra (por "from"), senales
     # (por "from", paleta en orden). Huecos US: vcc/trig/echo/gnd.
     assert result["wires"] == [
-        {"from": "uno.5V", "to": "7d", "color": "red"},
-        {"from": "10d", "to": "uno.GND1", "color": "black"},
+        {"from": "uno.5V", "to": "18d", "color": "red"},
+        {"from": "21d", "to": "uno.GND1", "color": "black"},
         {"from": "6i", "to": "uno.GND1", "color": "black"},
         {"from": "5g", "to": "5i", "color": "blue"},
         {"from": "uno.D13", "to": "1g", "color": "green"},
-        {"from": "uno.D6", "to": "9d", "color": "orange"},
-        {"from": "uno.D7", "to": "8d", "color": "yellow"},
+        {"from": "uno.D6", "to": "20d", "color": "orange"},
+        {"from": "uno.D7", "to": "19d", "color": "yellow"},
     ]
 
     # Cada una de las 7 nets de la fixture aparece exactamente una vez
     # como par de extremos (sin importar direccion) en los wires.
     hole_of = {
-        "us1.vcc": "7d", "us1.trig": "8d", "us1.echo": "9d", "us1.gnd": "10d",
+        "us1.vcc": "18d", "us1.trig": "19d", "us1.echo": "20d", "us1.gnd": "21d",
         "r1.1": "1g", "r1.2": "5g", "led1.anode": "5i", "led1.cathode": "6i",
     }
     expected_pairs = {
@@ -88,7 +88,7 @@ def test_r8_sensor_real_wires_completos_contra_las_7_nets_y_sin_colision_led():
     # Huecos del sensor at..at+3: ninguno es un hueco del bloque LED
     # (r en 1g/5g, led en 5i/6i) ni cae en sus columnas reservadas 1..6.
     us_holes = _us_holes(layout["placements"]["us1"]["at"])
-    assert us_holes == ["7d", "8d", "9d", "10d"]
+    assert us_holes == ["18d", "19d", "20d", "21d"]
     assert set(us_holes).isdisjoint({"1g", "5g", "5i", "6i"})
     assert all(_col(h) > 6 for h in us_holes)
 
@@ -179,26 +179,26 @@ def test_r8_dos_ultrasonicos_layout_y_builder_huecos_disjuntos():
 
     layout = plan_layout(fixture)
     assert layout["unplaced"] == []
-    assert layout["placements"]["us1"] == {"at": "1d", "pin": "vcc", "angle": 0}
-    assert layout["placements"]["us2"] == {"at": "6d", "pin": "vcc", "angle": 0}
-    holes1 = set(_us_holes("1d"))
-    holes2 = set(_us_holes("6d"))
+    assert layout["placements"]["us1"] == {"at": "18d", "pin": "vcc", "angle": 0}
+    assert layout["placements"]["us2"] == {"at": "23d", "pin": "vcc", "angle": 0}
+    holes1 = set(_us_holes("18d"))
+    holes2 = set(_us_holes("23d"))
     assert holes1.isdisjoint(holes2)
 
     result = fixture_to_model_call(fixture)
     assert result["parts"] == [
-        {"ref": "us1", "did": 219295, "at": "1d", "pin": "pos", "angle": 0},
-        {"ref": "us2", "did": 219295, "at": "6d", "pin": "pos", "angle": 0},
+        {"ref": "us1", "did": 219295, "at": "18d", "pin": "pos", "angle": 0},
+        {"ref": "us2", "did": 219295, "at": "23d", "pin": "pos", "angle": 0},
     ]
     assert result["wires"] == [
-        {"from": "uno.5V", "to": "1d", "color": "red"},
-        {"from": "uno.5V", "to": "6d", "color": "red"},
-        {"from": "4d", "to": "uno.GND1", "color": "black"},
-        {"from": "9d", "to": "uno.GND1", "color": "black"},
-        {"from": "uno.D6", "to": "3d", "color": "blue"},
-        {"from": "uno.D7", "to": "2d", "color": "green"},
-        {"from": "uno.D8", "to": "8d", "color": "orange"},
-        {"from": "uno.D9", "to": "7d", "color": "yellow"},
+        {"from": "uno.5V", "to": "18d", "color": "red"},
+        {"from": "uno.5V", "to": "23d", "color": "red"},
+        {"from": "21d", "to": "uno.GND1", "color": "black"},
+        {"from": "26d", "to": "uno.GND1", "color": "black"},
+        {"from": "uno.D6", "to": "20d", "color": "blue"},
+        {"from": "uno.D7", "to": "19d", "color": "green"},
+        {"from": "uno.D8", "to": "25d", "color": "orange"},
+        {"from": "uno.D9", "to": "24d", "color": "yellow"},
     ]
     wire_ends = {w["from"] for w in result["wires"]} | {w["to"] for w in result["wires"]}
     assert holes1 | holes2 <= wire_ends
@@ -227,14 +227,14 @@ def test_r8_builder_reordena_aunque_la_senal_venga_antes_que_la_alimentacion():
 
     result = fixture_to_model_call(fixture)
 
-    # servo en 1c (gnd/vcc/signal = 1c/2c/3c), US en 5d (5d/6d/7d/8d).
+    # servo en 1c (gnd/vcc/signal = 1c/2c/3c), US en 18d (18d/19d/20d/21d).
     assert result["wires"] == [
         {"from": "uno.5V", "to": "2c", "color": "red"},
-        {"from": "uno.5V", "to": "5d", "color": "red"},
+        {"from": "uno.5V", "to": "18d", "color": "red"},
         {"from": "1c", "to": "uno.GND1", "color": "black"},
-        {"from": "8d", "to": "uno.GND1", "color": "black"},
-        {"from": "uno.D6", "to": "7d", "color": "blue"},
-        {"from": "uno.D7", "to": "6d", "color": "green"},
+        {"from": "21d", "to": "uno.GND1", "color": "black"},
+        {"from": "uno.D6", "to": "20d", "color": "blue"},
+        {"from": "uno.D7", "to": "19d", "color": "green"},
         {"from": "uno.D9", "to": "3c", "color": "orange"},
     ]
     groups = [w["color"] for w in result["wires"]]

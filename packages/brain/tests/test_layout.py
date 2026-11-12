@@ -64,7 +64,7 @@ def test_unknown_type_goes_to_unplaced():
     assert result == {"placements": {}, "unplaced": ["x1"]}
 
 
-def test_ultrasonic_alone_is_placed_at_1d_with_vcc_first():
+def test_ultrasonic_alone_is_placed_at_18d_with_vcc_first():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -76,7 +76,7 @@ def test_ultrasonic_alone_is_placed_at_1d_with_vcc_first():
     result = plan_layout(fixture)
 
     assert result == {
-        "placements": {"us1": {"at": "1d", "pin": "vcc", "angle": 0}},
+        "placements": {"us1": {"at": "18d", "pin": "vcc", "angle": 0}},
         "unplaced": [],
     }
 
@@ -84,7 +84,7 @@ def test_ultrasonic_alone_is_placed_at_1d_with_vcc_first():
 def test_ultrasonic_real_fixture_is_placed_after_led_block():
     result = plan_layout(_fixture("sensor-ultrasonico"))
 
-    assert result["placements"]["us1"] == {"at": "7d", "pin": "vcc", "angle": 0}
+    assert result["placements"]["us1"] == {"at": "18d", "pin": "vcc", "angle": 0}
     assert result["unplaced"] == []
 
 
@@ -103,8 +103,8 @@ def test_ultrasonic_shares_cursor_and_advances_five_after_servo():
 
     assert result["placements"] == {
         "servo1": {"at": "1c", "pin": "gnd", "angle": 0},
-        "us1": {"at": "5d", "pin": "vcc", "angle": 0},
-        "tmp1": {"at": "10c", "pin": "vcc", "angle": 0},
+        "us1": {"at": "18d", "pin": "vcc", "angle": 0},
+        "tmp1": {"at": "23c", "pin": "vcc", "angle": 0},
     }
     assert result["unplaced"] == []
 

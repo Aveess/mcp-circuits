@@ -25,6 +25,12 @@ THREE_PIN_WIDTH = 4
 ULTRASONIC_PINS = 4
 # Cursor advance per ultrasonic block: 4 pin columns + 1 separation column.
 ULTRASONIC_WIDTH = 5
+# Minimum start column for the HC-SR04: its body extends up and to the
+# left from its pins on row d, so placed next to the LED block (columns
+# 1-6, row i) the sensor body covers the LED on screen. Starting it at
+# column 18 or later (right side of the board) keeps its body clear of
+# components to its left; a cursor already past 18 is respected.
+ULTRASONIC_MIN_COLUMN = 18
 # LED RGB (common cathode): red pin at column B on row i, pins occupy
 # B..B+3. Each series resistor is angle 90 (pin 2 lands 4 columns after
 # pin 1), so pin 1 sits at a color-specific offset/row such that pin 2
@@ -307,19 +313,21 @@ def plan_layout(fixture: dict) -> dict:
                 )
                 next_column += THREE_PIN_WIDTH
         elif ctype == "ultrasonic-hcsr04":
-            next_column = skip_occupied(next_column, ULTRASONIC_PINS)
-            if next_column + ULTRASONIC_PINS - 1 > MAX_COLUMN:
+            start = skip_occupied(
+                max(next_column, ULTRASONIC_MIN_COLUMN), ULTRASONIC_PINS
+            )
+            if start + ULTRASONIC_PINS - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:
                 placements[ref] = {
-                    "at": f"{next_column}d",
+                    "at": f"{start}d",
                     "pin": "vcc",
                     "angle": 0,
                 }
                 occupied_columns.update(
-                    range(next_column, next_column + ULTRASONIC_PINS)
+                    range(start, start + ULTRASONIC_PINS)
                 )
-                next_column += ULTRASONIC_WIDTH
+                next_column = start + ULTRASONIC_WIDTH
         elif ctype == "diode":
             next_column = skip_occupied(next_column, 5)
             if next_column + 4 > MAX_COLUMN:
