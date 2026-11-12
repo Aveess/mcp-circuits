@@ -136,7 +136,10 @@ def test_r7_dos_servos_refs_y_bloques_distintos_y_senales_distintas():
     model = fixture_to_model_call(fixture)
     assert [p["at"] for p in model["parts"]] == ["1c", "5c"]
     assert {p["ref"] for p in model["parts"]} == {"servo1", "servo2"}
-    assert model["wires"] == [["uno.D9", "3c"], ["uno.D10", "7c"]]
+    assert model["wires"] == [
+        {"from": "uno.D10", "to": "7c", "color": "blue"},
+        {"from": "uno.D9", "to": "3c", "color": "green"},
+    ]
 
 
 # ---------------------------------------------------------------- builder
@@ -171,12 +174,12 @@ def test_r7_tmp36_sintetica_completa_wires_pin_a_pin_contra_layout():
     ]
     tmp_at = layout["placements"]["tmp1"]["at"]
     assert result["wires"] == [
-        ["uno.D9", "3c"],
-        ["uno.5V", "2c"],
-        ["1c", "uno.GND1"],
-        ["uno.5V", tmp_at],        # vcc: el ancla misma (5c)
-        ["6c", "uno.A1"],          # vout: at+1
-        ["7c", "uno.GND1"],        # gnd: at+2
+        {"from": "uno.5V", "to": "2c", "color": "red"},
+        {"from": "uno.5V", "to": tmp_at, "color": "red"},
+        {"from": "1c", "to": "uno.GND1", "color": "black"},
+        {"from": "7c", "to": "uno.GND1", "color": "black"},
+        {"from": "6c", "to": "uno.A1", "color": "blue"},
+        {"from": "uno.D9", "to": "3c", "color": "green"},
     ]
 
 
@@ -191,12 +194,12 @@ def test_r7_pot_wiper_cae_en_el_hueco_del_medio_y_servo_signal_en_at_mas2():
         {"ref": "pot1", "did": 45547, "at": "5c", "pin": "term0", "angle": 0},
     ]
     assert result["wires"] == [
-        ["uno.D9", "3c"],       # servo.signal = at(1c)+2
-        ["uno.5V", "2c"],       # servo.vcc = at+1
-        ["1c", "uno.GND1"],     # servo.gnd = at
-        ["uno.5V", "5c"],       # pot.1 (term0) = at
-        ["6c", "uno.A0"],       # pot.2 (wiper) = at+1, el hueco del medio
-        ["7c", "uno.GND1"],     # pot.3 (term1) = at+2
+        {"from": "uno.5V", "to": "2c", "color": "red"},
+        {"from": "uno.5V", "to": "5c", "color": "red"},
+        {"from": "1c", "to": "uno.GND1", "color": "black"},
+        {"from": "7c", "to": "uno.GND1", "color": "black"},
+        {"from": "6c", "to": "uno.A0", "color": "blue"},
+        {"from": "uno.D9", "to": "3c", "color": "green"},
     ]
 
 
@@ -299,8 +302,8 @@ def test_r7_cruzado_fixture_builder_sketch_el_servo_queda_en_d9():
     uno_endpoint = next(
         other
         for wire in result["wires"]
-        if signal_hole in wire
-        for other in wire
+        if signal_hole in (wire["from"], wire["to"])
+        for other in (wire["from"], wire["to"])
         if other != signal_hole
     )
     match = re.fullmatch(r"uno\.D(\d+)", uno_endpoint)

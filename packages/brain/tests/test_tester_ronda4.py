@@ -202,17 +202,17 @@ def test_r4_semaforo_tres_ramas_sin_colision_y_nueve_nets_cubiertas():
     # 9 nets de 2 extremos -> exactamente 9 wires, todos huecos/uno validos.
     assert len(fixture["nets"]) == 9
     assert len(result["wires"]) == 9
-    for a, b in result["wires"]:
-        for end in (a, b):
+    for w in result["wires"]:
+        for end in (w["from"], w["to"]):
             assert end.startswith("uno.") or HOLE_RE.match(end), end
 
 
 def test_r4_catodo_directo_a_gnd_genera_wire_a_hueco_valido():
     fixture = _fixture("blink-basico")
     result = fixture_to_model_call(fixture)
-    cathode_wires = [w for w in result["wires"] if w[1] == "uno.GND1"]
+    cathode_wires = [w for w in result["wires"] if w["to"] == "uno.GND1"]
     assert len(cathode_wires) == 1
-    hole = cathode_wires[0][0]
+    hole = cathode_wires[0]["from"]
     assert HOLE_RE.match(hole)
     # Catodo = anodo (at del LED) desplazado una columna, misma fila.
     led_at = plan_layout(fixture)["placements"]["led1"]["at"]
@@ -253,9 +253,9 @@ def test_r4_blink_wires_coinciden_con_placements():
 
     # El wire al hueco del anodo debe ser exactamente el `at` del LED, etc.
     assert wires == [
-        ["uno.D13", r_at],
-        [r_pin2, led_at],
-        [led_cathode, "uno.GND1"],
+        {"from": led_cathode, "to": "uno.GND1", "color": "black"},
+        {"from": r_pin2, "to": led_at, "color": "blue"},
+        {"from": "uno.D13", "to": r_at, "color": "green"},
     ]
     # Ningun part comparte hueco ancla con el extremo derivado de otro pin.
     derived = {r_pin2, led_cathode}
