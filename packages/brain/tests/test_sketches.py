@@ -7,6 +7,7 @@ import pytest
 from tinkercad_brain.sketches import (
     blink_sketch,
     pin_of_fixture,
+    rgb_cycle_sketch,
     servo_knob_sketch,
     tmp36_sketch,
     traffic_sketch,
@@ -121,6 +122,58 @@ def test_traffic_rejects_repeated_pins(kwargs):
 def test_traffic_rejects_out_of_range_times(kwargs):
     with pytest.raises(ValueError):
         traffic_sketch(**kwargs)
+
+
+# --- rgb_cycle ---
+
+
+def test_rgb_cycle_default_sequence():
+    sketch = rgb_cycle_sketch()
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "pinMode(10, OUTPUT)" in sketch
+    assert "pinMode(11, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert 'Serial.println("TEST:COLOR=RED")' in sketch
+    assert 'Serial.println("TEST:COLOR=GREEN")' in sketch
+    assert 'Serial.println("TEST:COLOR=BLUE")' in sketch
+    assert _digital_writes(sketch) == [
+        (9, "HIGH"), (10, "LOW"), (11, "LOW"),
+        (9, "LOW"), (10, "HIGH"), (11, "LOW"),
+        (9, "LOW"), (10, "LOW"), (11, "HIGH"),
+    ]
+    assert [int(d) for d in re.findall(r"delay\((\d+)\)", sketch)] == [900, 900, 900]
+
+
+def test_rgb_cycle_custom_pins_and_dwell():
+    sketch = rgb_cycle_sketch(red=5, green=6, blue=7, dwell_ms=250)
+    assert _digital_writes(sketch)[0] == (5, "HIGH")
+    assert _digital_writes(sketch)[4] == (6, "HIGH")
+    assert _digital_writes(sketch)[-1] == (7, "HIGH")
+    assert sketch.count("delay(250)") == 3
+
+
+def test_rgb_cycle_accepts_boundary_dwell():
+    assert rgb_cycle_sketch(dwell_ms=50).count("delay(50)") == 3
+    assert rgb_cycle_sketch(dwell_ms=60000).count("delay(60000)") == 3
+
+
+@pytest.mark.parametrize("kwargs", [{"red": 1}, {"green": 14}, {"blue": 0}])
+def test_rgb_cycle_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        rgb_cycle_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [{"red": 9, "green": 9}, {"red": 11, "blue": 11}, {"green": 10, "blue": 10}])
+def test_rgb_cycle_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        rgb_cycle_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("dwell_ms", [0, 49, 60001, -1])
+def test_rgb_cycle_rejects_out_of_range_dwell(dwell_ms):
+    with pytest.raises(ValueError):
+        rgb_cycle_sketch(dwell_ms=dwell_ms)
 
 
 # --- servo_knob ---
