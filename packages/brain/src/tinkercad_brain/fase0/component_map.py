@@ -13,6 +13,7 @@ TYPE_MAP: dict[str, str] = {
     "Photoresistor": "photoresistor",
     "DC Motor": "dc-motor",
     "RGB LED": "led-rgb-common-cathode",
+    "LED RGB": "led-rgb-common-cathode",  # Verificado: nombre real ezhil en circuito 6CynuRekrD2 (inspect_circuit).
     "TMP36": "tmp36",
     "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
