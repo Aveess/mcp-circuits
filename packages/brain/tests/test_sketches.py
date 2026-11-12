@@ -6,6 +6,7 @@ import pytest
 
 from tinkercad_brain.sketches import (
     blink_sketch,
+    motor_driver_sketch,
     motor_sketch,
     pin_of_fixture,
     rgb_cycle_sketch,
@@ -323,6 +324,53 @@ def test_motor_custom_pin():
 def test_motor_rejects_unusable_pins(pin):
     with pytest.raises(ValueError):
         motor_sketch(pin=pin)
+
+
+# --- motor_driver ---
+
+
+def test_motor_driver_default_contains_key_content():
+    sketch = motor_driver_sketch()
+    assert "pinMode(9, OUTPUT)" in sketch
+    assert "pinMode(7, OUTPUT)" in sketch
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "analogRead(A0)" in sketch
+    assert "map(lectura, 0, 1023, 0, 255)" in sketch
+    assert _digital_writes(sketch) == [(7, "HIGH"), (8, "LOW")]
+    assert "analogWrite(9, velocidad)" in sketch
+    assert 'Serial.print("TEST:SPEED=");' in sketch
+    assert "Serial.println(velocidad);" in sketch
+    assert "delay(200)" in sketch
+
+
+def test_motor_driver_custom_pins():
+    sketch = motor_driver_sketch(enable_pin=10, in1=5, in2=6, pot_pin="A3")
+    assert "pinMode(10, OUTPUT)" in sketch
+    assert "analogRead(A3)" in sketch
+    assert _digital_writes(sketch) == [(5, "HIGH"), (6, "LOW")]
+    assert "analogWrite(10, velocidad)" in sketch
+
+
+@pytest.mark.parametrize("kwargs", [{"enable_pin": 0}, {"enable_pin": 14}, {"in1": 1}, {"in2": 14}])
+def test_motor_driver_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        motor_driver_sketch(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"enable_pin": 9, "in1": 9}, {"enable_pin": 9, "in2": 9}, {"in1": 7, "in2": 7}]
+)
+def test_motor_driver_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        motor_driver_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("pot_pin", ["A6", "13", "A-1", "a0", ""])
+def test_motor_driver_rejects_unusable_pot_pins(pot_pin):
+    with pytest.raises(ValueError):
+        motor_driver_sketch(pot_pin=pot_pin)
 
 
 # --- pin_of_fixture ---

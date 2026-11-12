@@ -23,6 +23,8 @@ TYPE_MAP: dict[str, str] = {
     "TMP36": "tmp36",
     "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
+    "H-bridge Motor Driver [L293D]": "l293d",  # Verificado: nombre real ezhil (inspect_circuit).
+    "9V Battery": "battery-9v",  # Verificado: nombre real ezhil (inspect_circuit).
 }
 
 

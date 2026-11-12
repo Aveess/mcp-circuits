@@ -28,6 +28,8 @@ EXPECTED = {
     "TMP36": "tmp36",
     "Temperature Sensor [TMP36]": "tmp36",
     "Breadboard Small": "breadboard",
+    "H-bridge Motor Driver [L293D]": "l293d",
+    "9V Battery": "battery-9v",
 }
 
 
@@ -99,6 +101,14 @@ def test_transistor_bjt_real_ezhil_name_resolves():
     # Nombre real ezhil en circuito 73azwj2IJDE.
     assert fixture_type("NPN Transistor (BJT)") == "transistor-npn"
     assert known_slugs().count("transistor-npn") == 1
+
+
+def test_l293d_and_battery_real_ezhil_names_resolve():
+    # Nombres reales ezhil verificados con inspect_circuit.
+    assert fixture_type("H-bridge Motor Driver [L293D]") == "l293d"
+    assert fixture_type("9V Battery") == "battery-9v"
+    assert known_slugs().count("l293d") == 1
+    assert known_slugs().count("battery-9v") == 1
 
 
 def test_known_slugs_are_unique_and_sorted():
