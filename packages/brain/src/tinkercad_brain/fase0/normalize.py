@@ -36,6 +36,9 @@ def normalize_circuit(inspect_data: dict, schematic_data: dict) -> dict:
             continue
         norm_type = _canonical_type(raw_type)
 
+        if norm_type == "breadboard":
+            continue
+
         if norm_type == "arduino-uno":
             counters[norm_type] = counters.get(norm_type, 0) + 1
             n = counters[norm_type]
