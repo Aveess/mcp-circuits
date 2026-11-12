@@ -53,6 +53,15 @@ _PIN_ALIASES_BY_TYPE = {
         "Base": "base",
         "Emitter": "emitter",
     },
+    # Acotado a dc-motor: en vivo reporta "Terminal 1"/"Terminal 2", que
+    # globalmente serian "1"/"2"; la fixture usa positive(1)/negative(2).
+    # Un "1" de resistencia no entra aqui y sigue siendo "1".
+    "dc-motor": {
+        "1": "positive",
+        "2": "negative",
+        "Terminal 1": "positive",
+        "Terminal 2": "negative",
+    },
     "potentiometer": {
         "Terminal 1": "1",
         "Terminal 2": "3",
