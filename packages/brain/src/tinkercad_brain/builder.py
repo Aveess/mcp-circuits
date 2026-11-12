@@ -89,6 +89,13 @@ _L293D_PIN_HOLES: dict[str, tuple[str, int]] = {
     **{pin: ("f", i) for i, (pin, _real) in enumerate(_L293D_ROW_F)},
     **{pin: ("i", i) for i, (pin, _real) in enumerate(_L293D_ROW_I)},
 }
+# Angulo 180 (verificado en vivo, ancla Enable1 en 17f): la fila f baja
+# de columna (enable1=17f ... vs=10f) y la opuesta pasa a ser la fila e
+# espejada (vss=17e ... enable2=10e).
+_L293D_PIN_HOLES_180: dict[str, tuple[str, int]] = {
+    **{pin: ("f", -i) for i, (pin, _real) in enumerate(_L293D_ROW_F)},
+    **{pin: ("e", -i) for i, (pin, _real) in enumerate(_L293D_ROW_I)},
+}
 
 # HC-SR04 (4 pines): evidencia en vivo DID 219295, pin real "pos" en un
 # hueco de la fila d deja pos=+0, trig=+1, echo=+2, neg=+3 columnas.
@@ -204,7 +211,12 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
     at = placement["at"]
     # Geometria derivada de la receta de layout (ver layout.plan_layout):
     if ctype == "l293d":
-        hole_spec = _L293D_PIN_HOLES.get(pin)
+        holes = (
+            _L293D_PIN_HOLES_180
+            if placement.get("angle") == 180
+            else _L293D_PIN_HOLES
+        )
+        hole_spec = holes.get(pin)
         if hole_spec is not None:
             row, offset = hole_spec
             match = _HOLE_RE.fullmatch(at)

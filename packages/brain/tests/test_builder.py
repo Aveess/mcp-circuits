@@ -607,6 +607,61 @@ def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
     assert by_pair[("uno.D9", "10f")] not in ("red", "black")
 
 
+def _force_l293d_180_placement(monkeypatch):
+    """Fuerza drv1 a {"at": "17f", "pin": "enable1", "angle": 180}.
+
+    El layout (otro agente) pasa a emitir ese placement; forzarlo aqui
+    mantiene el test del builder determinista antes y despues del merge.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = []
+        for ref in layout["unplaced"]:
+            ctype = type_by_ref.get(ref)
+            if ctype == "l293d":
+                placements[ref] = {"at": "17f", "pin": "enable1", "angle": 180}
+            elif ctype == "battery-9v":
+                placements[ref] = {"free": {"x": 560, "y": 300}}
+            else:
+                unplaced.append(ref)
+        for ref, ctype in type_by_ref.items():
+            if ctype == "l293d" and ref in placements:
+                placements[ref] = {"at": "17f", "pin": "enable1", "angle": 180}
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def test_motor_l293d_bateria_angle180_real_fixture_parts_and_wires(monkeypatch):
+    fixture = _fixture("motor-l293d-bateria")
+    _force_l293d_180_placement(monkeypatch)
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    # El part emite el angle 180 del placement, con ancla real capitalizada.
+    assert parts_by_ref["drv1"] == {
+        "ref": "drv1", "did": 112326, "at": "17f", "pin": "Enable1", "angle": 180,
+    }
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    # Geometria 180 verificada: f decreciente desde 17f, e creciente a 17e.
+    assert ("bat1.+", "10f") in pairs  # vs = 10f
+    assert ("uno.5V", "17e") in pairs  # vss = 17e
+    assert ("uno.D9", "17f") in pairs  # PWM -> enable1 = 17f
+    assert ("15f", "motor1.1") in pairs  # output1 = 15f
+    assert ("12f", "motor1.2") in pairs  # output2 = 12f
+    assert ("uno.D7", "16f") in pairs  # input1
+    assert ("uno.D8", "11f") in pairs  # input2
+    assert ("uno.GND1", "14f") in pairs  # gnd
+    by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
+    assert by_pair[("bat1.+", "10f")] == "red"
+    assert by_pair[("uno.D9", "17f")] not in ("red", "black")
+
+
 def test_pushbutton_pin2_raises_build_error_unknown_geometry():
     # Supuesto documentado: solo se conoce la geometria del pin "1" del
     # boton (en `at`). El pin "2" de boton-pullup no se adivina: sin una
