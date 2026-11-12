@@ -7,6 +7,7 @@ LED as on/off from the pixel brightness around its known screen position.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import time
@@ -29,6 +30,16 @@ DEFAULT_LED_ON_THRESHOLD = 144.0
 
 # Side (px) of the square window centred on the LED position that is averaged.
 LED_WINDOW_SIZE = 9
+
+# Seconds SimulationService waits before verifying the simulation is active.
+# With 0 it only sends the trigger and reports success=False
+# ("Simulation trigger sent."), even though the simulation may be running.
+START_WAIT_SECONDS = 5
+
+# Fallback confirmation polling when start reports success=False: the
+# simulation may still be active (verified via get_simulation_status).
+START_CONFIRM_ATTEMPTS = 5
+START_CONFIRM_INTERVAL_SECONDS = 0.2
 
 
 class SimulationSamplerService:
@@ -132,6 +143,38 @@ class SimulationSamplerService:
             return status.get("simulation_time") or status.get("sim_time")
         return None
 
+    async def _simulation_is_active(self) -> bool:
+        """True when get_simulation_status reports the simulation running."""
+        try:
+            status = await self.simulation.get_simulation_status()
+        except Exception:
+            return False
+        if not isinstance(status, dict):
+            return False
+        if status.get("running") is not None:
+            return bool(status.get("running"))
+        if status.get("is_running") is not None:
+            return bool(status.get("is_running"))
+        state = str(status.get("status") or status.get("state") or "").strip().lower()
+        return state in ("running", "active", "started")
+
+    async def _confirm_simulation_active(self, start_res: Any) -> bool:
+        """Confirm the simulation is actually active after starting it.
+
+        ``start_simulation(wait_seconds=START_WAIT_SECONDS)`` already waits
+        and verifies, so success=True is trusted. On success=False (e.g.
+        "Simulation trigger sent.") the trigger may still have started the
+        simulation: poll get_simulation_status instead of aborting outright.
+        """
+        if isinstance(start_res, dict) and start_res.get("success"):
+            return True
+        for attempt in range(START_CONFIRM_ATTEMPTS):
+            if await self._simulation_is_active():
+                return True
+            if attempt + 1 < START_CONFIRM_ATTEMPTS:
+                await asyncio.sleep(START_CONFIRM_INTERVAL_SECONDS)
+        return bool(isinstance(start_res, dict) and start_res.get("running"))
+
     # ------------------------------------------------------------------ #
     # Main entry point
     # ------------------------------------------------------------------ #
@@ -166,12 +209,29 @@ class SimulationSamplerService:
         serial_text: Optional[str] = None
         started = False
         try:
-            # 2. Start the simulation, reusing SimulationService.
-            start_res = await self.simulation.start_simulation(wait_seconds=0)
-            if isinstance(start_res, dict) and start_res.get("success") is False:
-                errors.append(f"simulation_start_failed: {start_res.get('message') or start_res.get('error') or start_res}")
+            # 2. Start the simulation with confirmation, reusing
+            # SimulationService. wait_seconds=0 only sends the trigger and
+            # reports success=False ("Simulation trigger sent."); waiting
+            # lets the service verify the active state. If it still reports
+            # failure, fall back to get_simulation_status: only abort when
+            # the simulation is not actually active.
+            start_res: Any = None
+            start_error: Optional[str] = None
+            try:
+                start_res = await self.simulation.start_simulation(wait_seconds=START_WAIT_SECONDS)
+            except Exception as exc:  # a raised start may still have triggered it
+                start_error = str(exc)
+            if not await self._confirm_simulation_active(start_res):
+                if start_error is not None:
+                    detail = start_error
+                elif isinstance(start_res, dict):
+                    detail = start_res.get("message") or start_res.get("error") or start_res
+                else:
+                    detail = start_res
+                errors.append(f"simulation_start_failed: {detail}")
                 return {"samples": [], "serial": None, "errors": errors}
             started = True
+            # t0 is when the simulation was confirmed active, not the click.
             start_monotonic = time.monotonic()
 
             # 3. Sample at each requested instant, in ascending order.

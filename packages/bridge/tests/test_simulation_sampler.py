@@ -138,6 +138,44 @@ class TestSampleFlow(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(result["serial"])
         serial.read_serial_monitor.assert_not_awaited()
 
+    async def test_start_unconfirmed_but_status_active_still_samples(self):
+        # Live regression: start reports success=False ("Simulation trigger
+        # sent.") yet the simulation is in fact running.
+        service, browser, wiring, sim, serial = _make_service(
+            [_png_b64((200, 200, 200))], position=(15, 15)
+        )
+        sim.start_simulation = AsyncMock(
+            return_value={"success": False, "running": False, "message": "Simulation trigger sent."}
+        )
+        sim.get_simulation_status = AsyncMock(
+            return_value={"running": True, "simulation_time": "00:00:01"}
+        )
+        result = await service.sample([100])
+        sim.start_simulation.assert_awaited_once_with(wait_seconds=5)
+        self.assertEqual(len(result["samples"]), 1)
+        self.assertEqual(result["samples"][0]["at_ms"], 100)
+        self.assertTrue(result["samples"][0]["led"]["on"])
+        self.assertEqual(result["errors"], [])
+        browser.take_screenshot.assert_awaited_once()
+        sim.stop_simulation.assert_awaited_once()
+
+    async def test_start_failed_and_status_inactive_aborts_without_raising(self):
+        service, browser, wiring, sim, serial = _make_service([], position=(15, 15))
+        sim.start_simulation = AsyncMock(
+            return_value={"success": False, "running": False, "message": "Simulation trigger sent."}
+        )
+        sim.get_simulation_status = AsyncMock(
+            return_value={"running": False, "simulation_time": "00:00:00"}
+        )
+        result = await service.sample([100, 250])  # must not raise
+        sim.start_simulation.assert_awaited_once_with(wait_seconds=5)
+        self.assertEqual(result["samples"], [])
+        self.assertIsNone(result["serial"])
+        self.assertTrue(any("simulation_start_failed" in e for e in result["errors"]))
+        browser.take_screenshot.assert_not_awaited()
+        sim.stop_simulation.assert_not_awaited()
+        serial.read_serial_monitor.assert_not_awaited()
+
     async def test_unknown_led_position_reports_error_without_raising(self):
         service, browser, wiring, sim, serial = _make_service([], position=None)
         result = await service.sample([100, 250])  # must not raise
