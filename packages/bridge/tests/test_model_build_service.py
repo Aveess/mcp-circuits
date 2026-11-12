@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.services import model_build_service as mbs
-from src.services.model_build_service import ModelBuildService
+from src.services.model_build_service import ModelBuildService, plan_wire_style
 
 
 def make_service(evaluate_return=None, pending=None):
@@ -79,7 +79,14 @@ class TestModelBuildEvaluate(unittest.IsolatedAsyncioTestCase):
         self.assertIn("rec()", js)
         self.assertIn("stopRec", js)
         self.assertEqual(plan["parts"], parts)
-        self.assertEqual(plan["wires"], wires)
+        # evaluate receives the styled plan, not the raw pairs
+        self.assertEqual(
+            plan["wires"],
+            [
+                {"from": "uno.D13", "to": "5i", "color": "blue", "route": True, "lane": 0},
+                {"from": "led1.anode", "to": "T-10", "color": "black", "route": False, "lane": -1},
+            ],
+        )
         self.assertEqual(plan["code"], "void setup(){}")
 
     async def test_js_errors_propagate_as_success_false(self):
@@ -160,6 +167,136 @@ class TestModelBuildPersistence(unittest.IsolatedAsyncioTestCase):
         )
         self.assertFalse(res["success"])
         self.assertFalse(res["persisted"])
+        mock_bm.get_page.assert_not_called()
+
+
+class TestPlanWireStyle(unittest.TestCase):
+    def test_pair_backwards_compatible_and_routed_uno_to_hole(self):
+        self.assertEqual(
+            plan_wire_style([["uno.D13", "5i"]]),
+            [{"from": "uno.D13", "to": "5i", "color": "blue", "route": True, "lane": 0}],
+        )
+
+    def test_object_wire_with_explicit_color_kept(self):
+        self.assertEqual(
+            plan_wire_style([{"from": "uno.D2", "to": "3e", "color": "White"}]),
+            [{"from": "uno.D2", "to": "3e", "color": "white", "route": True, "lane": 0}],
+        )
+
+    def test_object_wire_without_color_gets_convention_or_palette(self):
+        styled = plan_wire_style([{"from": "uno.GND", "to": "T-1"}, {"from": "uno.D2", "to": "3e"}])
+        self.assertEqual([w["color"] for w in styled], ["black", "blue"])
+
+    def test_hole_to_hole_not_routed(self):
+        styled = plan_wire_style([["5e", "10j"], ["T+5", "1a"]])
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(False, -1), (False, -1)])
+
+    def test_uno_to_rail_and_reversed_hole_to_uno_routed(self):
+        styled = plan_wire_style([["uno.5V", "T+10"], ["7a", "uno.D3"]])
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(True, 0), (True, 1)])
+        self.assertEqual(styled[0]["color"], "red")
+
+    def test_component_endpoint_not_routed(self):
+        styled = plan_wire_style([["led1.anode", "9i"], ["uno.D2", "led1.anode"]])
+        self.assertTrue(all(not w["route"] and w["lane"] == -1 for w in styled))
+
+    def test_lanes_only_consumed_by_routed_in_arrival_order(self):
+        styled = plan_wire_style(
+            [["5e", "6e"], ["uno.D2", "5e"], ["1a", "2a"], ["uno.D3", "6e"]]
+        )
+        self.assertEqual([w["lane"] for w in styled], [-1, 0, -1, 1])
+
+    def test_ground_and_negative_rail_black(self):
+        for wire in (
+            ["uno.GND", "5e"],
+            ["uno.AGND", "5e"],
+            ["uno.tierra", "5e"],
+            ["5e", "B-3"],
+            ["uno.D2", "T-10"],
+        ):
+            self.assertEqual(plan_wire_style([wire])[0]["color"], "black", wire)
+
+    def test_power_and_positive_rail_red(self):
+        for wire in (
+            ["uno.5V", "5e"],
+            ["uno.3.3V", "5e"],
+            ["uno.3V3", "5e"],
+            ["uno.VIN", "5e"],
+            ["5e", "T+3"],
+            ["uno.D2", "B+10"],
+        ):
+            self.assertEqual(plan_wire_style([wire])[0]["color"], "red", wire)
+
+    def test_explicit_color_beats_convention(self):
+        styled = plan_wire_style([{"from": "uno.GND", "to": "T-1", "color": "purple"}])
+        self.assertEqual(styled[0]["color"], "purple")
+
+    def test_palette_rotates_without_immediate_repeat(self):
+        wires = [[f"uno.D{i}", "5e"] for i in range(2, 11)]
+        colors = [w["color"] for w in plan_wire_style(wires)]
+        self.assertEqual(colors[:8], mbs._WIRE_PALETTE)
+        self.assertEqual(colors[8], "blue")  # wraps; previous was brown
+        for prev, cur in zip(colors, colors[1:]):
+            self.assertNotEqual(prev, cur)
+
+    def test_palette_skips_previous_explicit_color(self):
+        styled = plan_wire_style(
+            [
+                {"from": "uno.D2", "to": "5e", "color": "blue"},
+                ["uno.D3", "6e"],
+                ["uno.D4", "7e"],
+            ]
+        )
+        self.assertEqual([w["color"] for w in styled], ["blue", "green", "orange"])
+
+    def test_empty_and_none_wires(self):
+        self.assertEqual(plan_wire_style([]), [])
+        self.assertEqual(plan_wire_style(None), [])
+
+
+class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
+    PARTS = [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode"}]
+
+    def test_build_js_has_orthogonal_routing_and_color(self):
+        js = mbs._BUILD_JS
+        self.assertIn("addPoint", js)
+        self.assertIn("lane * 5", js)
+        self.assertIn("{ color }", js)
+        self.assertIn("routed", js)
+        self.assertIn("wireSpec", js)  # accepts objects as well as pairs
+
+    async def test_evaluate_receives_styled_plan_for_dict_wires(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": [], "routed": 1})
+        res = await svc.build_from_holes(
+            parts=self.PARTS,
+            wires=[{"from": "uno.5V", "to": "T+5", "color": "orange"}],
+        )
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertEqual(
+            plan["wires"],
+            [{"from": "uno.5V", "to": "T+5", "color": "orange", "route": True, "lane": 0}],
+        )
+        self.assertEqual(res["routed"], 1)
+
+    async def test_routed_propagates_with_placed(self):
+        placed = {"led1": {"angle": 0, "holes": {"anode": "9i", "cathode": "9j"}}}
+        svc, _, _ = make_service({"placed": placed, "errors": [], "routed": 3})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[["uno.D13", "5i"]])
+        self.assertTrue(res["persisted"])
+        self.assertEqual(res["routed"], 3)
+
+    async def test_routed_defaults_to_zero_when_js_omits_it(self):
+        svc, _, _ = make_service({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertEqual(res["routed"], 0)
+        self.assertTrue(res["success"])
+
+    async def test_validation_failure_has_routed_zero(self):
+        svc, mock_bm, _ = make_service()
+        res = await svc.build_from_holes(
+            parts=[{"ref": "led1", "did": 0, "at": "9i", "pin": "anode"}], wires=[]
+        )
+        self.assertEqual(res["routed"], 0)
         mock_bm.get_page.assert_not_called()
 
 

@@ -38,13 +38,109 @@ _PENDING_JS = r"""
 """
 
 _HOLE_RE = re.compile(r"^(?:[1-9]|[12][0-9]|30)[a-jA-J]$")
+_RAIL_RE = re.compile(r"^[TBtb][+-](?:[1-9]|[12][0-9]|30)$")
+
+# Rotating palette for signal wires (power/ground use black/red instead).
+_WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown"]
+
+
+def _norm_token(s: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+def _is_uno_endpoint(ep: str) -> bool:
+    if "." not in ep:
+        return False
+    return _norm_token(ep.split(".", 1)[0]) == "uno"
+
+
+def _is_breadboard_endpoint(ep: str) -> bool:
+    s = str(ep or "").strip()
+    return bool(_HOLE_RE.match(s) or _RAIL_RE.match(s))
+
+
+def _convention_color(ep: str) -> Optional[str]:
+    """black for GND/ground/negative rail, red for 5V/3V3/VIN/positive rail."""
+    s = str(ep or "").strip()
+    if _RAIL_RE.match(s):
+        return "black" if "-" in s else "red"
+    pin = _norm_token(s.split(".", 1)[1] if "." in s else s)
+    if not pin:
+        return None
+    if "gnd" in pin or "tierra" in pin or "ground" in pin:
+        return "black"
+    if (
+        "5v" in pin
+        or "3v3" in pin
+        or "33v" in pin
+        or pin in ("vin", "vcc", "vdd")
+        or pin.startswith("vin")
+    ):
+        return "red"
+    return None
+
+
+def plan_wire_style(wires: Any) -> List[Dict[str, Any]]:
+    """Normalize wires to {"from", "to", "color", "route", "lane"} dicts.
+
+    Accepts pairs ``[a, b]`` and objects ``{"from", "to", "color"}``.
+    Color: explicit color wins; else GND/negative rail -> black,
+    5V/3V3/VIN/positive rail -> red, else a rotating palette that never
+    repeats the immediately previous wire's color. ``route`` is True only
+    for Uno <-> breadboard hole/rail wires (hole<->hole stays straight);
+    routed wires get distinct lanes 0, 1, 2, ... in arrival order, and
+    non-routed wires get lane -1.
+    """
+    styled: List[Dict[str, Any]] = []
+    lane = 0
+    palette_idx = 0
+    prev_color: Optional[str] = None
+    for wire in wires or []:
+        explicit: Any = None
+        if isinstance(wire, dict):
+            frm, to = wire.get("from", ""), wire.get("to", "")
+            explicit = wire.get("color")
+        elif isinstance(wire, (list, tuple)) and len(wire) >= 2:
+            frm, to = wire[0], wire[1]
+        else:
+            frm, to = wire, ""
+        frm = str(frm or "").strip()
+        to = str(to or "").strip()
+
+        if isinstance(explicit, str) and explicit.strip():
+            color = explicit.strip().lower()
+        else:
+            conv = [_convention_color(frm), _convention_color(to)]
+            if "black" in conv:
+                color = "black"
+            elif "red" in conv:
+                color = "red"
+            else:
+                color = _WIRE_PALETTE[palette_idx % len(_WIRE_PALETTE)]
+                if color == prev_color:
+                    palette_idx += 1
+                    color = _WIRE_PALETTE[palette_idx % len(_WIRE_PALETTE)]
+                palette_idx += 1
+
+        route = (_is_uno_endpoint(frm) and _is_breadboard_endpoint(to)) or (
+            _is_breadboard_endpoint(frm) and _is_uno_endpoint(to)
+        )
+        wire_lane = lane if route else -1
+        if route:
+            lane += 1
+        styled.append(
+            {"from": frm, "to": to, "color": color, "route": route, "lane": wire_lane}
+        )
+        prev_color = color
+    return styled
 
 _BUILD_JS = r"""
 (plan) => {
   const errors = [];
   const placed = {};
+  let routed = 0;
   const ce = window.circuit_editor;
-  if (!ce || !ce.data) return { placed, errors: ['circuit_editor not available'] };
+  if (!ce || !ce.data) return { placed, errors: ['circuit_editor not available'], routed };
   const data = ce.data;
   const root = ce.root;
   const ORIGIN = { x: 870, y: 0 };
@@ -217,16 +313,110 @@ _BUILD_JS = r"""
       return null;
     }
 
-    for (const pair of (plan.wires || [])) {
+    const WIRE_PALETTE = ['blue', 'green', 'orange', 'yellow', 'purple', 'turquoise', 'pink', 'brown'];
+    function wireSpec(raw) {
+      if (Array.isArray(raw)) return { from: raw[0], to: raw[1] };
+      if (raw && typeof raw === 'object') return { from: raw.from, to: raw.to, color: raw.color, route: raw.route, lane: raw.lane };
+      return { from: raw, to: '' };
+    }
+    function isUnoEp(ep) {
+      const s = String(ep || '').trim(), dot = s.indexOf('.');
+      return dot > 0 && norm(s.slice(0, dot)) === 'uno';
+    }
+    function isBbEp(ep) {
+      return !!parseHole(ep) || /^[TB][+-]\d{1,2}$/i.test(String(ep || '').trim());
+    }
+    function convColor(ep) {
+      const s = String(ep || '').trim();
+      if (/^[TB][+-]\d{1,2}$/i.test(s)) return s.includes('-') ? 'black' : 'red';
+      const pin = norm(s.includes('.') ? s.slice(s.indexOf('.') + 1) : s);
+      if (!pin) return null;
+      if (pin.includes('gnd') || pin.includes('tierra') || pin.includes('ground')) return 'black';
+      if (pin.includes('5v') || pin.includes('3v3') || pin.includes('33v') || pin === 'vin' || pin === 'vcc' || pin === 'vdd' || pin.startsWith('vin')) return 'red';
+      return null;
+    }
+    function bbAbs(ep) {
+      const hole = parseHole(ep);
+      if (hole) { const rel = holeRel(hole.col, hole.row); return { x: ORIGIN.x + rel.x, y: ORIGIN.y + rel.y }; }
+      const rail = String(ep || '').trim().match(/^([TB])([+-])(\d{1,2})$/i);
+      if (rail) return { x: ORIGIN.x - 145 + 10 * (parseInt(rail[3], 10) - 1), y: ORIGIN.y + RAIL_Y[rail[1].toUpperCase() + rail[2]] };
+      return null;
+    }
+    function isUpperBb(ep) {
+      const hole = parseHole(ep);
+      if (hole) return ['j', 'i', 'h', 'g', 'f'].includes(hole.row);
+      return /^T/i.test(String(ep || '').trim());
+    }
+    function devPos(dev) {
       try {
-        const a = resolveEndpoint(pair[0]), b = resolveEndpoint(pair[1]);
-        if (!a || !b) { errors.push('wire ' + pair[0] + ' -> ' + pair[1] + ': endpoint not resolved'); continue; }
+        const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
+        const p = bb && (typeof bb.pos === 'function' ? bb.pos() : bb.pos);
+        if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
+      } catch (e) {}
+      return null;
+    }
+    function termAbs(dev, term) {
+      const d = term?.bbDesc || term?.breadboardDescription;
+      if (d && isFinite(d.x) && isFinite(d.y)) {
+        const base = devPos(dev), off = { x: Number(d.x), y: Number(d.y) };
+        return base ? { x: base.x + off.x, y: base.y + off.y } : off;
+      }
+      try {
+        const p = typeof term?.pos === 'function' ? term.pos() : term?.pos;
+        if (p && isFinite(p.x) && isFinite(p.y)) return { x: Number(p.x), y: Number(p.y) };
+      } catch (e) {}
+      return null;
+    }
+
+    let fallbackLane = 0, paletteIdx = 0, prevColor = null;
+    for (const rawWire of (plan.wires || [])) {
+      const spec = wireSpec(rawWire);
+      const from = String(spec.from || '').trim(), to = String(spec.to || '').trim();
+      try {
+        let color = (typeof spec.color === 'string' && spec.color.trim()) ? spec.color.trim().toLowerCase() : null;
+        if (!color) {
+          const conv = [convColor(from), convColor(to)];
+          if (conv.includes('black')) color = 'black';
+          else if (conv.includes('red')) color = 'red';
+          else {
+            color = WIRE_PALETTE[paletteIdx % WIRE_PALETTE.length];
+            if (color === prevColor) { paletteIdx++; color = WIRE_PALETTE[paletteIdx % WIRE_PALETTE.length]; }
+            paletteIdx++;
+          }
+        }
+        prevColor = color;
+        const shouldRoute = (typeof spec.route === 'boolean') ? spec.route
+          : ((isUnoEp(from) && isBbEp(to)) || (isBbEp(from) && isUnoEp(to)));
+        let lane = (typeof spec.lane === 'number' && spec.lane >= 0) ? spec.lane : -1;
+        if (shouldRoute) {
+          if (lane < 0) lane = fallbackLane;
+          fallbackLane = Math.max(fallbackLane, lane + 1);
+        }
+        const a = resolveEndpoint(from), b = resolveEndpoint(to);
+        if (!a || !b) { errors.push('wire ' + from + ' -> ' + to + ': endpoint not resolved'); continue; }
         if (window.Circuits?.BendableWireData) {
-          const w = new window.Circuits.BendableWireData(root, a, b, {});
+          const w = new window.Circuits.BendableWireData(root, a, b, { color });
           if (data.wires && typeof data.wires.add === 'function') data.wires.add(w);
+          let didRoute = false;
+          if (shouldRoute && w && typeof w.addPoint === 'function') {
+            const fromIsUno = isUnoEp(from);
+            const unoPos = termAbs(uno, fromIsUno ? a : b);
+            const destPos = bbAbs(fromIsUno ? to : from);
+            if (unoPos && destPos) {
+              const laneY = isUpperBb(fromIsUno ? to : from)
+                ? ORIGIN.y - 115 - lane * 5
+                : ORIGIN.y + 115 + lane * 5;
+              const pUno = { x: unoPos.x, y: laneY }, pDest = { x: destPos.x, y: laneY };
+              try {
+                for (const pt of (fromIsUno ? [pUno, pDest] : [pDest, pUno])) w.addPoint(pt);
+                didRoute = true;
+              } catch (e) {}
+            }
+          }
+          if (didRoute) routed++;
           if (w && typeof w.updateNets === 'function') w.updateNets();
-        } else { errors.push('wire ' + pair[0] + ': BendableWireData unavailable'); }
-      } catch (e) { errors.push('wire ' + pair[0] + ': ' + e.toString()); }
+        } else { errors.push('wire ' + from + ': BendableWireData unavailable'); }
+      } catch (e) { errors.push('wire ' + from + ': ' + e.toString()); }
     }
 
     if (plan.code) {
@@ -246,7 +436,7 @@ _BUILD_JS = r"""
     try { if (root && typeof root.stopRec === 'function') root.stopRec(); } catch (e) {}
     try { if (root && typeof root.save === 'function') root.save(); } catch (e) {}
   }
-  return { placed, errors };
+  return { placed, errors, routed };
 }
 """
 
@@ -286,13 +476,17 @@ class ModelBuildService:
     async def build_from_holes(
         self,
         parts: list[dict],
-        wires: list[list[str]],
+        wires: list,
         code: str | None = None,
     ) -> dict:
         """Place parts so their pins land in breadboard holes, then wire endpoints.
 
+        ``wires`` accepts pairs ``[a, b]`` and objects
+        ``{"from": a, "to": b, "color": ...}``; see ``plan_wire_style``.
+
         Returns {"success": bool, "placed": {...}, "errors": [...],
-        "persisted": bool} plus "persistence_pending": int|None on timeout.
+        "persisted": bool, "routed": int} plus
+        "persistence_pending": int|None on timeout.
 
         Persistence contract (ShareJS edits are lost if the editor reloads
         before they flush, per netchuu):
@@ -327,10 +521,20 @@ class ModelBuildService:
                 errors.append(f"part '{ref}': angle must be one of 0/90/180/270, got {angle!r}")
 
         if errors:
-            return {"success": False, "placed": {}, "errors": errors, "persisted": False}
+            return {
+                "success": False,
+                "placed": {},
+                "errors": errors,
+                "persisted": False,
+                "routed": 0,
+            }
 
         page = await self.browser.get_page()
-        plan: Dict[str, Any] = {"parts": parts or [], "wires": wires or [], "code": code}
+        plan: Dict[str, Any] = {
+            "parts": parts or [],
+            "wires": plan_wire_style(wires),
+            "code": code,
+        }
         result = await page.evaluate(_BUILD_JS, plan)
         if not isinstance(result, dict):
             return {
@@ -338,10 +542,17 @@ class ModelBuildService:
                 "placed": {},
                 "errors": ["model build returned invalid response"],
                 "persisted": False,
+                "routed": 0,
             }
 
         js_errors = list(result.get("errors") or [])
         placed = result.get("placed") or {}
+        raw_routed = result.get("routed")
+        routed = (
+            int(raw_routed)
+            if isinstance(raw_routed, (int, float)) and not isinstance(raw_routed, bool)
+            else 0
+        )
         logger.info(f"Model build placed={list(placed)} errors={js_errors}")
         if not placed:
             return {
@@ -349,6 +560,7 @@ class ModelBuildService:
                 "placed": placed,
                 "errors": js_errors,
                 "persisted": True,
+                "routed": routed,
             }
 
         persisted, last_pending = await self._wait_for_persistence(page)
@@ -358,6 +570,7 @@ class ModelBuildService:
                 "placed": placed,
                 "errors": js_errors,
                 "persisted": True,
+                "routed": routed,
             }
         return {
             "success": False,
@@ -370,4 +583,5 @@ class ModelBuildService:
             ],
             "persisted": False,
             "persistence_pending": last_pending,
+            "routed": routed,
         }
