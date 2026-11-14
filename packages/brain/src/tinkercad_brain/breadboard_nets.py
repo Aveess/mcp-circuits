@@ -118,9 +118,13 @@ _PIN_ALIASES_BY_TYPE = {
     },
     # Acotado a buzzer: en vivo el Piezo reporta los terminales "+"/"-"
     # (circuito cZcqbZ3eNlA); la fixture usa positive/negative.
+    # El Piezo expone las patas como "+"/"-" en inspect, pero los wires
+    # vivos (circuito 93Dj8w6iEv1) las etiquetan "Positive"/"Negative".
     "buzzer": {
         "+": "positive",
         "-": "negative",
+        "Positive": "positive",
+        "Negative": "negative",
     },
     # Acotado a photoresistor: el LDR real ("Photoresistor (LDR)") reporta
     # "terminal-1"/"terminal-2"; la fixture usa 1/2.

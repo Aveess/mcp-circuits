@@ -58,6 +58,8 @@ _SKETCH_BY_FIXTURE = {
     "motor-l293d-bateria": "motor_driver_sketch",
     "boton-pullup": "button_led_sketch",
     "parking-servo-ultrasonico-rgb": "parking_servo_sketch",
+    "buzzer-activo": "buzzer_button_sketch",
+    "ldr-divisor": "ldr_led_sketch",
 }
 
 

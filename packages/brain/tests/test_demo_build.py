@@ -45,7 +45,7 @@ def test_select_code_servo():
 
 
 def test_select_code_sin_sketch_devuelve_none():
-    fixture = demo.find_fixture("buzzer-activo")
+    fixture = {"id": "sin-sketch-demo", "components": [], "nets": []}
     assert demo.select_code(fixture) is None
 
 
@@ -98,9 +98,14 @@ def test_main_rechaza_fixture_sin_sketch_sin_conectar(monkeypatch, capsys):
         return {"url": "x", "fidelity": {"score": 1.0}, "records": [], "ok": True}
 
     monkeypatch.setattr(demo, "run_via_bridge", fake_run_via_bridge)
+    monkeypatch.setattr(
+        demo,
+        "find_fixture",
+        lambda fixture_id: {"id": "sin-sketch-demo", "components": [], "nets": []},
+    )
 
-    assert demo.main(["buzzer-activo"]) == 2
+    assert demo.main(["sin-sketch-demo"]) == 2
     assert calls == []
     captured = capsys.readouterr()
     assert "sin sketch" in captured.err
-    assert "buzzer-activo" in captured.err
+    assert "sin-sketch-demo" in captured.err

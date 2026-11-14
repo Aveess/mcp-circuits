@@ -843,7 +843,7 @@ def test_ldr_divisor_real_fixture_offsets(monkeypatch):
     # Pin "2" del LDR traduce al hueco del ancla +1 columna.
     assert ("uno.5V", anchor) in pairs
     assert (second, "uno.A0") in pairs
-    assert ("uno.A0", placements["r1"]["at"]) in pairs
+    assert ("uno.A0", placements["r2"]["at"]) in pairs
 
 
 def test_buzzer_and_ldr_unknown_pins_raise_build_error(monkeypatch):

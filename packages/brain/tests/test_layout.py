@@ -537,9 +537,11 @@ def test_ldr_real_fixture_places_divider_resistor_three_columns_right_on_row_e()
     result = plan_layout(_fixture("ldr-divisor"))
 
     assert result["placements"]["ldr1"] == {"at": "7e", "pin": "1", "angle": 0}
-    assert result["placements"]["r1"] == {"at": "10e", "pin": "1", "angle": 90}
+    # r2 es la resistencia del divisor (comparte net con ldr1.2); el
+    # orden de refs de resistencia sigue el orden fisico en inspect.
+    assert result["placements"]["r2"] == {"at": "10e", "pin": "1", "angle": 90}
     ldr_column = int(result["placements"]["ldr1"]["at"][:-1])
-    divider_column = int(result["placements"]["r1"]["at"][:-1])
+    divider_column = int(result["placements"]["r2"]["at"][:-1])
     assert divider_column - ldr_column == 3
     # divider pin 2 lands 4 columns after pin 1, both inside the block.
     assert set(range(ldr_column, ldr_column + 2)).isdisjoint(
