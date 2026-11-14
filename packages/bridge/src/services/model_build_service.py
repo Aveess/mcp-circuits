@@ -1129,6 +1129,13 @@ class ModelBuildService:
         if clear_existing:
             await self._wait_for_editor(page)
             clear_result = await page.evaluate(_CLEAR_JS)
+            if self._editor_guard_hit(clear_result):
+                # Misma guarda que el build: limpiar dos veces es idempotente
+                # (la guarda corta antes de tocar nada), asi que reintentar es
+                # seguro y evita un build fallido por un re-render.
+                logger.warning("clear hit editor guard; waiting and retrying once")
+                await self._wait_for_editor(page)
+                clear_result = await page.evaluate(_CLEAR_JS)
             if not isinstance(clear_result, dict):
                 return {
                     "success": False,

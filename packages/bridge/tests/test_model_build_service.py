@@ -1166,6 +1166,30 @@ class TestEditorReady(unittest.IsolatedAsyncioTestCase):
         first_evaluate = page.evaluate.await_args_list[0].args[0]
         self.assertIn("removed_devices", first_evaluate)
 
+    async def test_si_la_limpieza_cae_en_la_guarda_se_reintenta(self):
+        """Limpiar dos veces es idempotente: la guarda corta antes de tocar."""
+        guard_clear = {"cleared": False, "removed_wires": 0, "removed_devices": 0,
+                       "kept_uno": False, "errors": ["circuit_editor not available"]}
+        ok_clear = {"cleared": True, "removed_wires": 2, "removed_devices": 1,
+                    "kept_uno": True, "errors": []}
+        svc, page = self._svc([self.GOOD])
+        calls = {"n": 0}
+
+        def _evaluate(*args, **kwargs):
+            js = args[0] if args else ""
+            if isinstance(js, str) and "removed_devices" in js:
+                calls["n"] += 1
+                return guard_clear if calls["n"] == 1 else ok_clear
+            if len(args) >= 2 or "plan" in kwargs:
+                return self.GOOD
+            return 0
+
+        page.evaluate = AsyncMock(side_effect=_evaluate)
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[], clear_existing=True)
+        self.assertEqual(calls["n"], 2)
+        self.assertTrue(res["cleared"])
+        self.assertTrue(res["success"], res["errors"])
+
 
 class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
     async def test_plan_carries_boards_and_single_board_default(self):
