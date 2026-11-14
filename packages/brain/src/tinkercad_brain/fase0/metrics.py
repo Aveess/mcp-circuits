@@ -1,9 +1,16 @@
+import itertools
+import math
 import statistics
 
 _ERROR_MARKERS = ("error", "failed to compile", "compilation", "no compila")
 
 _GND_PINS = {"GND", "GND1", "GND2", "GND3"}
 _OPAQUE_PREFIX = "__unpaired__:"
+
+# Tope de combinaciones al alinear componentes del mismo type. Por encima de
+# esto se usa solo el mapping posicional: preferimos un score conservador a
+# explotar con un circuito de muchas partes iguales (8 resistencias = 40320).
+_MAX_ALIGNMENT_COMBINATIONS = 5040
 
 
 def _median(values):
@@ -73,26 +80,12 @@ def _merged_groups(nets):
     return groups, index
 
 
-def compare_connectivity(expected: dict, actual: dict) -> dict:
-    """Compara por equivalencia electrica, no por igualdad literal de nets.
-
-    Alinea componentes por (type, orden entre los del mismo type) y traduce
-    las nets de actual al espacio de refs esperadas. Dos endpoints estan
-    conectados si quedan en la misma net tras fusionar las nets que se
-    solapan (p. ej. una tierra comun leida como una sola net equivale a
-    varias nets esperadas que comparten ``uno.GND1``).
-
-    Un corto es grave: si hay pares conectados en actual que pertenecen a
-    grupos esperados distintos, ``score`` se multiplica por 0.5.
-    """
-    expected_components = expected.get("components", []) or []
-    actual_components = actual.get("components", []) or []
-
+def _align_by_type(expected_components, actual_components):
+    """Mapeo posicional ref_actual -> ref_esperada por type, mas los extras."""
     expected_by_type = {}
     for comp in expected_components:
         expected_by_type.setdefault(comp.get("type"), []).append(comp.get("ref"))
 
-    # Mapeo ref_actual -> ref_expected por orden dentro de cada type.
     mapping = {}
     position_by_type = {}
     extra_components = []
@@ -105,7 +98,69 @@ def compare_connectivity(expected: dict, actual: dict) -> dict:
             mapping[comp.get("ref")] = candidates[pos]
         else:
             extra_components.append(comp.get("ref"))
+    return mapping, extra_components, expected_by_type
 
+
+def _aligned_candidates(mapping, expected_by_type, actual_components):
+    """Mappings candidatos: el posicional y permutaciones dentro de cada type.
+
+    Declarar dos resistencias en otro orden no cambia el cableado fisico, asi
+    que el emparejamiento no puede depender de la posicion en el JSON: se
+    permutan los refs esperados de cada type con 2+ componentes por lado.
+
+    El coste es el producto de los factoriales de esos grupos; si supera
+    ``_MAX_ALIGNMENT_COMBINATIONS`` se devuelve solo el mapping posicional
+    para no explotar con circuitos de muchas partes iguales.
+    """
+    yield mapping
+
+    paired_by_type = {}
+    for comp in actual_components:
+        ref = comp.get("ref")
+        if ref in mapping:
+            paired_by_type.setdefault(comp.get("type"), []).append(ref)
+
+    groups = []
+    combinations = 1
+    for comp_type, actual_refs in paired_by_type.items():
+        expected_refs = expected_by_type.get(comp_type, [])
+        if len(actual_refs) < 2 or len(expected_refs) < 2:
+            continue
+        assigned = expected_refs[: len(actual_refs)]
+        groups.append((actual_refs, assigned))
+        combinations *= math.factorial(len(assigned))
+
+    if not groups or combinations > _MAX_ALIGNMENT_COMBINATIONS:
+        return
+
+    perms = [list(itertools.permutations(assigned)) for _, assigned in groups]
+    for combo in itertools.product(*perms):
+        candidate = dict(mapping)
+        for (actual_refs, _), perm in zip(groups, combo):
+            for actual_ref, expected_ref in zip(actual_refs, perm):
+                candidate[actual_ref] = expected_ref
+        if candidate == mapping:
+            continue
+        yield candidate
+
+
+def _alignment_rank(result: dict) -> tuple:
+    """Ordena candidatos: mas nets conectadas, menos shorts, mejor components.
+
+    ``connectivity_score`` es ``conectadas / len(expected_nets)``, asi que con
+    el denominador fijo ordenar por el ratio equivale a ordenar por conteo.
+    """
+    return (
+        result["connectivity_score"],
+        -len(result["shorts"]),
+        result["components_score"],
+    )
+
+
+def _score_mapping(mapping, expected, actual, extra_components) -> dict:
+    """Traduce las nets de actual con ``mapping`` y calcula el resultado."""
+    expected_components = expected.get("components", []) or []
+    actual_components = actual.get("components", []) or []
     paired_expected = set(mapping.values())
     missing_components = sorted(
         c.get("ref") for c in expected_components if c.get("ref") not in paired_expected
@@ -191,6 +246,39 @@ def compare_connectivity(expected: dict, actual: dict) -> dict:
         "missing_components": missing_components,
         "extra_components": sorted(extra_components),
     }
+
+
+def compare_connectivity(expected: dict, actual: dict) -> dict:
+    """Compara por equivalencia electrica, no por igualdad literal de nets.
+
+    Alinea componentes por type y traduce las nets de actual al espacio de
+    refs esperadas. Dentro de un mismo type la alineacion es independiente
+    del orden de declaracion: se prueban las permutaciones de los refs
+    esperados y gana la que mas nets esperadas conecta, luego la que menos
+    shorts produce, luego la de mejor ``components_score``; en empate se
+    queda el mapping posicional. Dos endpoints estan conectados si quedan
+    en la misma net tras fusionar las nets que se solapan (p. ej. una tierra
+    comun leida como una sola net equivale a varias nets esperadas que
+    comparten ``uno.GND1``).
+
+    Un corto es grave: si hay pares conectados en actual que pertenecen a
+    grupos esperados distintos, ``score`` se multiplica por 0.5.
+    """
+    expected_components = expected.get("components", []) or []
+    actual_components = actual.get("components", []) or []
+
+    mapping, extra_components, expected_by_type = _align_by_type(
+        expected_components, actual_components
+    )
+
+    best = None
+    for candidate in _aligned_candidates(
+        mapping, expected_by_type, actual_components
+    ):
+        result = _score_mapping(candidate, expected, actual, extra_components)
+        if best is None or _alignment_rank(result) > _alignment_rank(best):
+            best = result
+    return best
 
 
 def latency_summary(samples: dict[str, list[float]]) -> dict:
