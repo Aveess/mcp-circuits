@@ -47,6 +47,12 @@ PIEZO_TYPE = "buzzer"
 PIEZO_ANCHOR_PIN = "+"
 PIEZO_ROW = "e"
 PIEZO_WIDTH = 6
+# The piezo is drawn as a large disc centred on its anchor column, so to
+# its left it covers the neighbouring components (live screen check:
+# anchored at 1e it covered the button at column 7). Starting it at
+# column 24 or later keeps the disc on the right edge; a cursor already
+# past 24 is respected. Same rule as ULTRASONIC_MIN_COLUMN.
+PIEZO_MIN_COLUMN = 24
 # Photoresistor/LDR (fixture slug "photoresistor", did 116691),
 # live-verified: anchoring pin "1" at <c>e with angle 0 puts pin "2" at
 # <c+1>e. Footprint 2 columns.
@@ -54,6 +60,10 @@ LDR_TYPE = "photoresistor"
 LDR_ANCHOR_PIN = "1"
 LDR_ROW = "e"
 LDR_WIDTH = 2
+# The photoresistor is also a large disc: anchored at 7e it covered the
+# LED at column 5 on screen. Column 22 or later keeps it clear of blocks
+# to its left; a cursor already past 22 is respected.
+LDR_MIN_COLUMN = 22
 # LDR divider resistor: angle 90 puts pin 2 four columns after pin 1, so
 # pin 1 at c+3 lands pin 2 at c+7. Whole block advances 8 columns.
 LDR_DIVIDER_OFFSET = 3
@@ -359,7 +369,9 @@ def plan_layout(fixture: dict) -> dict:
             occupied_columns.update(range(base - 4, base + 4))
             next_column = max(next_column, base + 4)
         elif ctype == PIEZO_TYPE:
-            start = skip_occupied(next_column, PIEZO_WIDTH)
+            start = skip_occupied(
+                max(next_column, PIEZO_MIN_COLUMN), PIEZO_WIDTH
+            )
             if start + PIEZO_WIDTH - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:
@@ -373,7 +385,7 @@ def plan_layout(fixture: dict) -> dict:
         elif ctype == LDR_TYPE:
             divider_ref = ldr_to_resistor.get(ref)
             width = LDR_BLOCK_WIDTH if divider_ref else LDR_WIDTH
-            start = skip_occupied(next_column, width)
+            start = skip_occupied(max(next_column, LDR_MIN_COLUMN), width)
             if start + width - 1 > MAX_COLUMN:
                 unplaced.append(ref)
                 if divider_ref is not None:
