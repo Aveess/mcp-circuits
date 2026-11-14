@@ -152,8 +152,11 @@ def test_r9_ningun_wire_f_e_misma_columna_salvo_puente_gnd_pedido():
             assert not (a[-1] == "f" and OPPOSITE[a] == b), w
             assert not (b[-1] == "f" and OPPOSITE[b] == a), w
 
-    # Sintetica que SI pide todos los GND del chip en una sola net: el
-    # unico puente f-e de igual columna admisible es entre pines gnd*.
+    # Sintetica que SI pide todos los GND del chip en una sola net.
+    # Contrato actualizado (fase 22): las nets de 3+ extremos se emparejan en
+    # estrella desde el hub (aqui uno.GND1), no en cadena. Por eso ya no se
+    # genera ningun cable gnd-gnd entre filas f/e; si apareciera uno, solo
+    # seria admisible entre pines gnd*.
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -172,7 +175,7 @@ def test_r9_ningun_wire_f_e_misma_columna_salvo_puente_gnd_pedido():
         a, b = _hole(w["from"]), _hole(w["to"])
         if a and b and {a[-1], b[-1]} == {"f", "e"} and a[:-1] == b[:-1]:
             bridges.append((a, b))
-    assert bridges  # la net pedida obliga al menos un puente interno GND
+    assert not bridges  # todo cuelga de uno.GND1, sin cadenas internas
     for a, b in bridges:
         assert pin_by_hole[a].startswith("gnd")
         assert pin_by_hole[b].startswith("gnd")

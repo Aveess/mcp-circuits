@@ -486,8 +486,8 @@ def test_motor_dc_transistor_real_fixture_parts_and_wires():
         (_shift(r1, 4), base),
         (emitter, "uno.GND1"),
         (q1, "motor1.2"),
-        ("motor1.2", d1),
-        ("motor1.1", "uno.5V"),
+        (q1, d1),
+        ("uno.5V", "motor1.1"),
         ("uno.5V", cathode),
     }
     assert len(result["wires"]) == 7
@@ -513,8 +513,12 @@ def test_motor_dc_transistor_real_fixture_parts_and_wires():
     assert connected(q1, "motor1.2") and connected("motor1.2", d1)
     assert connected("motor1.1", "uno.5V") and connected("uno.5V", cathode)
     # Colores por grupo: 5V rojo, GND negro.
-    assert next(w for w in result["wires"] if w["to"] == "uno.5V")["color"] == "red"
-    assert next(w for w in result["wires"] if w["to"] == "uno.GND1")["color"] == "black"
+    assert next(
+        w for w in result["wires"] if "uno.5V" in (w["from"], w["to"])
+    )["color"] == "red"
+    assert next(
+        w for w in result["wires"] if "uno.GND1" in (w["from"], w["to"])
+    )["color"] == "black"
 
 
 def _ensure_l293d_battery_placements(monkeypatch):
@@ -596,14 +600,14 @@ def test_motor_l293d_bateria_synthetic_parts_and_wires(monkeypatch):
         (_shift(pot_at, 1), "uno.A0"), (_shift(pot_at, 2), "uno.GND1"),
         ("bat1.+", "10f"),
         ("15f", "motor1.1"), ("12f", "motor1.2"),
-        ("uno.GND1", "14f"), ("14f", "13f"), ("13f", "13e"),
-        ("13e", "14e"), ("14e", "bat1.-"),
+        ("uno.GND1", "14f"), ("uno.GND1", "13f"), ("uno.GND1", "13e"),
+        ("uno.GND1", "14e"), ("uno.GND1", "bat1.-"),
     }
     assert len(result["wires"]) == len(expected_pairs) == 15
     assert {(w["from"], w["to"]) for w in result["wires"]} == expected_pairs
     by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
     assert by_pair[("bat1.+", "10f")] == "red"
-    assert by_pair[("14e", "bat1.-")] == "black"
+    assert by_pair[("uno.GND1", "bat1.-")] == "black"
     assert by_pair[("uno.GND1", "14f")] == "black"
     assert by_pair[("uno.D9", "17f")] not in ("red", "black")
 
@@ -696,7 +700,10 @@ def test_pushbutton_unknown_pin_raises_build_error():
     assert "btn1.3" in str(excinfo.value)
 
 
-def test_net_with_more_than_two_endpoints_splits_into_consecutive_pairs():
+def test_net_with_more_than_two_endpoints_hangs_from_its_hub():
+    # Contrato: las nets de 3+ extremos se emparejan en estrella desde el
+    # hub (el pin del Uno si esta en la net), no en cadena. Un cable
+    # hueco-hueco sale recto en el simulador y cruza sobre los cuerpos.
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -710,8 +717,8 @@ def test_net_with_more_than_two_endpoints_splits_into_consecutive_pairs():
 
     assert result["wires"] == [
         {"from": "uno.5V", "to": "1g", "color": "red"},
+        {"from": "uno.5V", "to": "5i", "color": "red"},
         {"from": "6i", "to": "uno.GND1", "color": "black"},
-        {"from": "1g", "to": "5i", "color": "blue"},
     ]
 
 
@@ -843,7 +850,7 @@ def test_ldr_divisor_real_fixture_offsets(monkeypatch):
     pairs = {(w["from"], w["to"]) for w in result["wires"]}
     # Pin "2" del LDR traduce al hueco del ancla +1 columna.
     assert ("uno.5V", anchor) in pairs
-    assert (second, "uno.A0") in pairs
+    assert ("uno.A0", second) in pairs
     assert ("uno.A0", placements["r2"]["at"]) in pairs
 
 
@@ -972,12 +979,12 @@ def test_lcd_contador_free_module_parts_and_terminal_wires(monkeypatch):
     assert ("uno.D2", "lcd1.DB7") in pairs
     # Alimentacion, contraste/lectura y backlight.
     assert ("uno.5V", "lcd1.VDD") in pairs
-    assert ("lcd1.VDD", r1_at) in pairs
+    assert ("uno.5V", r1_at) in pairs
     assert (_shift(r1_at, 4), "lcd1.LED+") in pairs
-    assert ("lcd1.GND", "lcd1.VO") in pairs
-    assert ("lcd1.VO", "lcd1.RW") in pairs
-    assert ("lcd1.RW", "lcd1.LED-") in pairs
-    assert ("lcd1.LED-", "uno.GND1") in pairs
+    assert ("uno.GND1", "lcd1.GND") in pairs
+    assert ("uno.GND1", "lcd1.VO") in pairs
+    assert ("uno.GND1", "lcd1.RW") in pairs
+    assert ("uno.GND1", "lcd1.LED-") in pairs
     # Ni un solo extremo del LCD queda como hueco de protoboard.
     lcd_ends = {
         end
@@ -994,7 +1001,7 @@ def test_lcd_contador_free_module_parts_and_terminal_wires(monkeypatch):
     assert len(result["wires"]) == 13
 
     colors = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
-    assert colors[("lcd1.LED-", "uno.GND1")] == "black"
+    assert colors[("uno.GND1", "lcd1.LED-")] == "black"
     assert colors[("uno.5V", "lcd1.VDD")] == "red"
 
 
@@ -1023,15 +1030,17 @@ def test_lcd_temperatura_free_lcd_keeps_tmp36_holes(monkeypatch):
     # LCD por terminal real.
     assert ("uno.D12", "lcd1.RS") in pairs
     assert ("uno.D2", "lcd1.DB7") in pairs
-    # La net de tierra del LCD encadena GND->VO->RW->LED- y de ahi al
-    # TMP36, que sigue traduciendo a huecos.
-    assert ("lcd1.GND", "lcd1.VO") in pairs
-    assert ("lcd1.RW", "lcd1.LED-") in pairs
-    assert ("lcd1.LED-", _shift(tmp_at, 2)) in pairs
-    assert (_shift(tmp_at, 2), "uno.GND1") in pairs
-    # TMP36 sin cambios: 5V -> VDD -> r1.1 -> tmp1.vcc (hueco del ancla).
-    assert ("lcd1.VDD", r1_at) in pairs
-    assert (r1_at, tmp_at) in pairs
+    # La net de tierra (6 extremos) cuelga en estrella de uno.GND1: el LCD
+    # por terminal y el TMP36, que sigue traduciendo a huecos.
+    assert ("uno.GND1", "lcd1.GND") in pairs
+    assert ("uno.GND1", "lcd1.VO") in pairs
+    assert ("uno.GND1", "lcd1.RW") in pairs
+    assert ("uno.GND1", "lcd1.LED-") in pairs
+    assert ("uno.GND1", _shift(tmp_at, 2)) in pairs
+    # La net de 5V (4 extremos) tambien cuelga de uno.5V.
+    assert ("uno.5V", "lcd1.VDD") in pairs
+    assert ("uno.5V", r1_at) in pairs
+    assert ("uno.5V", tmp_at) in pairs
     assert (_shift(tmp_at, 1), "uno.A0") in pairs
     tmp_ends = {
         end
@@ -1092,7 +1101,7 @@ def test_lcd_at_placement_still_translates_to_holes(monkeypatch):
     assert ("uno.D12", hole("RS")) in pairs
     assert ("uno.D5", hole("DB4")) in pairs
     assert ("uno.5V", hole("VDD")) in pairs
-    assert (hole("LED-"), "uno.GND1") in pairs
+    assert ("uno.GND1", hole("LED-")) in pairs
 
 
 def test_lcd_at_placement_non_gnd_anchor_raises_build_error(monkeypatch):
@@ -1104,3 +1113,63 @@ def test_lcd_at_placement_non_gnd_anchor_raises_build_error(monkeypatch):
     assert "ancla" in message
     assert "VDD" in message
 
+
+
+def test_lcd_temperatura_gnd_net_hangs_from_the_uno_as_a_star():
+    """Una net con 5+ extremos se empareja en estrella desde el Uno.
+
+    Los cables hueco-hueco salen rectos en el simulador y cruzan en diagonal
+    por encima de los cuerpos. Colgando todos del pin del Uno, el puente los
+    rutea por carriles.
+    """
+    fixture = _fixture("lcd-temperatura")
+    layout = plan_layout(fixture)
+    assert layout["unplaced"] == []
+    tmp_at = layout["placements"]["tmp1"]["at"]
+    ground = {
+        "uno.GND1",
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        _shift(tmp_at, 2),
+    }
+
+    result = fixture_to_model_call(fixture)
+
+    ground_wires = [
+        w for w in result["wires"] if w["from"] in ground and w["to"] in ground
+    ]
+    assert len(ground_wires) == 5
+    assert all("uno.GND1" in (w["from"], w["to"]) for w in ground_wires)
+    assert {frozenset((w["from"], w["to"])) for w in ground_wires} == {
+        frozenset(("uno.GND1", endpoint))
+        for endpoint in ground
+        if endpoint != "uno.GND1"
+    }
+
+
+def test_net_without_uno_hangs_from_its_first_endpoint():
+    """Sin pin del Uno en la net, el hub es el primer extremo declarado."""
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+        ],
+        "nets": [
+            ["lcd1.RS", "lcd1.E", "lcd1.DB4"],
+            ["uno.5V", "lcd1.VDD"],
+            ["uno.GND1", "lcd1.GND"],
+        ],
+    }
+
+    result = fixture_to_model_call(fixture)
+
+    assert {
+        (w["from"], w["to"]) for w in result["wires"] if "lcd1." in w["from"] + w["to"]
+        and w["from"] not in ("uno.5V", "uno.GND1")
+        and w["to"] not in ("uno.5V", "uno.GND1")
+    } == {
+        ("lcd1.RS", "lcd1.E"),
+        ("lcd1.RS", "lcd1.DB4"),
+    }

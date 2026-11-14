@@ -192,6 +192,33 @@ def _wire_group(first: str, second: str) -> int:
     return 2
 
 
+def _star_pairs(endpoints):
+    """Empareja una net en estrella desde su hub.
+
+    El puente solo rutea por carriles los cables que tocan un pin del Uno o
+    un terminal de una parte libre; un cable hueco-hueco sale recto y cruza
+    en diagonal por encima de los cuerpos. Por eso toda la net de 3+ extremos
+    cuelga del mismo extremo (el primer pin del Uno si lo hay, si no el
+    primero declarado) en vez de encadenarse.
+    """
+    # Las nets de 2 extremos se dejan tal cual (un cable, sin cadena que
+    # romper): asi se conserva la orientacion declarada en la fixture.
+    if len(endpoints) < 3:
+        return [tuple(endpoints)] if len(endpoints) == 2 else []
+    hub = next(
+        (endpoint for endpoint in endpoints if endpoint.startswith("uno.")),
+        endpoints[0],
+    )
+    pairs = []
+    seen = {hub}
+    for endpoint in endpoints:
+        if endpoint in seen:
+            continue
+        seen.add(endpoint)
+        pairs.append((hub, endpoint))
+    return pairs
+
+
 def _ordered_colored_wires(pairs) -> list[dict[str, str]]:
     grouped: dict[int, list[tuple[str, str]]] = {0: [], 1: [], 2: []}
     for first, second in pairs:
@@ -452,7 +479,7 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             _translate_endpoint(endpoint, placements, type_by_ref)
             for endpoint in net
         ]
-        pairs.extend(zip(translated, translated[1:]))
+        pairs.extend(_star_pairs(translated))
 
     return {"parts": parts, "wires": _ordered_colored_wires(pairs), "code": code}
 
