@@ -662,3 +662,64 @@ def test_lcd_refs_match_normalize_circuit_for_same_instance_ids():
     # opacos en compare_connectivity: ambos lados deben decir "lcd1".
     assert normalized_refs == derived_refs == {"uno", "lcd1", "r1"}
     assert {"ref": "lcd1", "type": "lcd-16x2"} in normalized["components"]
+
+
+# Nombres humanos que los wires del circuito real cpySiVSE9vr ponen a los
+# pines del LCD, contra el nombre que reporta inspect_circuit:
+# gnd->GND, vcc->VDD, Contrast->VO, Register Select->RS, Read/Write->RW,
+# Enable->E, LED Anode->LED+, LED Cathode->LED-. DB0..DB7 son identicos.
+_LCD_WIRE_PINS = [
+    ("gnd", "GND", "uno.GND"),
+    ("vcc", "VDD", "uno.5V"),
+    ("Contrast", "VO", "uno.D13"),
+    ("Register Select", "RS", "uno.D12"),
+    ("Read/Write", "RW", "uno.D11"),
+    ("Enable", "E", "uno.D10"),
+    ("LED Anode", "LED+", "uno.D9"),
+    ("LED Cathode", "LED-", "uno.D8"),
+    ("DB4", "DB4", "uno.D7"),
+]
+
+
+def _lcd_human_pin_data(extra_pin=None):
+    bb = ("Breadboard Small", "bb1")
+    uno = ("Arduino Uno R3", "uno1")
+    lcd = ("LCD 16 x 2", "lcd_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    wires = []
+    for index, (wire_pin, _real, uno_pin) in enumerate(_LCD_WIRE_PINS, start=1):
+        wires.append(_wire(e(lcd, wire_pin), e(bb, f"i{index}")))
+        wires.append(_wire(e(uno, uno_pin.split(".")[1]), e(bb, f"i{index}")))
+    if extra_pin is not None:
+        wires.append(_wire(e(lcd, extra_pin), e(bb, "i20")))
+        wires.append(_wire(e(uno, "D2"), e(bb, "i20")))
+    return {
+        "components": [_comp(*uno), _comp(*bb), _comp(*lcd)],
+        "wires": wires,
+    }
+
+
+def test_lcd_wire_human_pin_names_map_to_inspect_names():
+    nets = derive_nets(_lcd_human_pin_data())
+    assert nets == [
+        ["lcd1.DB4", "uno.D7"],
+        ["lcd1.E", "uno.D10"],
+        ["lcd1.GND", "uno.GND1"],
+        ["lcd1.LED+", "uno.D9"],
+        ["lcd1.LED-", "uno.D8"],
+        ["lcd1.RS", "uno.D12"],
+        ["lcd1.RW", "uno.D11"],
+        ["lcd1.VDD", "uno.5V"],
+        ["lcd1.VO", "uno.D13"],
+    ]
+
+
+def test_lcd_unknown_wire_pin_is_not_invented():
+    nets = derive_nets(_lcd_human_pin_data(extra_pin="Backlight"))
+    # Un pin que no esta en la tabla pasa tal cual: no se adivina un
+    # terminal de la fixture ni se pierde la net.
+    assert ["lcd1.Backlight", "uno.D2"] in nets
+    assert len(nets) == len(_LCD_WIRE_PINS) + 1
