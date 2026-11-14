@@ -168,6 +168,7 @@ def run_build(
 
     circuit_id = ""
     reused = False
+    already_open = False
     if reuse:
         # `preferred_id` (el `tinkercad_id` de la fixture, que pasa
         # demo_build) manda: un circuito ya construido se reusa por id aunque
@@ -182,13 +183,14 @@ def run_build(
             if open_record.ok and not _success_false(open_record.output):
                 circuit_id = pinned_id
                 reused = True
+                already_open = True
         if not reused:
             list_record = _run("tinkercad_list_circuits", {})
             if list_record.ok:
                 circuit_id = _find_reusable_circuit(list_record.output, title)
             reused = bool(circuit_id)
 
-    if reused:
+    if reused and not already_open:
         open_record = _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
         if not open_record.ok or _success_false(open_record.output):
             reused = False

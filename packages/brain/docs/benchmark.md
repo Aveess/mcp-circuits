@@ -1,7 +1,8 @@
 # Benchmark — circuitos construidos y verificados en Tinkercad
 
 Última pasada: 2026-11-14, todos reconstruidos con el runner (reutiliza el
-circuito por título y construye con reemplazo limpio). Fidelidad = score de
+circuito por el `tinkercad_id` de la fixture y construye con reemplazo
+limpio; el match por título queda solo como respaldo). Fidelidad = score de
 `compare_connectivity` (componentes + equivalencia eléctrica). El oráculo de
 comportamiento es siempre el serial instrumentado en simulación, nunca el
 píxel del LED.

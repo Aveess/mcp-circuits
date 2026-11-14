@@ -237,6 +237,9 @@ def _is_breadboard(canonical, raw_type):
 
 
 def _normalize_pin(pin, canonical):
+    # Match exacto a proposito: el guardado de Tinkercad emite etiquetas
+    # fijas ("Output 1", "Common") y no se quiere inferir un pin que el
+    # componente no declaro solo porque cambie la caja.
     by_type = _PIN_ALIASES_BY_TYPE.get(canonical)
     if by_type is not None and pin in by_type:
         return by_type[pin]
