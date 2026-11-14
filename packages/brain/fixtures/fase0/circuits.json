@@ -34,7 +34,8 @@
       "pinMode",
       "digitalWrite",
       "delay"
-    ]
+    ],
+    "tinkercad_id": "2tMhkuosDyj"
   },
   {
     "id": "boton-pullup",
@@ -84,7 +85,8 @@
       "INPUT_PULLUP",
       "digitalRead",
       "digitalWrite"
-    ]
+    ],
+    "tinkercad_id": "lp8O5143UNj"
   },
   {
     "id": "semaforo-3-leds",
@@ -161,7 +163,8 @@
       "pinMode",
       "digitalWrite",
       "delay"
-    ]
+    ],
+    "tinkercad_id": "hGHU2MiJnDJ"
   },
   {
     "id": "servo-potenciometro",
@@ -211,7 +214,8 @@
       "analogRead",
       "map",
       "write"
-    ]
+    ],
+    "tinkercad_id": "9Rpc2a0C6te"
   },
   {
     "id": "sensor-ultrasonico",
@@ -269,7 +273,8 @@
       "digitalWrite",
       "pulseIn",
       "digitalRead"
-    ]
+    ],
+    "tinkercad_id": "2ly9vcxYUyc"
   },
   {
     "id": "buzzer-activo",
@@ -313,7 +318,8 @@
       "digitalWrite",
       "tone",
       "noTone"
-    ]
+    ],
+    "tinkercad_id": "93Dj8w6iEv1"
   },
   {
     "id": "ldr-divisor",
@@ -371,7 +377,8 @@
       "pinMode",
       "analogRead",
       "digitalWrite"
-    ]
+    ],
+    "tinkercad_id": "lo9VkvBdWmT"
   },
   {
     "id": "motor-dc-transistor",
@@ -425,7 +432,8 @@
     "code_features": [
       "pinMode",
       "analogWrite"
-    ]
+    ],
+    "tinkercad_id": "73azwj2IJDE"
   },
   {
     "id": "led-rgb",
@@ -485,7 +493,8 @@
     "code_features": [
       "pinMode",
       "analogWrite"
-    ]
+    ],
+    "tinkercad_id": "i525BUubYAE"
   },
   {
     "id": "temperatura-tmp36",
@@ -539,7 +548,8 @@
       "analogRead",
       "digitalWrite",
       "Serial"
-    ]
+    ],
+    "tinkercad_id": "2Z7ubKF9ieN"
   },
   {
     "id": "motor-l293d-bateria",
@@ -618,7 +628,8 @@
       "digitalWrite",
       "analogWrite",
       "analogRead"
-    ]
+    ],
+    "tinkercad_id": "kJPyfC1VQaM"
   },
   {
     "id": "parking-servo-ultrasonico-rgb",
@@ -708,7 +719,8 @@
       "write",
       "pinMode",
       "digitalWrite"
-    ]
+    ],
+    "tinkercad_id": "2xxjwQBZuOH"
   },
   {
     "id": "lcd-contador",
@@ -775,7 +787,8 @@
       "print",
       "setCursor",
       "Serial"
-    ]
+    ],
+    "tinkercad_id": "cpySiVSE9vr"
   },
   {
     "id": "lcd-temperatura",
@@ -852,7 +865,8 @@
       "print",
       "setCursor",
       "Serial"
-    ]
+    ],
+    "tinkercad_id": "9hZJgbsYOC5"
   },
   {
     "id": "lcd-distancia",
@@ -943,7 +957,8 @@
       "noTone",
       "print",
       "Serial"
-    ]
+    ],
+    "tinkercad_id": "blN5d8qCr2z"
   },
   {
     "id": "siete-segmentos",
@@ -1053,6 +1068,7 @@
       "digitalWrite",
       "Serial",
       "delay"
-    ]
+    ],
+    "tinkercad_id": "gfgLntRuWJv"
   }
 ]

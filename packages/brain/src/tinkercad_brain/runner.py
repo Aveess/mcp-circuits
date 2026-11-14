@@ -134,6 +134,7 @@ def run_build(
     presets=None,
     repair: bool = True,
     reuse: bool = True,
+    preferred_id: str = "",
 ) -> dict:
     """Ejecuta un build completo y devuelve el resumen del intento.
 
@@ -141,6 +142,10 @@ def run_build(
     "repair_attempted", "fidelity_before_repair", "reused"}.
     Si `create` no devuelve un circuit_id parseable, se corta ahi:
     ok=False, sin lanzar y sin llamar al resto de tools.
+
+    Con `preferred_id` no vacio se reutiliza ese circuito directamente, sin
+    listar ni buscar por titulo: es el `tinkercad_id` que guarda la fixture y
+    lo unico que evita duplicados cuando el diseno se renombra en Tinkercad.
 
     Con `reuse=True` (defecto), antes de crear se lista la cuenta y, si un
     circuito coincide con `title`, se reutiliza: se abre ese circuito y el
@@ -164,10 +169,24 @@ def run_build(
     circuit_id = ""
     reused = False
     if reuse:
-        list_record = _run("tinkercad_list_circuits", {})
-        if list_record.ok:
-            circuit_id = _find_reusable_circuit(list_record.output, title)
-        reused = bool(circuit_id)
+        # `preferred_id` (el `tinkercad_id` de la fixture, que pasa
+        # demo_build) manda: un circuito ya construido se reusa por id aunque
+        # el titulo del diseno y el de la fixture no coincidan. Con el match
+        # por titulo salian duplicados cada vez que el diseno se renombraba
+        # en Tinkercad (paso con motor-dc-transistor).
+        pinned_id = str(preferred_id or "").strip()
+        if pinned_id:
+            open_record = _run(
+                "tinkercad_open_circuit", {"circuit_id_or_url": pinned_id}
+            )
+            if open_record.ok and not _success_false(open_record.output):
+                circuit_id = pinned_id
+                reused = True
+        if not reused:
+            list_record = _run("tinkercad_list_circuits", {})
+            if list_record.ok:
+                circuit_id = _find_reusable_circuit(list_record.output, title)
+            reused = bool(circuit_id)
 
     if reused:
         open_record = _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})

@@ -236,3 +236,18 @@ Hallazgos en vivo:
     rechaza un pin inventado igual que el builder.
   - Docstring y comentario de la tabla dicen ánodo común, que es lo que
     emite el sketch y lo que confirma el simulador.
+
+### Un solo diseño por circuito: `tinkercad_id` clavado en la fixture
+
+El runner reusaba por **título**, y el título del diseño no siempre coincide
+con el de la fixture (`Motor DC con transistor` vs `Motor DC con transistor
+NPN, resistencia de base y diodo flyback`). Resultado: dos circuitos
+duplicados (`iJSJ56Ckug6`, `92KSAB7E01N`) al re-verificar los motores; se
+borraron y se volvieron a construir en sus ids originales.
+
+Ahora cada fixture de `fixtures/fase0/circuits.json` lleva su `tinkercad_id`
+y `demo_build` lo pasa como `preferred_id`: el build abre ese circuito
+directo, sin listar ni buscar por título, y lo reemplaza en limpio. Si el id
+ya no existe, cae al match por título de siempre. Verificado en vivo:
+`siete-segmentos` reconstruido al 100% en `gfgLntRuWJv` sin crear diseño
+nuevo (el dashboard siguió con 19 diseños).

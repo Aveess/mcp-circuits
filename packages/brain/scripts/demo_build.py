@@ -183,7 +183,12 @@ def run_via_bridge(fixture: dict, code: str | None, title: str, bridge_path=DEFA
 
     try:
         return run_build(
-            fixture, code, call_tool, title, presets=select_presets(fixture)
+            fixture,
+            code,
+            call_tool,
+            title,
+            presets=select_presets(fixture),
+            preferred_id=str(fixture.get("tinkercad_id") or ""),
         )
     finally:
 

@@ -349,6 +349,52 @@ def test_reuse_match_does_not_create_opens_existing_and_clears():
     }
 
 
+def test_tinkercad_id_clavado_reusa_por_id_sin_buscar_por_titulo():
+    """Un diseno ya construido se reusa por id aunque el titulo no coincida.
+
+    Con el match por titulo, renombrar el diseno en Tinkercad creaba un
+    duplicado en el siguiente build (paso con motor-dc-transistor).
+    """
+    fixture = _fixture()
+    list_output = json.dumps(
+        {"circuits": [{"title": "otro circuito", "id": "zzz999"}]}
+    )
+    call_tool = _fake_call_tool(list_output=list_output)
+
+    result = run_build(
+        fixture, CODE, call_tool, "Blink runner", preferred_id="pinned77"
+    )
+
+    tools = [tool for tool, _ in call_tool.calls]
+    assert "tinkercad_list_circuits" not in tools
+    assert "tinkercad_create_circuit" not in tools
+    assert result["reused"] is True
+    assert result["circuit_id"] == "pinned77"
+    open_calls = [c for c in call_tool.calls if c[0] == "tinkercad_open_circuit"]
+    assert open_calls[0][1] == {"circuit_id_or_url": "pinned77"}
+    builds = [c for c in call_tool.calls if c[0] == "tinkercad_build_circuit_model"]
+    assert builds[0][1]["clear_existing"] is True
+
+
+def test_tinkercad_id_clavado_que_ya_no_existe_cae_al_match_por_titulo():
+    fixture = _fixture()
+    list_output = json.dumps(
+        {"circuits": [{"title": "existing42-blink-runner", "id": "existing42"}]}
+    )
+
+    def call_tool(tool, arguments):
+        if tool == "tinkercad_open_circuit" and arguments.get("circuit_id_or_url") == "gone404":
+            return json.dumps({"success": False, "message": "not found"})
+        return _fake_call_tool(list_output=list_output)(tool, arguments)
+
+    result = run_build(
+        fixture, CODE, call_tool, "Blink runner", preferred_id="gone404"
+    )
+
+    assert result["reused"] is True
+    assert result["circuit_id"] == "existing42"
+
+
 def test_reuse_without_match_creates():
     fixture = _fixture()
     list_output = json.dumps(
