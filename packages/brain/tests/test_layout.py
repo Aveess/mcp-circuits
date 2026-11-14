@@ -517,6 +517,7 @@ def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
     buzzer_column = int(buzzer["at"][:-1])
     assert buzzer_column >= 24
     buzzer_columns = set(range(buzzer_column, buzzer_column + 6))
+    assert result["placements"]["btn1"] == {"at": "1f", "pin": "1", "angle": 0}
     button_column = int(result["placements"]["btn1"]["at"][:-1])
     assert button_column not in buzzer_columns
     _anchor_columns(result)
@@ -534,6 +535,18 @@ def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
     led_block = set(range(led_column - 4, led_column + 2))
     buzzer_column = int(with_led["placements"]["buzzer1"]["at"][:-1])
     assert set(range(buzzer_column, buzzer_column + 6)).isdisjoint(led_block)
+
+
+def test_buzzer_fixture_places_button_before_the_piezo_disc():
+    # Large-body parts go last: the button keeps the first free column
+    # and the piezo disc anchors on the right edge.
+    result = plan_layout(_fixture("buzzer-activo"))
+
+    button_column = int(result["placements"]["btn1"]["at"][:-1])
+    buzzer_column = int(result["placements"]["buzzer1"]["at"][:-1])
+    assert button_column < buzzer_column
+    assert button_column not in range(buzzer_column, buzzer_column + 6)
+    assert set(result["placements"]) == {"btn1", "buzzer1"}
 
 
 def test_ldr_real_fixture_places_divider_resistor_three_columns_right_on_row_e():

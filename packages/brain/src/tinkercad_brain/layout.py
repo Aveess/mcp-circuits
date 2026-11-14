@@ -64,6 +64,9 @@ LDR_WIDTH = 2
 # LED at column 5 on screen. Column 22 or later keeps it clear of blocks
 # to its left; a cursor already past 22 is respected.
 LDR_MIN_COLUMN = 22
+# Parts whose body is a large disc: they are placed in a second pass so
+# small components claim the centre/left of the board first.
+LARGE_BODY_TYPES = (PIEZO_TYPE, LDR_TYPE)
 # LDR divider resistor: angle 90 puts pin 2 four columns after pin 1, so
 # pin 1 at c+3 lands pin 2 at c+7. Whole block advances 8 columns.
 LDR_DIVIDER_OFFSET = 3
@@ -333,11 +336,60 @@ def plan_layout(fixture: dict) -> dict:
     # blocks. All share the next_column cursor (LED block: 6, pushbutton:
     # 1, 3-pin: 4, ultrasonic: 5, diode: 6), so no two blocks share a start
     # column or overlap in range. DC motors are free and consume no columns.
+    # Large-body parts (piezo, LDR) are placed in a second pass: their
+    # discs are drawn centred on the anchor and cover neighbours to the
+    # left, so small parts claim the centre/left first and the disc ends
+    # up on the right edge.
+    def place_piezo(ref):
+        nonlocal next_column
+        start = skip_occupied(
+            max(next_column, PIEZO_MIN_COLUMN), PIEZO_WIDTH
+        )
+        if start + PIEZO_WIDTH - 1 > MAX_COLUMN:
+            unplaced.append(ref)
+        else:
+            placements[ref] = {
+                "at": f"{start}{PIEZO_ROW}",
+                "pin": PIEZO_ANCHOR_PIN,
+                "angle": 0,
+            }
+            occupied_columns.update(range(start, start + PIEZO_WIDTH))
+            next_column = start + PIEZO_WIDTH
+
+    def place_ldr(ref):
+        nonlocal next_column
+        divider_ref = ldr_to_resistor.get(ref)
+        width = LDR_BLOCK_WIDTH if divider_ref else LDR_WIDTH
+        start = skip_occupied(max(next_column, LDR_MIN_COLUMN), width)
+        if start + width - 1 > MAX_COLUMN:
+            unplaced.append(ref)
+            if divider_ref is not None:
+                unplaced.append(divider_ref)
+        else:
+            placements[ref] = {
+                "at": f"{start}{LDR_ROW}",
+                "pin": LDR_ANCHOR_PIN,
+                "angle": 0,
+            }
+            occupied_columns.update(range(start, start + LDR_WIDTH))
+            if divider_ref is not None:
+                placements[divider_ref] = {
+                    "at": f"{start + LDR_DIVIDER_OFFSET}{LDR_ROW}",
+                    "pin": "1",
+                    "angle": 90,
+                }
+                occupied_columns.update(
+                    range(start, start + LDR_BLOCK_WIDTH)
+                )
+            next_column = start + width
+
     motor_count = 0
     battery_count = 0
     for component in components:
         ref, ctype = component["ref"], component["type"]
         if ctype == "arduino-uno" or ref in placements:
+            continue
+        if ctype in LARGE_BODY_TYPES:
             continue
         if ctype == RGB_TYPE:
             if ref in unsupported_rgb:
@@ -368,45 +420,6 @@ def plan_layout(fixture: dict) -> dict:
             # RGB never rewinds the shared cursor.
             occupied_columns.update(range(base - 4, base + 4))
             next_column = max(next_column, base + 4)
-        elif ctype == PIEZO_TYPE:
-            start = skip_occupied(
-                max(next_column, PIEZO_MIN_COLUMN), PIEZO_WIDTH
-            )
-            if start + PIEZO_WIDTH - 1 > MAX_COLUMN:
-                unplaced.append(ref)
-            else:
-                placements[ref] = {
-                    "at": f"{start}{PIEZO_ROW}",
-                    "pin": PIEZO_ANCHOR_PIN,
-                    "angle": 0,
-                }
-                occupied_columns.update(range(start, start + PIEZO_WIDTH))
-                next_column = start + PIEZO_WIDTH
-        elif ctype == LDR_TYPE:
-            divider_ref = ldr_to_resistor.get(ref)
-            width = LDR_BLOCK_WIDTH if divider_ref else LDR_WIDTH
-            start = skip_occupied(max(next_column, LDR_MIN_COLUMN), width)
-            if start + width - 1 > MAX_COLUMN:
-                unplaced.append(ref)
-                if divider_ref is not None:
-                    unplaced.append(divider_ref)
-            else:
-                placements[ref] = {
-                    "at": f"{start}{LDR_ROW}",
-                    "pin": LDR_ANCHOR_PIN,
-                    "angle": 0,
-                }
-                occupied_columns.update(range(start, start + LDR_WIDTH))
-                if divider_ref is not None:
-                    placements[divider_ref] = {
-                        "at": f"{start + LDR_DIVIDER_OFFSET}{LDR_ROW}",
-                        "pin": "1",
-                        "angle": 90,
-                    }
-                    occupied_columns.update(
-                        range(start, start + LDR_BLOCK_WIDTH)
-                    )
-                next_column = start + width
         elif ctype == "l293d":
             l293d_columns = set(range(L293D_START_COLUMN, L293D_END_COLUMN + 1))
             if l293d_columns & occupied_columns:
@@ -486,6 +499,17 @@ def plan_layout(fixture: dict) -> dict:
             battery_count += 1
         elif ctype not in ("led", "resistor"):
             unplaced.append(ref)
+
+    # Second pass: large-body parts, in fixture order, once every other
+    # type has claimed its columns.
+    for component in components:
+        ref, ctype = component["ref"], component["type"]
+        if ref in placements:
+            continue
+        if ctype == PIEZO_TYPE:
+            place_piezo(ref)
+        elif ctype == LDR_TYPE:
+            place_ldr(ref)
 
     unplaced.sort(key=lambda ref: order[ref])
     return {"placements": placements, "unplaced": unplaced}
