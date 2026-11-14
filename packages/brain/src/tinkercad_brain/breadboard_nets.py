@@ -26,9 +26,10 @@ from tinkercad_brain.fase0.component_map import fixture_type
 _REF_PREFIX = {
     "led": "led",
     "resistor": "r",
-    # Halado por las fixtures (ldr1) y por normalize; sin esto saldria
-    # "photoresistor1".
-    "photoresistor": "ldr",
+    # OJO: no agregar "photoresistor": "ldr". Los refs derivados deben
+    # coincidir con los de normalize_circuit (photoresistor1), porque
+    # compare_connectivity traduce refs por tipo+orden: un prefijo distinto
+    # deja los endpoints como opacos y la conectividad cae en picada.
 }
 
 _PIN_ALIASES = {

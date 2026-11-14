@@ -573,7 +573,9 @@ def test_piezo_and_ldr_aliases_produce_fixture_pins():
     assert derive_nets(data) == [
         ["buzzer1.negative", "uno.GND1"],
         ["buzzer1.positive", "uno.D8"],
-        ["ldr1.2", "r1.1"],
+        # Ref derivado igual al de normalize_circuit (photoresistor1),
+        # no un prefijo propio: compare_connectivity alinea por tipo+orden.
+        ["photoresistor1.2", "r1.1"],
     ]
 
 
@@ -599,6 +601,6 @@ def test_ldr_aliases_are_type_scoped():
     # "Terminal 1"/"Terminal 2" del LDR son 1/2; en la resistencia siguen
     # siendo 1/2 (el alias global ya existente, sin cambios).
     assert derive_nets(data) == [
-        ["ldr1.1", "r1.1"],
-        ["ldr1.2", "r1.2"],
+        ["photoresistor1.1", "r1.1"],
+        ["photoresistor1.2", "r1.2"],
     ]
