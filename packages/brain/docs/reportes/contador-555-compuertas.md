@@ -6,7 +6,7 @@
 - Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 41,
+  "total_lines": 37,
   "lines": [
     "TEST:COMPUERTAS=LISTO",
     "TEST:DIGITO=0",
@@ -44,28 +44,26 @@
     "TEST:DIGITO=0",
     "TEST:DIGITO=1",
     "TEST:DIGITO=2",
-    "TEST:DIGITO=3",
-    "TEST:DIGITO=4",
-    "TEST:DIGITO=5",
-    "TEST:DIGITO=6",
-    "TEST:DIGITO=7"
+    "TEST:DIGITO=3"
   ],
-  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7",
-  "message": "Retrieved 41 lines from Serial Monitor."
+  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3",
+  "message": "Retrieved 37 lines from Serial Monitor."
 }
 
 ## Ruteo
-- Sin tramos sobre el cuerpo de una placa (31 de 31 cables ruteados medidos).
+- Sin tramos sobre el cuerpo de una placa (41 de 41 cables medidos, 39 ruteados).
+- Sin tramos diagonales en 41 cables medidos.
+- 1 salto(s) recto(s) entre huecos de la placa (max. 60 unidades); son puentes, se dejan.
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 7.3 | 7.3 |
+| tinkercad_build_circuit_model | 1 | 8.4 | 8.4 |
 | tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_open_circuit | 2 | 12.1 | 13.6 |
-| tinkercad_read_serial_monitor | 1 | 2.7 | 2.7 |
-| tinkercad_set_code | 1 | 15.5 | 15.5 |
-| tinkercad_set_component_property_model | 9 | 1.2 | 1.9 |
+| tinkercad_open_circuit | 2 | 10.2 | 11.4 |
+| tinkercad_read_serial_monitor | 1 | 2.5 | 2.5 |
+| tinkercad_set_code | 1 | 16.6 | 16.6 |
+| tinkercad_set_component_property_model | 9 | 1.0 | 2.8 |
 | tinkercad_start_simulation | 1 | 28.9 | 28.9 |
 | tinkercad_stop_simulation | 1 | 2.5 | 2.5 |
 

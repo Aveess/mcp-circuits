@@ -13,7 +13,11 @@ import json
 import re
 
 from tinkercad_brain.breadboard_nets import derive_nets
-from tinkercad_brain.builder import fixture_to_model_call, route_band_violations
+from tinkercad_brain.builder import (
+    diagonal_segments,
+    fixture_to_model_call,
+    route_band_violations,
+)
 from tinkercad_brain.fase0.metrics import compare_connectivity
 from tinkercad_brain.fase0.normalize import normalize_circuit
 from tinkercad_brain.fase0.probe import ProbeStep, run_steps
@@ -230,7 +234,10 @@ def run_build(
                 "fidelity_before_repair": None,
                 "reused": False,
                 "route_violations": [],
+                "diagonal_violations": [],
+                "board_hop_diagonals": [],
                 "routes": {"routed": 0, "measured": 0},
+                "checks": {},
             }
 
     model_call = fixture_to_model_call(fixture)
@@ -256,13 +263,25 @@ def run_build(
     # cuerpo de una placa. El puente devuelve la polilinea de cada cable.
     routes = _parse_json_dict(build_record.output).get("route_debug") or []
     route_violations = route_band_violations(routes, model_call.get("boards"))
+    # Regla 4: un cable que toca una parte libre o el Uno no puede quedar en
+    # diagonal (asi se veia "torcido" el circuito 28). Los saltos rectos
+    # entre huecos de la placa se cuentan pero no rompen el build.
+    free_refs = [
+        part.get("ref")
+        for part in model_call.get("parts", [])
+        if isinstance(part, dict) and part.get("free") is not None
+    ]
+    diagonals = diagonal_segments(routes, free_refs)
+    diagonal_violations = [d for d in diagonals if d.get("blocking")]
+    board_hop_diagonals = [d for d in diagonals if not d.get("blocking")]
     # Cuantos cables se midieron de verdad: sin esto un "0 cruces" podria
     # significar que no llego ninguna polilinea.
     routes_routed = sum(1 for r in routes if isinstance(r, dict) and r.get("routed"))
     routes_measured = sum(
         1 for r in routes
-        if isinstance(r, dict) and r.get("routed") and r.get("points")
+        if isinstance(r, dict) and r.get("points")
     )
+    routes_total = len(model_call.get("wires") or [])
 
     preset_reported_failure = False
     for preset in presets or []:
@@ -339,7 +358,21 @@ def run_build(
         and repair_ok
         and not preset_reported_failure
         and not route_violations
+        and not diagonal_violations
     )
+    # Por que el build no esta OK: sin esto un "OK: False" con fidelidad 100%
+    # y cero cruces no dice nada y hay que adivinar.
+    checks = {
+        "fidelity": fidelity.get("score", 0.0),
+        "build_ok": build_ok,
+        "repair_ok": repair_ok,
+        "presets_ok": not preset_reported_failure,
+        "route_violations": len(route_violations),
+        "diagonals": len(diagonal_violations),
+        "build_errors": [
+            str(e) for e in (_parse_json_dict(build_record.output).get("errors") or [])
+        ][:5],
+    }
     return {
         "circuit_id": circuit_id,
         "url": f"https://www.tinkercad.com/things/{circuit_id}/editel",
@@ -351,5 +384,9 @@ def run_build(
         "fidelity_before_repair": fidelity_before_repair,
         "reused": reused,
         "route_violations": route_violations,
-        "routes": {"routed": routes_routed, "measured": routes_measured},
+        "diagonal_violations": diagonal_violations,
+        "board_hop_diagonals": board_hop_diagonals,
+        "routes": {"routed": routes_routed, "measured": routes_measured,
+                   "total": routes_total},
+        "checks": checks,
     }

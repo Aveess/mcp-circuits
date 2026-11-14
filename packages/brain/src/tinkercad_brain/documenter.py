@@ -17,6 +17,8 @@ def render_build_report(
     records: list[dict],
     route_violations: list[dict] | None = None,
     routes: dict | None = None,
+    diagonal_violations: list[dict] | None = None,
+    board_hop_diagonals: list[dict] | None = None,
 ) -> str:
     report = build_report(records)
 
@@ -45,6 +47,9 @@ def render_build_report(
     lines.append(f"- Simulación: {sim_summary}")
     lines.append("")
     if route_violations is not None:
+        measured = (routes or {}).get("measured", 0)
+        routed = (routes or {}).get("routed", 0)
+        total = (routes or {}).get("total", measured)
         lines.append("## Ruteo")
         if route_violations:
             for violation in route_violations:
@@ -54,11 +59,24 @@ def render_build_report(
                     f"{violation['board']['x']:.0f}"
                 )
         else:
-            measured = (routes or {}).get("measured", 0)
-            routed = (routes or {}).get("routed", 0)
             lines.append(
                 f"- Sin tramos sobre el cuerpo de una placa "
-                f"({measured} de {routed} cables ruteados medidos)."
+                f"({measured} de {total} cables medidos, {routed} ruteados)."
+            )
+        if diagonal_violations:
+            for violation in diagonal_violations:
+                lines.append(
+                    f"- {violation['wire']}: tramo diagonal de "
+                    f"{violation['dx']:.0f}x{violation['dy']:.0f} "
+                    f"(se rutea en Z, no en recta)"
+                )
+        elif diagonal_violations is not None:
+            lines.append(f"- Sin tramos diagonales en {measured} cables medidos.")
+        if board_hop_diagonals:
+            worst = max(max(d["dx"], d["dy"]) for d in board_hop_diagonals)
+            lines.append(
+                f"- {len(board_hop_diagonals)} salto(s) recto(s) entre huecos "
+                f"de la placa (max. {worst:.0f} unidades); son puentes, se dejan."
             )
     lines.append("")
     lines.append("## Herramientas")

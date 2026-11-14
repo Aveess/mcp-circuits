@@ -184,6 +184,49 @@ def test_un_tramo_horizontal_sobre_la_placa_tumba_el_ok():
     assert result["ok"] is True
 
 
+def test_un_cable_en_diagonal_tumba_el_ok():
+    """Fase 41: el cable recto entre dos pines no se ve, se mide.
+
+    `uno.D13 -> 5e` sin polilinea ruteada es la recta que dibuja Tinkercad:
+    con los pines en filas distintas queda torcida. La fidelidad sigue en
+    100% porque las conexiones son correctas.
+    """
+    fixture = _fixture()
+    torcido = json.dumps({
+        "success": True,
+        "persisted": True,
+        "route_debug": [{
+            "wire": "uno.D13 -> 5e",
+            "routed": False,
+            "reason": "straight",
+            "points": [[200, 0], [765, 15]],
+        }],
+    })
+    result = run_build(fixture, CODE, _fake_call_tool(build_output=torcido), "Con diagonal")
+    assert result["fidelity"]["score"] == 1.0
+    assert [v["wire"] for v in result["diagonal_violations"]] == ["uno.D13 -> 5e"]
+    assert result["ok"] is False
+
+
+def test_un_salto_entre_huecos_de_la_placa_no_tumba_el_ok():
+    """`5g -> 8c` es un puente corto sobre la placa: se cuenta, no se corrige."""
+    fixture = _fixture()
+    puente = json.dumps({
+        "success": True,
+        "persisted": True,
+        "route_debug": [{
+            "wire": "5g -> 8c",
+            "routed": False,
+            "reason": "straight",
+            "points": [[-105, -25], [-75, 35]],
+        }],
+    })
+    result = run_build(fixture, CODE, _fake_call_tool(build_output=puente), "Con puente")
+    assert result["diagonal_violations"] == []
+    assert len(result["board_hop_diagonals"]) == 1
+    assert result["ok"] is True
+
+
 def test_no_code_skips_set_code():
     fixture = _fixture()
     call_tool = _fake_call_tool()

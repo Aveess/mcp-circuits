@@ -1033,3 +1033,93 @@ quedó en **OK: False** con 100% de fidelidad hasta corregirlo. Después:
 
 Lección: **una deuda anotada a ojo se cierra midiendo, no mirando mejor**. Y
 el instrumento encontró otra cosa distinta a la deuda anotada.
+
+## Fase 41: el cable entre partes libres se rutea (2026-11-14)
+
+Eddie miró el circuito 28 terminado y dijo: **"se ve un poco torcido"**. La
+primera sospecha fue la alineación de los integrados y era falsa: el modelo
+tenía los tres chips en la misma fila (`y=-230`, pines en `-245..-215`). Lo
+torcido eran los **cables**.
+
+### 41a · El síntoma, medido en la captura
+
+El zoom a la fila de integrados mostró dos diagonales largas: naranja del
+555 al capacitor, cian del 74HC00 al 74HC86. No eran casualidad: eran
+exactamente los cables cuyos dos extremos son **partes libres**.
+
+### 41b · La causa raíz
+
+`plan_wire_style` (Python) y la rama equivalente del JS ruteaban solo tres
+combinaciones:
+
+- `uno ↔ placa` (hueco o riel),
+- `libre ↔ placa`,
+- `libre ↔ uno`.
+
+Un cable `libre ↔ libre` caía por defecto: el puente no lo tocaba y Tinkercad
+dibujaba la recta entre los dos pines. Con los pines en filas distintas, esa
+recta es una diagonal larga. Eran **15 cables** en las cinco fixtures con
+partes libres: temporizador-555 (3), media-suma-logica (2), biestable-d (1),
+carrusel-4017 (1), contador-555-compuertas (8).
+
+### 41c · El arreglo
+
+El cable entre dos partes libres sale del pin, corre en horizontal hasta una
+columna libre y baja/sube hasta la fila del otro pin: un **Z** de tres tramos.
+
+- Dos partes distintas: la vertical va en la **columna del medio** entre los
+  dos cuerpos (no hay carril ni placa que estorbe).
+- Misma parte (dos pines del mismo integrado): la vertical va a **70 unidades
+  del origen** del cuerpo (`FREE_FREE_ESCAPE`), o al `FREE_ESCAPE` declarado
+  si la parte es ancha (el LCD usa −154).
+- Los dos pines en la **misma fila**: no se agrega quiebre, la recta ya es
+  ortogonal y se guarda la polilínea para poder medirla.
+
+### 41d · La regla, medida
+
+`route_debug` ahora trae la polilínea de **todos** los cables, también de los
+que no se rutean (`routed: false, reason: "straight"`). Con eso el cerebro
+mide cada tramo y distingue dos cosas que antes se confundían:
+
+| Qué | Cómo se mide | Rompe el build |
+|---|---|---|
+| Diagonal en cable de parte libre o del Uno | `builder.diagonal_segments`, `blocking=True` | Sí |
+| Salto recto entre huecos de la placa (`5g -> 8c`) | mismo lint, `blocking=False` | No (se cuenta) |
+| Horizontal sobre el cuerpo de una placa | `builder.route_band_violations` (fase 40) | Sí |
+
+El denominador del reporte cambió de "cables ruteados" a **total de cables**:
+antes decía `31 de 31` escondiendo 15 que el puente no tocaba.
+
+### 41e · El bug que apareció al medir
+
+Con la polilínea de los cables rectos en `route_debug`, el puente empezó a
+convertir cualquier `routed: false` en error de build. Resultado: el circuito
+28 salía con **100% de fidelidad, cero cruces, cero diagonales y
+`OK: False`**, sin decir por qué. Dos arreglos:
+
+1. `reason: "straight"` no es un fallo; el cerebro decide si ese tramo es
+   diagonal.
+2. El resultado lleva un dict `checks` con cada condición y el CLI imprime
+   `Fallos: build_ok` más los `build_errors` crudos. Un "OK: False" mudo es
+   un defecto de diagnóstico, no un detalle.
+
+### 41f · Verificado en vivo
+
+Los cinco circuitos con cables libre↔libre reconstruidos con el runner
+(reutiliza id, no crea duplicados):
+
+| Circuito | ID | Fidelidad | Cables medidos | Ruteados | Diagonales | Saltos | OK |
+|---|---|---|---|---|---|---|---|
+| contador-555-compuertas | `jApuXFjHQsc` | 100% | 41/41 | 39 | 0 | 1 | Sí |
+| temporizador-555 | `abIk7XRpSR4` | 100% | 10/10 | 10 | 0 | 0 | Sí |
+| media-suma-logica | `4z8ZkFcpmuC` | 100% | 20/20 | 18 | 0 | 2 | Sí |
+| biestable-d | `euU4CI6HwhX` | 100% | 14/14 | 13 | 0 | 1 | Sí |
+| carrusel-4017 | `ij6ypc8wB5x` | 100% | 21/21 | 17 | 0 | 0 | Sí |
+
+Captura del 28 con el zoom a la fila de chips: las dos diagonales ya no
+están; el naranja 555→capacitor y el cian 74HC00→74HC86 ahora son Z.
+
+Lección: **un cable que "no se ve" no es un cable que no existe**. Si el
+router no lo toca, Tinkercad lo dibuja a su manera; la única forma de saberlo
+es que el puente devuelva la geometría de lo que construyó y que el cerebro
+la mida.

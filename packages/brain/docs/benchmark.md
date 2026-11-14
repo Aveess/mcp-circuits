@@ -147,15 +147,15 @@ y es lo que se usa masivamente para verificar.
 
 - El contraste del LCD va con `VO` a GND: el potenciómetro en su posición por
   defecto deja la pantalla en blanco en el simulador (y su cuerpo tapa el
-  display).
+  display). Falta poder fijar el wiper por propiedad para usar pot real.
 - El 7 segmentos directo no entra: 7 resistencias son 42 columnas para una
   placa de 30. Se resuelve con el 74HC595 (circuito 17) o con el banco en
   una segunda protoboard (circuito 28).
 - Dos cuerpos grandes (HC-SR04 + piezo) comparten placa: el sensor cede la
   mitad derecha (arranca en la columna 10) porque su módulo se dibuja mucho
   más ancho que sus cuatro pines.
-
-- Sin herramienta de borrado en el puente: los circuitos de exploración se
-  renombran `BORRAR - ...` y se eliminan desde el dashboard.
 - El sampler de píxeles (brillo de LED) no calibra en headless; el oráculo
   real es el serial.
+- Los saltos rectos entre huecos de la misma placa (`5g -> 8c`) siguen en
+  diagonal a propósito: son puentes cortos sobre el plástico. El reporte los
+  cuenta y no rompen el build.

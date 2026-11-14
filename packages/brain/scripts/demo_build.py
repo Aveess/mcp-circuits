@@ -272,6 +272,8 @@ def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DI
         _records_as_dicts(result.get("records")),
         route_violations=result.get("route_violations"),
         routes=result.get("routes"),
+        diagonal_violations=result.get("diagonal_violations"),
+        board_hop_diagonals=result.get("board_hop_diagonals"),
     )
     # La misma documentacion que viaja dentro del circuito, para poder
     # leerla desde el repo sin abrir Tinkercad.
@@ -326,12 +328,26 @@ def main(argv=None) -> int:
     print(f"URL: {result.get('url') or ''}")
     print(f"Score: {score_text}")
     violations = result.get("route_violations") or []
+    diagonals = result.get("diagonal_violations") or []
+    hops = result.get("board_hop_diagonals") or []
     routes = result.get("routes") or {}
     print(
-        f"Ruteo: {len(violations)} tramo(s) sobre una placa "
-        f"({routes.get('measured', 0)} de {routes.get('routed', 0)} cables medidos)"
+        f"Ruteo: {len(violations)} tramo(s) sobre una placa, "
+        f"{len(diagonals)} diagonal(es), {len(hops)} salto(s) en la placa "
+        f"({routes.get('measured', 0)} de {routes.get('total', 0)} cables medidos, "
+        f"{routes.get('routed', 0)} ruteados)"
     )
     print(f"OK: {bool(result.get('ok'))}")
+    if not result.get("ok"):
+        checks = result.get("checks") or {}
+        fallos = [k for k, v in checks.items()
+                  if (k == "fidelity" and v < 0.99)
+                  or (k in ("build_ok", "repair_ok", "presets_ok") and not v)
+                  or (k in ("route_violations", "diagonals") and v)]
+        print(f"Fallos: {', '.join(fallos) or 'sin datos'}")
+        if checks.get("build_errors"):
+            for err in checks["build_errors"]:
+                print(f"  build: {err}")
     print(f"Reporte: {report_path}")
     return 0 if result.get("ok") else 1
 

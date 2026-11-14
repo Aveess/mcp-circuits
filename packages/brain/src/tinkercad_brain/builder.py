@@ -383,6 +383,9 @@ _BOARD_HALF_Y = 110
 # menos, el cable se ve pegado al borde aunque no lo pise (era el caso de
 # los carriles en ±115).
 _ROUTE_MIN_AIR = 15
+# Tolerancia al medir un tramo: Tinkercad redondea posiciones, asi que medio
+# punto no es una diagonal. Un tramo es diagonal solo si avanza en x y en y.
+_ROUTE_STRAIGHT_TOL = 1.0
 
 
 def _net_kind(endpoints):
@@ -1020,6 +1023,58 @@ def route_band_violations(routes, boards=None) -> list[dict]:
                 })
                 break
     return violations
+
+
+def _wire_refs(wire: str) -> list[str]:
+    """Refs de los dos extremos de una etiqueta ``a.b -> c.d``."""
+    refs = []
+    for part in str(wire or "").split("->"):
+        ref = part.strip().split(".")[0].strip().lower()
+        if ref:
+            refs.append(ref)
+    return refs
+
+
+def diagonal_segments(routes, free_refs=()) -> list[dict]:
+    """Tramos diagonales de la polilínea de cada cable.
+
+    Tinkercad dibuja una recta entre los dos extremos. El puente rutea los
+    cables que tocan una parte libre o el Uno, así que en esos un tramo
+    diagonal es un defecto de ruteo (``blocking=True``): con los pines en
+    filas distintas la recta se ve torcida. Un salto entre dos huecos de la
+    misma placa (``5g -> 8c``) también es diagonal, pero es un puente sobre
+    el plástico y se deja a propósito: se informa con ``blocking=False``.
+
+    ``free_refs`` son las refs que el layout colocó libres; se combinan con
+    ``uno`` para decidir qué cable tiene que estar ortogonal.
+    """
+    free = {str(r).strip().lower() for r in (free_refs or []) if str(r).strip()}
+    found = []
+    for route in routes or []:
+        if not isinstance(route, dict):
+            continue
+        points = route.get("points") or []
+        if len(points) < 2:
+            continue
+        wire = str(route.get("wire") or "")
+        refs = _wire_refs(wire)
+        blocking = bool(refs) and any(r == "uno" or r in free for r in refs)
+        for first, second in zip(points, points[1:]):
+            try:
+                (x1, y1), (x2, y2) = first, second
+                dx = abs(float(x2) - float(x1))
+                dy = abs(float(y2) - float(y1))
+            except (TypeError, ValueError):
+                continue
+            if dx <= _ROUTE_STRAIGHT_TOL or dy <= _ROUTE_STRAIGHT_TOL:
+                continue
+            found.append({
+                "wire": wire,
+                "dx": dx,
+                "dy": dy,
+                "blocking": blocking,
+            })
+    return found
 
 
 def build_circuit(fixture, code, call_tool) -> dict:

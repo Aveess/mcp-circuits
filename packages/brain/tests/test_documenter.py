@@ -118,10 +118,48 @@ def test_ruteo_limpio_dice_cuantos_cables_se_midieron():
     doc = render_build_report(
         "Build limpio", "https://example/c6", {}, "ok", [],
         route_violations=[],
-        routes={"routed": 31, "measured": 31},
+        routes={"routed": 31, "measured": 46, "total": 46},
+        diagonal_violations=[],
+        board_hop_diagonals=[],
     )
     assert "## Ruteo" in doc
-    assert "Sin tramos sobre el cuerpo de una placa (31 de 31 cables ruteados medidos)." in doc
+    # Fase 41: el denominador es el total de cables, no solo los ruteados.
+    # Antes decia "31 de 31" y escondia los 15 que el puente no tocaba.
+    assert "Sin tramos sobre el cuerpo de una placa (46 de 46 cables medidos, 31 ruteados)." in doc
+    assert "- Sin tramos diagonales en 46 cables medidos." in doc
+
+
+def test_ruteo_con_diagonal_nombra_el_cable():
+    doc = render_build_report(
+        "Build torcido", "https://example/c8", {}, "ok", [],
+        route_violations=[],
+        routes={"routed": 31, "measured": 46, "total": 46},
+        diagonal_violations=[{"wire": "t1.OUT -> u1.1A", "dx": 160.0, "dy": 30.0,
+                              "blocking": True}],
+        board_hop_diagonals=[],
+    )
+    assert "- t1.OUT -> u1.1A: tramo diagonal de 160x30 (se rutea en Z, no en recta)" in doc
+
+
+def test_los_saltos_rectos_de_la_placa_se_cuentan_y_no_rompen():
+    doc = render_build_report(
+        "Build con puentes", "https://example/c9", {}, "ok", [],
+        route_violations=[],
+        routes={"routed": 31, "measured": 46, "total": 46},
+        diagonal_violations=[],
+        board_hop_diagonals=[{"wire": "5g -> 8c", "dx": 30.0, "dy": 60.0,
+                              "blocking": False}],
+    )
+    assert "1 salto(s) recto(s) entre huecos de la placa (max. 60 unidades)" in doc
+
+
+def test_un_reporte_sin_datos_de_diagonal_no_agrega_la_linea():
+    """Callers viejos (sin el dato) no inventan una linea de diagonales."""
+    doc = render_build_report(
+        "Build sin dato", "https://example/c10", {}, "ok", [],
+        route_violations=[], routes={"routed": 3, "measured": 3, "total": 3},
+    )
+    assert "diagonal" not in doc.lower()
 
 
 def test_ruteo_con_cruce_nombra_el_cable_y_la_placa():

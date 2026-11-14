@@ -10,7 +10,7 @@ aún no implementada en código.
 |---|---|---|
 | 1 | Orden de construcción: 1) alimentación, 2) tierra, 3) señales. | **En código:** `builder._ordered_colored_wires` agrupa en ese orden (0 alimentación, 1 tierra, 2 señal) y ordena por primer extremo dentro de cada grupo, para que el ruteo sea estable. |
 | 2 | Colores: tierra negro; 5V/3V3 rojo; señales en paleta rotativa, sin repetir el color del vecino. | **En código:** `builder._wire_group` decide por extremo (5V/riel `T+`/`B+`/fuente → rojo; GND/riel `T-`/`B-` → negro; resto → paleta). Un terminal `+` solo cuenta como alimentación si la parte es fuente real (fase 37). |
-| 3 | Ruteo ortogonal: cables en ángulo recto, sin diagonales largas. Uno↔placa: cada cable baja/sube a su propio carril y no pasa sobre otro componente. | **En código y medido:** el puente rutea los cables Uno↔hueco, Uno↔riel y parte-libre↔placa con `addPoint` (fase 22/36). **Bandas por lado (fase 39):** `sideLanes.top/bottom`, paso 8; el lado lo decide el hueco (filas f..j y riel `T` arriba, e..a y `B` abajo) o la `y` de la parte libre. **Holgura (fase 40):** la banda arranca en ±130, no en ±115 — el cuerpo de la placa llega a ±110 y 5 unidades de aire se veían como un cable pegado al borde. Si una parte libre cae dentro de la banda, el carril se corre 30 más allá de la parte sin entrar nunca a la placa. El lint `builder.route_band_violations` mide la polilínea que devuelve el puente y falla el build si un tramo horizontal pasa por encima de una placa. |
+| 3 | Ruteo ortogonal: cables en ángulo recto, sin diagonales largas. Uno↔placa: cada cable baja/sube a su propio carril y no pasa sobre otro componente. | **En código y medido:** el puente rutea los cables Uno↔hueco, Uno↔riel y parte-libre↔placa con `addPoint` (fase 22/36). **Bandas por lado (fase 39):** `sideLanes.top/bottom`, paso 8; el lado lo decide el hueco (filas f..j y riel `T` arriba, e..a y `B` abajo) o la `y` de la parte libre. **Holgura (fase 40):** la banda arranca en ±130, no en ±115 — el cuerpo de la placa llega a ±110 y 5 unidades de aire se veían como un cable pegado al borde. Si una parte libre cae dentro de la banda, el carril se corre 30 más allá de la parte sin entrar nunca a la placa. El lint `builder.route_band_violations` mide la polilínea que devuelve el puente y falla el build si un tramo horizontal pasa por encima de una placa. **Libre↔libre (fase 41):** estos cables también se rutean, en Z (la vertical en la columna del medio, o a 70 del origen si las dos terminales son de la misma parte). El lint `builder.diagonal_segments` falla el build si un cable que toca una parte libre o el Uno tiene un tramo diagonal. |
 | 4 | Cables cortos dentro de la placa: rectos, por el hueco más cercano, sin rodeos. | **En código** para nets de 2 extremos (se dejan tal cual). Las de 3+ extremos van en estrella desde el hub: un cable hueco↔hueco lo dibuja recto el simulador y cruza los cuerpos. |
 | 5 | Separación en layout: 6 columnas por bloque LED+resistencia; bloques de 3 pines ocupan 3 columnas + 1 libre de separación; ningún bloque comparte columna de inicio con otro. | **En código:** `layout.BLOCK_WIDTH=6`, `THREE_PIN_WIDTH=4`, cursor compartido. Las resistencias del banco de la segunda placa van cada 4 columnas (`SECOND_BOARD_COLUMN_STEP`). |
 | 6 | Rieles: con más de 2 conexiones al mismo punto, usar riel: `T-` para tierra y `T+` para 5V, en vez de cables sueltos repetidos al Uno. | **En código (opt-in):** `"wiring": "rails"` en la fixture. Cada terminal baja al riel de su misma columna, el Uno lo alimenta una vez y los dos rieles del mismo tipo se puentean en la columna 30. Una parte de la segunda placa nunca baja al riel de la primera: va directa al pin del Uno. |
@@ -44,6 +44,10 @@ En el screenshot del circuito terminado:
 - **Cero tramos horizontales sobre una placa** (`Ruteo: 0 tramo(s)` en el build).
   Lo mide `route_band_violations`, no el ojo: el reporte dice cuántos cables
   se midieron de verdad.
+- **Cero diagonales en cables de partes libres o del Uno** (`0 diagonal(es)`).
+  Lo mide `diagonal_segments` sobre la polilínea de los 46 cables, no solo de
+  los ruteados. Los saltos rectos entre huecos de la placa se cuentan y se
+  dejan: son puentes cortos sobre el plástico.
 - Cada cable del Uno baja/sube a su carril sin pasar sobre otro componente.
 - Cables repartidos arriba y abajo; no todos por la misma zona.
 - Sin cruces innecesarios; colores según regla 2; rieles según regla 6.
@@ -56,9 +60,13 @@ Si no cumple, no se da por terminado aunque simule bien.
 
 - Ruteo automático de cables placa↔placa largos: hoy van por la banda global
   (ya sin rozar la placa, fase 40), no por un corredor propio entre las dos.
+- Los saltos rectos entre huecos de la misma placa (`5g -> 8c`) siguen en
+  diagonal: son puentes cortos y se cuentan en el reporte, pero no se rutean.
 - El lint mide placas, no cuerpos de integrados ni de partes libres: un cable
   puede pasar cerca de un chip. Se mide la placa porque su caja es exacta
-  (±160 × ±110); el resto de las cajas no las expone el modelo.
+  (±160 × ±110); el resto de las cajas no las expone el modelo. El cable que
+  cruza la fila de pines de un integrado pasa por el borde de su cuerpo y se
+  ve como un puente encima del chip: es lo que haría un cable real.
 - Mover componentes ya colocados: el puente no lo soporta. Si el layout sale mal,
   se reconstruye, no se arrastra.
 - Nombres de parte libres de deduplicación: Tinkercad cambia `r2` por `r21` si
