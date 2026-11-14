@@ -719,10 +719,16 @@ class TestFreePartRouting(unittest.TestCase):
         self.assertIn("isFreeEp", js)
         self.assertIn("free_pos_null", js)
         self.assertIn("pFree", js)
-        self.assertIn("freeIsFrom ? [pFree, pDestFree] : [pDestFree, pFree]", js)
+        # Fase 36: la cadena agrega el punto de escape lateral (pEscape) para
+        # las partes cuyas terminales miran arriba; sin escape la lista queda
+        # igual que antes.
+        self.assertIn(
+            "freeIsFrom ? chain : chain.slice().reverse()", js)
+        self.assertIn("const chain = (pEscape ? [pEscape] : []).concat([pFree, pDestFree])", js)
         self.assertIn("sideY > ORIGIN.y", js)
 
-    def _run_free_route(self, free_y, wire):
+    def _run_free_route(self, free_y, wire, did=999, ref="motor1",
+                        free_x=560, lcd_pin=(1080, -295)):
         import json
         import shutil
         import subprocess
@@ -768,12 +774,25 @@ const motorDev = {
     '1': { val: { getBreadboardPos() { return new Pt(motorPos.x, motorPos.y); } } },
   } },
 };
+let lcdPos = { x: 0, y: 0 };
+const lcdDev = {
+  did: () => 113878,
+  breadboard: () => ({
+    setPos(p) { lcdPos = { x: p.x, y: p.y }; },
+    setAngle() {},
+    pos: () => new Pt(lcdPos.x, lcdPos.y),
+  }),
+  name2terminal: { _content: {
+    DB5: { val: { getBreadboardPos() { return new Pt(__LCD_PIN_X__, __LCD_PIN_Y__); } } },
+  } },
+};
 const data = {
   devices: { _content: {}, add(d) { this._content['d' + Object.keys(this._content).length] = { val: d }; } },
   wires: { _content: {}, add(w) { this._content['w' + Object.keys(this._content).length] = { val: w }; } },
   createDeviceInstance(did) {
     if (did === 132521) return unoDev;
     if (did === 111211) return bbDev;
+    if (did === 113878) return lcdDev;
     return motorDev;
   },
 };
@@ -783,7 +802,7 @@ global.window = {
 };
 const fn = eval('(' + src + ')');
 const plan = {
-  parts: [{ ref: 'motor1', did: 999, free: { x: 560, y: __FREE_Y__ } }],
+  parts: [{ ref: __REF__, did: __DID__, free: { x: __FREE_X__, y: __FREE_Y__ } }],
   wires: [__WIRE__],
   code: null,
 };
@@ -793,7 +812,12 @@ console.log(JSON.stringify({ out,
 """
         script = (
             harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))
+            .replace("__FREE_X__", json.dumps(free_x))
             .replace("__FREE_Y__", json.dumps(free_y))
+            .replace("__DID__", json.dumps(did))
+            .replace("__REF__", json.dumps(ref))
+            .replace("__LCD_PIN_X__", json.dumps(lcd_pin[0]))
+            .replace("__LCD_PIN_Y__", json.dumps(lcd_pin[1]))
             .replace("__WIRE__", json.dumps(wire))
         )
         res = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
@@ -817,6 +841,42 @@ console.log(JSON.stringify({ out,
         # above centre -> lane y=-115-5; points follow wire direction uno->free
         self.assertEqual(out["points"],
                          [{"x": 200, "y": -120, "i": 1}, {"x": 560, "y": -120, "i": 2}])
+
+    # ------------------------------------------------ fase 36: escape lateral
+
+    def test_lcd_sale_de_lado_antes_de_bajar(self):
+        """El LCD tiene las terminales arriba: el primer punto es lateral."""
+        out = self._run_free_route(
+            -230, {"from": "lcd1.DB5", "to": "5e", "color": "blue", "route": True, "lane": 0},
+            did=113878, ref="lcd1", free_x=1100)
+        self.assertEqual(out["out"]["routed"], 1)
+        # escape = origen (1100) - 154; lane 0 -> laneY -115; destino x 765
+        self.assertEqual(out["points"], [
+            {"x": 946, "y": -295, "i": 1},
+            {"x": 946, "y": -115, "i": 2},
+            {"x": 765, "y": -115, "i": 3},
+        ])
+
+    def test_el_escape_se_escalona_por_carril(self):
+        out = self._run_free_route(
+            -230, {"from": "lcd1.DB5", "to": "5e", "color": "blue", "route": True, "lane": 3},
+            did=113878, ref="lcd1", free_x=1100)
+        # 154 + 3*8 a la izquierda del origen; laneY = -115 - 3*5
+        self.assertEqual(out["points"], [
+            {"x": 922, "y": -295, "i": 1},
+            {"x": 922, "y": -130, "i": 2},
+            {"x": 765, "y": -130, "i": 3},
+        ])
+
+    def test_sin_escape_el_cable_baja_directo_desde_el_pin(self):
+        out = self._run_free_route(
+            -230, {"from": "motor1.1", "to": "5e", "color": "blue", "route": True, "lane": 0},
+            did=999, ref="motor1", free_x=560)
+        # Sin tabla de escape: solo los dos puntos de carril, sin lateral.
+        self.assertEqual(out["points"], [
+            {"x": 560, "y": -115, "i": 1},
+            {"x": 765, "y": -115, "i": 2},
+        ])
 
 
 class TestBuildCircuitModelToolSchema(unittest.TestCase):

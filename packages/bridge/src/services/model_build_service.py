@@ -8,6 +8,7 @@ and "insert" BendableWireData so each leg registers in its breadboard hole.
 from __future__ import annotations
 
 import asyncio
+import json
 import math
 import re
 import time
@@ -42,6 +43,15 @@ _RAIL_RE = re.compile(r"^[TBtb][+-](?:[1-9]|[12][0-9]|30)$")
 
 # Rotating palette for signal wires (power/ground use black/red instead).
 _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown"]
+
+# Partes libres cuyas terminales miran hacia ARRIBA: bajar en vertical desde
+# el pin atraviesa su propio cuerpo y el cable parece nacer en el borde.
+# El cable sale primero de lado, `dx` unidades desde el ORIGEN del modulo
+# (no desde cada pin: cada pin daria una x distinta y el abanico cruzaria a
+# los vecinos), y despues baja por el carril. Medido en vivo con el LCD
+# 16x2 (did 113878): su cuerpo empieza 139 unidades a la izquierda del
+# origen, asi que -154 lo deja 15 afuera. Ver docs/fase0-vivo.md, fase 36.
+FREE_ESCAPE: Dict[int, Dict[str, int]] = {113878: {"dx": -154}}
 
 
 def _norm_token(s: Any) -> str:
@@ -219,6 +229,9 @@ _BUILD_JS = r"""
   const ROW_Y = { j: -55, i: -45, h: -35, g: -25, f: -15, e: 15, d: 25, c: 35, b: 45, a: 55 };
   const RAIL_Y = { 'T-': -95, 'T+': -85, 'B-': 85, 'B+': 95 };
   const UNO_DID = 132521, BB_DID = 111211;
+  // Partes libres con terminales arriba (LCD 16x2): el cable sale de lado
+  // antes de bajar. La tabla la inyecta Python desde FREE_ESCAPE.
+  const FREE_ESCAPE = __FREE_ESCAPE__;
 
   const unwrap = (e) => (e && e.val !== undefined ? e.val : e);
   const devices = () => Object.entries(data.devices?._content || {})
@@ -600,10 +613,28 @@ _BUILD_JS = r"""
                 const laneY = sideY > ORIGIN.y
                   ? ORIGIN.y + 115 + lane * 5
                   : ORIGIN.y - 115 - lane * 5;
-                const pFree = { x: freePos.x, y: laneY }, pDestFree = { x: destPos.x, y: laneY };
+                // Si el pin vive arriba del cuerpo, primero se sale de lado
+                // (a la altura del pin, fuera del cuerpo) y despues se baja.
+                // La salida se mide desde el ORIGEN de la parte (no desde el
+                // pin: cada pin daria una x distinta y el abanico cruzaria
+                // los cuerpos vecinos) y se escalona por carril para que los
+                // cables no se dibujen uno encima de otro.
+                let escBase = null;
+                try {
+                  const esc = FREE_ESCAPE[didOf(freeDev)];
+                  if (esc) {
+                    escBase = (freeEntry && freeEntry.free && isFinite(freeEntry.free.x))
+                      ? Number(freeEntry.free.x) + esc.dx
+                      : freePos.x + esc.dx;
+                  }
+                } catch (e) {}
+                const escapeX = (escBase === null) ? freePos.x : escBase - lane * 8;
+                const pEscape = (escBase === null) ? null : { x: escapeX, y: freePos.y };
+                const pFree = { x: escapeX, y: laneY }, pDestFree = { x: destPos.x, y: laneY };
                 const C = coordCtor();
                 try {
-                  const pts = freeIsFrom ? [pFree, pDestFree] : [pDestFree, pFree];
+                  const chain = (pEscape ? [pEscape] : []).concat([pFree, pDestFree]);
+                  const pts = freeIsFrom ? chain : chain.slice().reverse();
                   for (let i = 0; i < pts.length; i++) {
                     const pt = pts[i];
                     const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
@@ -677,6 +708,14 @@ _BUILD_JS = r"""
   return { placed, errors, routed, route_debug };
 }
 """
+
+# La tabla de escapes se escribe una sola vez (FREE_ESCAPE) y se inyecta en
+# el JS que corre en la pagina. Las claves JSON son strings y el JS las
+# indexa igual: FREE_ESCAPE[113878] busca "113878".
+_BUILD_JS = _BUILD_JS.replace(
+    "__FREE_ESCAPE__",
+    json.dumps({str(did): esc for did, esc in FREE_ESCAPE.items()}),
+)
 
 
 class ModelBuildService:
