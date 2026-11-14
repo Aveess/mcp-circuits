@@ -38,11 +38,17 @@ _PENDING_JS = r"""
 }
 """
 
-_HOLE_RE = re.compile(r"^(?:[1-9]|[12][0-9]|30)[a-jA-J]$")
-_RAIL_RE = re.compile(r"^[TBtb][+-](?:[1-9]|[12][0-9]|30)$")
+# Con mas de una placa el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
+# "5g" no dice a que protoboard pertenece y el cable caeria en la primera.
+_BOARD_PREFIX = r"(?:b[1-9]/)?"
+_HOLE_RE = re.compile(rf"^{_BOARD_PREFIX}(?:[1-9]|[12][0-9]|30)[a-jA-J]$")
+_RAIL_RE = re.compile(rf"^{_BOARD_PREFIX}[TBtb][+-](?:[1-9]|[12][0-9]|30)$")
 
 # Rotating palette for signal wires (power/ground use black/red instead).
 _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown"]
+
+# Tope de protoboards por circuito: mas de tres y el lienzo deja de leerse.
+_MAX_BOARDS = 3
 
 # Partes libres cuyas terminales miran hacia ARRIBA: bajar en vertical desde
 # el pin atraviesa su propio cuerpo y el cable parece nacer en el borde.
@@ -226,6 +232,22 @@ _BUILD_JS = r"""
   const data = ce.data;
   const root = ce.root;
   const ORIGIN = { x: 870, y: 0 };
+  // Placas: plan.boards = [{x, y}, ...]. La primera es la de siempre
+  // (870, 0); una parte pide otra con "board": N y sus huecos viajan como
+  // "bN/<hueco>". Todos los cables usan el y de la primera placa como
+  // referencia de carril, asi que las placas se colocan a la misma altura.
+  const BOARDS = (Array.isArray(plan.boards) && plan.boards.length)
+    ? plan.boards.map((b) => ({ x: Number(b.x), y: Number(b.y) }))
+    : [{ x: ORIGIN.x, y: ORIGIN.y }];
+  const boardOrigin = (index) => {
+    const b = BOARDS[index];
+    return (b && isFinite(b.x) && isFinite(b.y)) ? b : BOARDS[0];
+  };
+  // Separacion entre carriles (los cables se dibujan encima uno de otro con
+  // menos de 8) y base a la que arranca la banda por encima/debajo de la
+  // placa. El reparto por lado se lleva aparte: cada banda usa sus propios
+  // numeros, asi que la de arriba no se come el espacio de la de abajo.
+  const LANE_BASE = 115, LANE_STEP = 8;
   const ROW_Y = { j: -55, i: -45, h: -35, g: -25, f: -15, e: 15, d: 25, c: 35, b: 45, a: 55 };
   const RAIL_Y = { 'T-': -95, 'T+': -85, 'B-': 85, 'B+': 95 };
   const UNO_DID = 132521, BB_DID = 111211;
@@ -254,8 +276,16 @@ _BUILD_JS = r"""
     return { x: -145 + 10 * (col - 1), y: ROW_Y[row] };
   }
   function parseHole(s) {
-    const m = String(s || '').trim().match(/^([1-9]|[12][0-9]|30)([a-j])$/i);
-    return m ? { col: parseInt(m[1], 10), row: m[2].toLowerCase() } : null;
+    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?([1-9]|[12][0-9]|30)([a-j])$/i);
+    return m
+      ? { board: m[1] ? parseInt(m[1], 10) : 0, col: parseInt(m[2], 10), row: m[3].toLowerCase() }
+      : null;
+  }
+  function parseRail(s) {
+    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?([TB])([+-])([1-9]|[12][0-9]|30)$/i);
+    return m
+      ? { board: m[1] ? parseInt(m[1], 10) : 0, side: m[2].toUpperCase() + m[3], col: parseInt(m[4], 10) }
+      : null;
   }
   function holeName(col, y) {
     for (const [row, ry] of Object.entries(ROW_Y)) {
@@ -309,19 +339,50 @@ _BUILD_JS = r"""
     return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
   };
 
-  let bbDev = null;
+  let bbDevs = [];
+  const bbDevFor = (board) => bbDevs[board] || bbDevs[0] || null;
   try { if (root && typeof root.rec === 'function') root.rec(); } catch (e) {}
   try {
     const uno = ensureDevice(UNO_DID);
-    bbDev = ensureDevice(BB_DID);
-    try {
-      const bb = bbDev.breadboard();
-      if (bb && typeof bb.setPos === 'function') bb.setPos({ x: ORIGIN.x, y: ORIGIN.y });
-    } catch (e) {}
+    // Una protoboard por entrada de plan.boards: la primera reutiliza la que
+    // ya exista (o la crea); las demas se crean siempre y se colocan en su
+    // origen. clear_existing borra todas, incluidas las sobrantes.
+    const existingBoards = devices().filter((d) => didOf(d.dev) === BB_DID).map((d) => d.dev);
+    bbDevs = BOARDS.map((origin, index) => {
+      let dev = existingBoards[index];
+      if (!dev) {
+        dev = data.createDeviceInstance(BB_DID);
+        if (dev && data.devices && typeof data.devices.add === 'function') {
+          try { data.devices.add(dev); } catch (e) {}
+        }
+      }
+      try {
+        const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
+        if (bb && typeof bb.setPos === 'function') bb.setPos({ x: origin.x, y: origin.y });
+      } catch (e) {}
+      return dev;
+    });
 
     const byRef = { uno: uno };
+    // Nombre real que quedo en cada device. Tinkercad deduplica: si el
+    // documento ya tiene un "r2" (aunque sea de un build anterior que se
+    // esta borrando), setName("r2") deja "r21". El nombre lo decide el
+    // editor, no nosotros, asi que se lee despues de asignarlo y se devuelve:
+    // el verificador lo usa como identidad en vez de adivinar por posicion.
+    const readName = (dev, fallback) => {
+      try {
+        const n = (typeof dev.getName === 'function') ? dev.getName()
+          : ((typeof dev.name === 'function') ? dev.name() : dev.name);
+        const s = String((n && n.val !== undefined) ? n.val : (n == null ? '' : n));
+        if (s) return s;
+      } catch (e) {}
+      return fallback;
+    };
     for (const part of (plan.parts || [])) {
       try {
+        const boardIndex = (Number.isInteger(part.board) && part.board > 0) ? part.board : 0;
+        const boardDev = bbDevFor(boardIndex);
+        const boardAt = boardOrigin(boardIndex);
         const hasFree = part.free !== undefined && part.free !== null;
         const hasAt = part.at !== undefined && part.at !== null && String(part.at).trim() !== '';
         if (hasFree && hasAt) { errors.push(part.ref + ': cannot specify both at and free'); continue; }
@@ -349,16 +410,25 @@ _BUILD_JS = r"""
           if (typeof bb.setAngle === 'function') bb.setAngle(angle);
           bb.setPos({ x: fx, y: fy });
           // Free part: no legs in holes, so no insert wires are created.
-          placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy } };
+          placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy },
+                               name: readName(dev, part.ref) };
           continue;
         }
         const anchor = parseHole(part.at);
         if (!anchor) { errors.push(part.ref + ': invalid hole ' + part.at); continue; }
+        if (anchor.board !== boardIndex) { errors.push(part.ref + ': hole board mismatch ' + part.at); continue; }
         const dev = data.createDeviceInstance(part.did);
         if (dev && data.devices && typeof data.devices.add === 'function') {
           try { data.devices.add(dev); } catch (e) {}
         }
         byRef[part.ref] = dev;
+        // Nombre = ref de la fixture: las propiedades se fijan despues por
+        // nombre y, con varias piezas del mismo tipo (7 resistencias de un
+        // display), "Resistor" es ambiguo y el preset se pierde.
+        try {
+          if (typeof dev.setName === 'function') dev.setName(part.ref);
+          else dev.name = part.ref;
+        } catch (e) {}
         const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
         if (!bb || typeof bb.setPos !== 'function') {
           errors.push(part.ref + ': no breadboard placement'); continue;
@@ -374,7 +444,7 @@ _BUILD_JS = r"""
           if (!aOff) break;
           const aRot = rot(aOff, angle);
           const rel = holeRel(anchor.col, anchor.row);
-          const pos = { x: ORIGIN.x + rel.x - aRot.x, y: ORIGIN.y + rel.y - aRot.y };
+          const pos = { x: boardAt.x + rel.x - aRot.x, y: boardAt.y + rel.y - aRot.y };
           bb.setPos(pos);
           const holes = {};
           let all = true;
@@ -383,14 +453,14 @@ _BUILD_JS = r"""
             const off = termOffset(t);
             if (!off) { all = false; break; }
             const abs = rot(off, angle);
-            const lx = pos.x + abs.x - ORIGIN.x, ly = pos.y + abs.y - ORIGIN.y;
+            const lx = pos.x + abs.x - boardAt.x, ly = pos.y + abs.y - boardAt.y;
             const col = Math.round((lx + 145) / 10) + 1;
             if (Math.abs(lx - (-145 + 10 * (col - 1))) > 3) { all = false; break; }
             const h = holeName(col, ly);
             if (!h) { all = false; break; }
             holes[name] = h;
           }
-          if (all) { ok = { angle, holes }; break; }
+          if (all) { ok = { angle, holes, board: boardIndex }; break; }
         }
         if (!ok) { errors.push(part.ref + ': no angle fits all pins in holes'); continue; }
         // Register each leg in its breadboard hole with an insert wire.
@@ -398,10 +468,10 @@ _BUILD_JS = r"""
           const t = unwrap(dev.name2terminal._content[name]);
           const parsed = parseHole(h);
           let bt = null;
-          if (parsed) bt = bbTerminal(bbDev, parsed.col, ROW_Y[parsed.row]);
+          if (parsed) bt = bbTerminal(boardDev, parsed.col, ROW_Y[parsed.row]);
           else {
             const rm = String(h).match(/^([TB][+-])(\d+)$/);
-            if (rm) bt = bbTerminal(bbDev, parseInt(rm[2], 10), RAIL_Y[rm[1]]);
+            if (rm) bt = bbTerminal(boardDev, parseInt(rm[2], 10), RAIL_Y[rm[1]]);
           }
           if (t && bt && window.Circuits?.BendableWireData) {
             const w = new window.Circuits.BendableWireData(root, t, bt, { insert: true });
@@ -409,16 +479,17 @@ _BUILD_JS = r"""
             if (w && typeof w.updateNets === 'function') w.updateNets();
           }
         }
-        placed[part.ref] = ok;
+        placed[part.ref] = { angle: ok.angle, holes: ok.holes, board: ok.board,
+                             name: readName(dev, part.ref) };
       } catch (e) { errors.push(part.ref + ': ' + e.toString()); }
     }
 
     function resolveEndpoint(ep) {
       const s = String(ep || '').trim();
       const hole = parseHole(s);
-      if (hole) return bbTerminal(bbDev, hole.col, ROW_Y[hole.row]);
-      const rail = s.match(/^([TB])([+-])(\d{1,2})$/i);
-      if (rail) return bbTerminal(bbDev, parseInt(rail[3], 10), RAIL_Y[(rail[1].toUpperCase() + rail[2])]);
+      if (hole) return bbTerminal(bbDevFor(hole.board), hole.col, ROW_Y[hole.row]);
+      const rail = parseRail(s);
+      if (rail) return bbTerminal(bbDevFor(rail.board), rail.col, RAIL_Y[rail.side]);
       const dot = s.indexOf('.');
       if (dot > 0) {
         const ref = s.slice(0, dot), pin = s.slice(dot + 1);
@@ -429,7 +500,7 @@ _BUILD_JS = r"""
           const h = holes[pin] || Object.entries(holes)
             .find(([k]) => norm(k) === norm(pin))?.[1];
           const parsed = h ? parseHole(h) : null;
-          if (parsed) return bbTerminal(bbDev, parsed.col, ROW_Y[parsed.row]);
+          if (parsed) return bbTerminal(bbDevFor(parsed.board), parsed.col, ROW_Y[parsed.row]);
           // Free parts have holes == {}: fall through to the real terminal.
         }
         const found = termByName(dev, pin);
@@ -449,7 +520,7 @@ _BUILD_JS = r"""
       return dot > 0 && norm(s.slice(0, dot)) === 'uno';
     }
     function isBbEp(ep) {
-      return !!parseHole(ep) || /^[TB][+-]\d{1,2}$/i.test(String(ep || '').trim());
+      return !!parseHole(ep) || !!parseRail(ep);
     }
     function epRef(ep) {
       const s = String(ep || '').trim(), dot = s.indexOf('.');
@@ -478,7 +549,8 @@ _BUILD_JS = r"""
     }
     function convColor(ep) {
       const s = String(ep || '').trim();
-      if (/^[TB][+-]\d{1,2}$/i.test(s)) return s.includes('-') ? 'black' : 'red';
+      const rail = parseRail(s);
+      if (rail) return rail.side.includes('-') ? 'black' : 'red';
       const pin = norm(s.includes('.') ? s.slice(s.indexOf('.') + 1) : s);
       if (!pin) return null;
       if (pin.includes('gnd') || pin.includes('tierra') || pin.includes('ground')) return 'black';
@@ -487,14 +559,22 @@ _BUILD_JS = r"""
     }
     function bbAbs(ep) {
       const hole = parseHole(ep);
-      if (hole) { const rel = holeRel(hole.col, hole.row); return { x: ORIGIN.x + rel.x, y: ORIGIN.y + rel.y }; }
-      const rail = String(ep || '').trim().match(/^([TB])([+-])(\d{1,2})$/i);
-      if (rail) return { x: ORIGIN.x - 145 + 10 * (parseInt(rail[3], 10) - 1), y: ORIGIN.y + RAIL_Y[rail[1].toUpperCase() + rail[2]] };
+      if (hole) {
+        const rel = holeRel(hole.col, hole.row), org = boardOrigin(hole.board);
+        return { x: org.x + rel.x, y: org.y + rel.y };
+      }
+      const rail = parseRail(ep);
+      if (rail) {
+        const org = boardOrigin(rail.board);
+        return { x: org.x - 145 + 10 * (rail.col - 1), y: org.y + RAIL_Y[rail.side] };
+      }
       return null;
     }
     function isUpperBb(ep) {
       const hole = parseHole(ep);
       if (hole) return ['j', 'i', 'h', 'g', 'f'].includes(hole.row);
+      const rail = parseRail(ep);
+      if (rail) return rail.side[0] === 'T';
       return /^T/i.test(String(ep || '').trim());
     }
     function devPos(dev) {
@@ -543,7 +623,7 @@ _BUILD_JS = r"""
       return null;
     }
     function coordCtor() {
-      for (const dev of [bbDev, uno]) {
+      for (const dev of [bbDevs[0], uno]) {
         try {
           const bb = typeof dev?.breadboard === 'function' ? dev.breadboard() : dev?.breadboard;
           const p = bb && (typeof bb.pos === 'function' ? bb.pos() : bb.pos);
@@ -553,6 +633,12 @@ _BUILD_JS = r"""
       return null;
     }
 
+    // Bandas por lado: cada cable ruteado toma el siguiente carril de SU
+    // banda (arriba/abajo), no el de una numeracion unica. Asi la mitad de
+    // los cables van por encima de la placa y la otra mitad por debajo, y
+    // ninguna banda crece por culpa de la otra.
+    const BASE_Y = BOARDS[0].y;
+    const sideLanes = { top: 0, bottom: 0 };
     let fallbackLane = 0, paletteIdx = 0, prevColor = null;
     for (const rawWire of (plan.wires || [])) {
       const spec = wireSpec(rawWire);
@@ -610,9 +696,11 @@ _BUILD_JS = r"""
                 const freeEntry = placedEntryForEp(freeEp);
                 const sideY = (freeEntry && freeEntry.free && isFinite(freeEntry.free.y))
                   ? Number(freeEntry.free.y) : freePos.y;
-                const laneY = sideY > ORIGIN.y
-                  ? ORIGIN.y + 115 + lane * 5
-                  : ORIGIN.y - 115 - lane * 5;
+                const below = sideY > BASE_Y;
+                const laneY = below
+                  ? BASE_Y + LANE_BASE + sideLanes.bottom * LANE_STEP
+                  : BASE_Y - LANE_BASE - sideLanes.top * LANE_STEP;
+                if (below) sideLanes.bottom++; else sideLanes.top++;
                 // Si el pin vive arriba del cuerpo, primero se sale de lado
                 // (a la altura del pin, fuera del cuerpo) y despues se baja.
                 // La salida se mide desde el ORIGEN de la parte (no desde el
@@ -652,9 +740,11 @@ _BUILD_JS = r"""
               if (!unoPos) reason = 'uno_pos_null';
               else if (!destPos) reason = 'dest_pos_null';
               else {
-                const laneY = isUpperBb(fromIsUno ? to : from)
-                  ? ORIGIN.y - 115 - lane * 5
-                  : ORIGIN.y + 115 + lane * 5;
+                const upper = isUpperBb(fromIsUno ? to : from);
+                const laneY = upper
+                  ? BASE_Y - LANE_BASE - sideLanes.top * LANE_STEP
+                  : BASE_Y + LANE_BASE + sideLanes.bottom * LANE_STEP;
+                if (upper) sideLanes.top++; else sideLanes.bottom++;
                 const pUno = { x: unoPos.x, y: laneY }, pDest = { x: destPos.x, y: laneY };
                 const C = coordCtor();
                 try {
@@ -756,6 +846,7 @@ class ModelBuildService:
         wires: list,
         code: str | None = None,
         clear_existing: bool = False,
+        boards: list[dict] | None = None,
     ) -> dict:
         """Place parts so their pins land in breadboard holes, then wire endpoints.
 
@@ -765,6 +856,12 @@ class ModelBuildService:
         its wire endpoints (``ref.pin``) resolve to its real terminals.
         A part with both ``at`` and ``free``, or a ``free`` without numeric
         ``x``/``y``, is reported in ``errors`` (no exception, page untouched).
+
+        ``boards`` places one Breadboard Small per entry (``[{"x":870,"y":0},
+        {"x":1270,"y":0}]``); a part selects one with ``"board": N`` (default
+        0) and its holes may carry the matching ``"bN/"`` prefix. With a
+        single board the prefixed form is accepted too, so a plan does not
+        have to strip it.
 
         ``wires`` accepts pairs ``[a, b]`` and objects
         ``{"from": a, "to": b, "color": ...}``; see ``plan_wire_style``.
@@ -800,6 +897,17 @@ class ModelBuildService:
           appended to ``errors``, and ``success`` is forced False.
         """
         errors: List[str] = []
+        board_list: List[Dict[str, Any]] = []
+        for index, board in enumerate(boards or []):
+            if not isinstance(board, dict) or not all(
+                isinstance(board.get(k), (int, float)) and not isinstance(board.get(k), bool)
+                for k in ("x", "y")
+            ):
+                errors.append(f"board {index}: 'x' and 'y' must be numbers, got {board!r}")
+                continue
+            board_list.append({"x": float(board["x"]), "y": float(board["y"])})
+        if len(board_list) > _MAX_BOARDS:
+            errors.append(f"at most {_MAX_BOARDS} boards are supported, got {len(board_list)}")
         for part in parts or []:
             if not isinstance(part, dict):
                 errors.append(f"invalid part (not an object): {part!r}")
@@ -830,6 +938,24 @@ class ModelBuildService:
                     )
             elif not isinstance(at, str) or not _HOLE_RE.match(at.strip()):
                 errors.append(f"part '{ref}': invalid 'at' hole {at!r} (expected 1-30 + a-j)")
+            board = part.get("board")
+            if board is not None and (type(board) is not int or board < 0):
+                errors.append(f"part '{ref}': 'board' must be int >= 0, got {board!r}")
+            elif isinstance(board, int) and board_list and board >= len(board_list):
+                errors.append(
+                    f"part '{ref}': 'board' {board} has no entry in boards ({len(board_list)})"
+                )
+            # El prefijo del hueco y el campo board deben coincidir: si no, el
+            # JS rechazaria la parte despues de haber empezado a construir.
+            if has_at and not has_free and isinstance(at, str):
+                prefix = re.match(r"^b([1-9])/", at.strip())
+                hole_board = int(prefix.group(1)) if prefix else 0
+                declared = board if type(board) is int else 0
+                if hole_board != declared:
+                    errors.append(
+                        f"part '{ref}': hole {at!r} belongs to board {hole_board} "
+                        f"but 'board' is {declared}"
+                    )
             angle = part.get("angle")
             if angle is not None and angle not in (0, 90, 180, 270):
                 errors.append(f"part '{ref}': angle must be one of 0/90/180/270, got {angle!r}")
@@ -894,6 +1020,7 @@ class ModelBuildService:
             if isinstance(part, dict) and part.get("free") is not None
         ]
         plan: Dict[str, Any] = {
+            "boards": board_list or [{"x": 870.0, "y": 0.0}],
             "parts": parts or [],
             "wires": plan_wire_style(wires, free_refs=free_refs),
             "code": code,

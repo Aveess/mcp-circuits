@@ -260,7 +260,11 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
     def test_build_js_has_orthogonal_routing_and_color(self):
         js = mbs._BUILD_JS
         self.assertIn("addPoint", js)
-        self.assertIn("lane * 5", js)
+        # Fase 39: los carriles ya no son una numeracion unica (115 + lane*5).
+        # Cada banda (arriba/abajo) lleva su propio contador y crece de 8 en 8.
+        self.assertIn("sideLanes", js)
+        self.assertIn("LANE_STEP", js)
+        self.assertNotIn("115 + lane * 5", js)
         self.assertIn("{ color }", js)
         self.assertIn("routed", js)
         self.assertIn("wireSpec", js)  # accepts objects as well as pairs
@@ -498,7 +502,9 @@ class TestModelBuildFreeParts(unittest.IsolatedAsyncioTestCase):
         self.assertIn("setName(part.ref)", js)
         self.assertIn("setAngle(angle)", js)
         self.assertIn("bb.setPos({ x: fx, y: fy })", js)
-        self.assertIn("placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy } }", js)
+        self.assertIn("placed[part.ref] = { angle, holes: {}, free: { x: fx, y: fy },", js)
+        # El nombre real que dejo el editor viaja en el placed (fase 39).
+        self.assertIn("name: readName(dev, part.ref) }", js)
         # free branch runs (and continues) before the hole/insert-wire path
         self.assertLess(js.index("holes: {}, free:"), js.index("Register each leg"))
 
@@ -725,7 +731,9 @@ class TestFreePartRouting(unittest.TestCase):
         self.assertIn(
             "freeIsFrom ? chain : chain.slice().reverse()", js)
         self.assertIn("const chain = (pEscape ? [pEscape] : []).concat([pFree, pDestFree])", js)
-        self.assertIn("sideY > ORIGIN.y", js)
+        # El lado lo decide el hueco/parte libre respecto de la placa base
+        # (BASE_Y = boards[0].y), no un ORIGIN fijo: hay varias placas.
+        self.assertIn("const below = sideY > BASE_Y;", js)
 
     def _run_free_route(self, free_y, wire, did=999, ref="motor1",
                         free_x=560, lcd_pin=(1080, -295)):
@@ -838,9 +846,11 @@ console.log(JSON.stringify({ out,
         out = self._run_free_route(
             -300, {"from": "uno.D9", "to": "motor1.1", "color": "blue", "route": True, "lane": 1})
         self.assertEqual(out["out"]["routed"], 1)
-        # above centre -> lane y=-115-5; points follow wire direction uno->free
+        # above centre -> first top lane y=-115 (per-side counting ignores the
+        # global lane number, which only staggers the lateral escape)
+        # points follow wire direction uno->free
         self.assertEqual(out["points"],
-                         [{"x": 200, "y": -120, "i": 1}, {"x": 560, "y": -120, "i": 2}])
+                         [{"x": 200, "y": -115, "i": 1}, {"x": 560, "y": -115, "i": 2}])
 
     # ------------------------------------------------ fase 36: escape lateral
 
@@ -861,11 +871,12 @@ console.log(JSON.stringify({ out,
         out = self._run_free_route(
             -230, {"from": "lcd1.DB5", "to": "5e", "color": "blue", "route": True, "lane": 3},
             did=113878, ref="lcd1", free_x=1100)
-        # 154 + 3*8 a la izquierda del origen; laneY = -115 - 3*5
+        # 154 + 3*8 a la izquierda del origen; el y es el primer carril de la
+        # banda de arriba (-115), porque cada banda cuenta por su lado.
         self.assertEqual(out["points"], [
             {"x": 922, "y": -295, "i": 1},
-            {"x": 922, "y": -130, "i": 2},
-            {"x": 765, "y": -130, "i": 3},
+            {"x": 922, "y": -115, "i": 2},
+            {"x": 765, "y": -115, "i": 3},
         ])
 
     def test_sin_escape_el_cable_baja_directo_desde_el_pin(self):
@@ -877,6 +888,229 @@ console.log(JSON.stringify({ out,
             {"x": 560, "y": -115, "i": 1},
             {"x": 765, "y": -115, "i": 2},
         ])
+
+
+class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
+    async def test_plan_carries_boards_and_single_board_default(self):
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        await svc.build_from_holes(
+            parts=[], wires=[],
+            boards=[{"x": 870, "y": 0}, {"x": 1270, "y": 40}])
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual(plan["boards"],
+                         [{"x": 870.0, "y": 0.0}, {"x": 1270.0, "y": 40.0}])
+
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        await svc.build_from_holes(parts=[], wires=[])
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual(plan["boards"], [{"x": 870.0, "y": 0.0}])
+
+    async def test_board_limit_rejects_before_touching_page(self):
+        svc, _, page = make_service()
+        res = await svc.build_from_holes(
+            parts=[], wires=[],
+            boards=[{"x": 870 + 400 * i, "y": 0} for i in range(4)])
+        self.assertFalse(res["success"])
+        self.assertTrue(any(str(mbs._MAX_BOARDS) in e for e in res["errors"]))
+        page.evaluate.assert_not_awaited()
+
+    async def test_board_entry_validation(self):
+        svc, _, page = make_service()
+        for bad in ({"x": "870", "y": 0}, {"x": 870}, 870):
+            res = await svc.build_from_holes(parts=[], wires=[], boards=[bad])
+            self.assertFalse(res["success"], bad)
+            self.assertTrue(any("'x' and 'y' must be numbers" in e for e in res["errors"]))
+        page.evaluate.assert_not_awaited()
+
+    async def test_part_board_must_be_declared_and_int(self):
+        svc, _, page = make_service()
+        cases = [
+            ([{"ref": "r1", "did": 53184, "at": "b1/5g", "board": 2}], "has no entry in boards"),
+            ([{"ref": "r1", "did": 53184, "at": "b1/5g", "board": "1"}], "'board' must be int"),
+            ([{"ref": "r1", "did": 53184, "at": "b1/5g", "board": -1}], "'board' must be int"),
+        ]
+        for parts, expected in cases:
+            res = await svc.build_from_holes(
+                parts=parts, wires=[], boards=[{"x": 870, "y": 0}, {"x": 1270, "y": 0}])
+            self.assertFalse(res["success"], parts)
+            self.assertTrue(any(expected in e for e in res["errors"]), res["errors"])
+        page.evaluate.assert_not_awaited()
+
+    async def test_hole_prefix_must_match_part_board(self):
+        svc, _, page = make_service()
+        boards = [{"x": 870, "y": 0}, {"x": 1270, "y": 0}]
+        for part in (
+            {"ref": "r1", "did": 53184, "at": "b1/5g"},                 # board omitted
+            {"ref": "r1", "did": 53184, "at": "5g", "board": 1},        # prefix omitted
+            {"ref": "r1", "did": 53184, "at": "b1/5g", "board": 0},
+        ):
+            res = await svc.build_from_holes(parts=[part], wires=[], boards=boards)
+            self.assertFalse(res["success"], part)
+            self.assertTrue(any("belongs to board" in e for e in res["errors"]), res["errors"])
+        page.evaluate.assert_not_awaited()
+
+    async def test_prefixed_hole_accepted_with_matching_board(self):
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        res = await svc.build_from_holes(
+            parts=[{"ref": "r1", "did": 53184, "at": "b1/5g", "board": 1}],
+            wires=[], boards=[{"x": 870, "y": 0}, {"x": 1270, "y": 0}])
+        self.assertTrue(res["success"], res["errors"])
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual(plan["parts"][0]["board"], 1)
+
+    async def test_placed_devuelve_el_nombre_real_que_dejo_el_editor(self):
+        """Tinkercad deduplica: pedir "r2" con otro "r2" deja "r21".
+
+        El build lee el nombre despues de asignarlo y lo devuelve en
+        ``placed[ref].name``; el cerebro usa ese mapa como identidad porque
+        el nombre ya no se puede suponer igual a la ref.
+        """
+        svc, _, _ = make_service(evaluate_return={
+            "placed": {"r2": {"angle": 0, "holes": {}, "name": "r21"}},
+            "errors": [],
+        })
+        res = await svc.build_from_holes(
+            parts=[{"ref": "r2", "did": 53184, "at": "9d", "pin": "1"}],
+            wires=[])
+        self.assertTrue(res["success"], res["errors"])
+        self.assertEqual(res["placed"]["r2"]["name"], "r21")
+
+    def test_build_js_lee_el_nombre_despues_de_asignarlo(self):
+        js = mbs._BUILD_JS
+        self.assertIn("const readName = (dev, fallback) =>", js)
+        self.assertGreaterEqual(js.count("name: readName(dev, part.ref)"), 2)
+        # setName se llama antes de leer: si el editor lo cambia, se reporta
+        # el que quedo, no el que se pidio.
+        self.assertLess(js.index("dev.setName(part.ref)"),
+                        js.index("name: readName(dev, part.ref)"))
+
+    def test_build_js_resolves_board_prefixes_and_names_parts(self):
+        js = mbs._BUILD_JS
+        self.assertIn("const bbDevFor = (board) =>", js)
+        self.assertIn("boardOrigin(", js)
+        self.assertIn("hole board mismatch", js)
+        self.assertIn("b([1-9])", js)  # "bN/5g" prefix in parseHole
+        # Con 8 resistencias, "Resistor" es ambiguo para set_component_property:
+        # cada parte lleva el nombre de su ref.
+        self.assertGreaterEqual(js.count("dev.setName(part.ref)"), 2)
+
+
+class TestTwoBoardRouting(unittest.TestCase):
+    HARNESS = r"""
+const src = __SRC__;
+class Pt { constructor(x, y) { this.x = x; this.y = y; } }
+const wiresMade = [];
+class Wire {
+  constructor(root, a, b, opts) { this.a = a; this.b = b; this.points = []; wiresMade.push(this); }
+  addPoint(p, i) { this.points.push({ x: p.x, y: p.y, i }); return true; }
+  updateNets() {}
+}
+function mkBb(x, y) {
+  let pos = new Pt(x, y);
+  const term = (dx, dy) => ({ val: {
+    getBreadboardPos() { return new Pt(pos.x + dx, pos.y + dy); },
+    bbDesc: { x: dx, y: dy },
+  } });
+  return {
+    did: () => 111211,
+    breadboard: () => ({
+      setPos(p) { pos = new Pt(p.x, p.y); },
+      setAngle() {},
+      pos: () => pos,
+    }),
+    bbid2terminal: { _content: {
+      '5e': term(-105, 15),
+      '5g': term(-105, -25),
+      '10g': term(-55, -25),
+      'T+10': term(-55, -85),
+    } },
+    name2terminal: { _content: {} },
+  };
+}
+const unoDev = {
+  did: () => 132521,
+  breadboard: () => ({ setPos() {}, setAngle() {}, pos: () => new Pt(200, 0) }),
+  name2terminal: { _content: { D13: { val: { getBreadboardPos() { return new Pt(200, -50); } } } } },
+};
+const frame = [mkBb(870, 0), mkBb(1270, 0)];
+let nextBoard = 0;
+const data = {
+  devices: { _content: {}, add(d) { this._content['d' + Object.keys(this._content).length] = { val: d }; } },
+  wires: { _content: {}, add(w) { this._content['w' + Object.keys(this._content).length] = { val: w }; } },
+  createDeviceInstance(did) {
+    if (did === 132521) return unoDev;
+    return frame[nextBoard++];
+  },
+};
+global.window = {
+  circuit_editor: { data, root: { rec() {}, stopRec() {}, save() {} } },
+  Circuits: { BendableWireData: Wire },
+};
+const fn = eval('(' + src + ')');
+const plan = __PLAN__;
+const out = fn(plan);
+console.log(JSON.stringify({ out,
+  points: wiresMade.length ? wiresMade[0].points : null,
+  all: wiresMade.map((w) => w.points) }));
+"""
+
+    def _run(self, plan):
+        import json
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        script = self.HARNESS.replace("__SRC__", json.dumps(mbs._BUILD_JS)).replace(
+            "__PLAN__", json.dumps(plan))
+        res = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        return json.loads(res.stdout.strip().splitlines()[-1])
+
+    def test_wire_to_b1_hole_lands_on_second_board(self):
+        out = self._run({
+            "boards": [{"x": 870, "y": 0}, {"x": 1270, "y": 0}],
+            "parts": [],
+            "wires": [{"from": "uno.D13", "to": "b1/5e", "color": "blue",
+                       "route": True, "lane": 0}],
+            "code": None,
+        })
+        self.assertEqual(out["out"]["routed"], 1, out["out"]["errors"])
+        # board 2 origin x=1270, column 5 -> 1270-145+40 = 1165; row e below
+        # the gap -> bottom band y=+115
+        self.assertEqual(out["points"],
+                         [{"x": 200, "y": 115, "i": 1}, {"x": 1165, "y": 115, "i": 2}])
+
+    def test_top_band_rails_with_prefix_keep_top_lane(self):
+        out = self._run({
+            "boards": [{"x": 870, "y": 0}, {"x": 1270, "y": 0}],
+            "parts": [],
+            "wires": [{"from": "uno.D13", "to": "b1/T+10", "color": "red",
+                       "route": True, "lane": 0}],
+            "code": None,
+        })
+        self.assertEqual(out["out"]["routed"], 1, out["out"]["errors"])
+        # rail T+ of board 2: x=1270-145+90=1215, y=-85; upper rail -> top band
+        self.assertEqual(out["points"],
+                         [{"x": 200, "y": -115, "i": 1}, {"x": 1215, "y": -115, "i": 2}])
+
+    def test_bn_rail_no_comparte_banda_con_hueco(self):
+        """Arriba y abajo crecen por separado: 2 cables arriba no empujan abajo."""
+        out = self._run({
+            "boards": [{"x": 870, "y": 0}, {"x": 1270, "y": 0}],
+            "parts": [],
+            "wires": [
+                {"from": "uno.D13", "to": "b1/5g", "color": "blue", "route": True, "lane": 0},
+                {"from": "uno.D13", "to": "b1/10g", "color": "green", "route": True, "lane": 1},
+                {"from": "uno.D13", "to": "b1/5e", "color": "orange", "route": True, "lane": 2},
+            ],
+            "code": None,
+        })
+        self.assertEqual(out["out"]["routed"], 3, out["out"]["errors"])
+        ys = [w[0]["y"] for w in out["all"]]
+        # dos en la banda de arriba (-115, -123) y uno abajo (+115)
+        self.assertEqual(ys, [-115, -123, 115])
 
 
 class TestBuildCircuitModelToolSchema(unittest.TestCase):
