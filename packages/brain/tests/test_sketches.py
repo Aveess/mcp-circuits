@@ -8,6 +8,7 @@ from tinkercad_brain.sketches import (
     blink_sketch,
     button_led_sketch,
     buzzer_button_sketch,
+    lcd_counter_sketch,
     ldr_led_sketch,
     motor_driver_sketch,
     motor_sketch,
@@ -732,6 +733,140 @@ def test_parking_servo_rejects_repeated_pins(kwargs):
 
 def test_parking_servo_is_deterministic():
     assert parking_servo_sketch() == parking_servo_sketch()
+
+
+# --- lcd_counter ---
+
+
+def test_lcd_counter_default_contains_key_content():
+    sketch = lcd_counter_sketch()
+    assert "#include <LiquidCrystal.h>" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert "lcd.begin(16, 2)" in sketch
+    assert "lcd.clear()" in sketch
+    assert "lcd.setCursor(0, 0)" in sketch
+    assert 'lcd.print("Tinkercad LCD")' in sketch
+    assert 'Serial.println("TEST:LCD=LISTO")' in sketch
+    assert "lcd.setCursor(0, 1)" in sketch
+    assert "delay(1000)" in sketch
+
+
+def test_lcd_counter_setup_announces_ready_once():
+    sketch = lcd_counter_sketch()
+    setup = sketch[sketch.index("void setup()") : sketch.index("void loop()")]
+    assert setup.count('Serial.println("TEST:LCD=LISTO");') == 1
+    assert sketch.count('Serial.println("TEST:LCD=LISTO");') == 1
+
+
+def test_lcd_counter_title_goes_on_first_row_after_clear():
+    sketch = lcd_counter_sketch()
+    assert (
+        sketch.index("lcd.clear()")
+        < sketch.index("lcd.setCursor(0, 0)")
+        < sketch.index('lcd.print("Tinkercad LCD")')
+    )
+
+
+def test_lcd_counter_serial_trace_uses_the_displayed_variable():
+    sketch = lcd_counter_sketch()
+    assert 'snprintf(linea, sizeof(linea), "t=%lus", segundos);' in sketch
+    assert "lcd.print(linea);" in sketch
+    assert "Serial.println(segundos);" in sketch
+    assert sketch.count("segundos = segundos + 1;") == 1
+    assert "Serial.println(segundos + " not in sketch
+    assert sketch.index("lcd.print(linea);") < sketch.index('Serial.print("TEST:SEG=");')
+
+
+def test_lcd_counter_pads_the_display_line_to_16_columns():
+    sketch = lcd_counter_sketch()
+    assert "char linea[17];" in sketch
+    assert "for (int i = strlen(linea); i < 16; i++) {" in sketch
+    assert "linea[i] = ' ';" in sketch
+
+
+def test_lcd_counter_documents_contrast_to_ground():
+    sketch = lcd_counter_sketch()
+    assert "VO" in sketch
+    assert "GND" in sketch
+    assert "blanco" in sketch
+
+
+def test_lcd_counter_custom_pins_are_literal():
+    sketch = lcd_counter_sketch(rs=8, en=9, d4=10, d5=11, d6=12, d7=13)
+    assert "LiquidCrystal lcd(8, 9, 10, 11, 12, 13);" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" not in sketch
+
+
+def test_lcd_counter_custom_title_and_period():
+    sketch = lcd_counter_sketch(title="Hola", period_ms=250)
+    assert 'lcd.print("Hola")' in sketch
+    assert "delay(250)" in sketch
+
+
+def test_lcd_counter_accepts_16_char_title():
+    title = "Tinkercad-16char"
+    assert len(title) == 16
+    assert f'lcd.print("{title}")' in lcd_counter_sketch(title=title)
+
+
+@pytest.mark.parametrize(
+    "title", ["x" * 17, "", 'a"b', "a\\b", "a\nb", "a\rb", "linea\r\n"]
+)
+def test_lcd_counter_rejects_bad_titles(title):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(title=title)
+
+
+@pytest.mark.parametrize("title", [None, 123, b"titulo", ["titulo"]])
+def test_lcd_counter_rejects_non_str_titles(title):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(title=title)
+
+
+@pytest.mark.parametrize("name", ["rs", "en", "d4", "d5", "d6", "d7"])
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_lcd_counter_rejects_unusable_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize("name", ["rs", "en", "d4", "d5", "d6", "d7"])
+@pytest.mark.parametrize("pin", [True, False])
+def test_lcd_counter_rejects_bool_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"rs": 11},
+        {"en": 12},
+        {"d5": 5},
+        {"d7": 3},
+        {"d4": 2},
+        {"rs": 2, "d7": 2},
+    ],
+)
+def test_lcd_counter_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("period_ms", [100, 60000])
+def test_lcd_counter_accepts_boundary_periods(period_ms):
+    assert f"delay({period_ms})" in lcd_counter_sketch(period_ms=period_ms)
+
+
+@pytest.mark.parametrize("period_ms", [99, 60001, 0, -1, 100.5, "100", None, True])
+def test_lcd_counter_rejects_out_of_range_periods(period_ms):
+    with pytest.raises(ValueError):
+        lcd_counter_sketch(period_ms=period_ms)
+
+
+def test_lcd_counter_is_deterministic():
+    assert lcd_counter_sketch() == lcd_counter_sketch()
 
 
 # --- pin_of_fixture ---
