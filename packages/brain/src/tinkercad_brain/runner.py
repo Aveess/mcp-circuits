@@ -227,13 +227,19 @@ def run_build(
 
     preset_reported_failure = False
     for preset in presets or []:
+        preset_args = {
+            "component_name": preset.get("component"),
+            "property_name": preset.get("property"),
+            "value": preset.get("value"),
+        }
+        # El cuarto argumento del modelo es el prefijo (k, u, n...), no la
+        # unidad completa. Solo se envia cuando la fixture lo pide, para no
+        # cambiar la forma de los presets que ya existen.
+        if preset.get("unit") is not None:
+            preset_args["unit"] = preset["unit"]
         preset_record = _run(
             "tinkercad_set_component_property_model",
-            {
-                "component_name": preset.get("component"),
-                "property_name": preset.get("property"),
-                "value": preset.get("value"),
-            },
+            preset_args,
         )
         if _success_false(preset_record.output):
             preset_record.ok = False

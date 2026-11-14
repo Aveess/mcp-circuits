@@ -56,6 +56,9 @@ DID_BY_TYPE: dict[str, int] = {
     "nand-gate": 116696,
     # 74HC74 (Dual D Flip-Flop) verificado en vivo: did 116725.
     "flip-flop-d": 116725,
+    # 555 Timer (did 116689) y capacitor (did 57752) verificados en vivo.
+    "timer-555": 116689,
+    "capacitor": 57752,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -216,10 +219,21 @@ _FLIP_FLOP_D_REAL_PINS: dict[str, str] = {
     "2Q": "2Q", "2NQ": "2NQ",
     "Vcc": "Vcc", "GND": "GND",
 }
+# 555 Timer (8 pines, DIP): los nombres del catalogo son los de la fixture
+# (CTRL, Reset, OUT, THR, GND, DIS, TRIG, Vcc). Va libre como los integrados.
+_TIMER_555_REAL_PINS: dict[str, str] = {
+    "CTRL": "CTRL", "Reset": "Reset", "OUT": "OUT", "THR": "THR",
+    "GND": "GND", "DIS": "DIS", "TRIG": "TRIG", "Vcc": "Vcc",
+}
+# Capacitor (2 terminales). Va libre junto al 555: sus patas se cablean
+# directo y no hace falta conocer el paso de huecos de la placa.
+_CAPACITOR_REAL_PINS: dict[str, str] = {"1": "1", "2": "2"}
 _FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
+    "timer-555": _TIMER_555_REAL_PINS,
+    "capacitor": _CAPACITOR_REAL_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")

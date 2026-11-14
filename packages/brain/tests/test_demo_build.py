@@ -78,6 +78,14 @@ def test_select_presets_sensor_ultrasonico():
     ]
 
 
+def test_select_presets_temporizador_555_fija_valor_y_prefijo():
+    fixture = demo.find_fixture("temporizador-555")
+    assert demo.select_presets(fixture) == [
+        {"component": "Resistor", "property": "resistance", "value": 10, "unit": "k"},
+        {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
+    ]
+
+
 def test_select_presets_otras_fixtures_sin_presets():
     assert demo.select_presets(demo.find_fixture("blink-basico")) is None
 

@@ -1059,3 +1059,59 @@ def d_flip_flop_sketch(
             "",
         ]
     )
+
+
+def astable_555_sketch(
+    out_pin: int = 2,
+    timeout_us: int = 500_000,
+) -> str:
+    """555 en astable: R=10k y C=10uF dan ~69 ms en alto (~14 Hz).
+
+    El Uno no genera nada: solo mide. Engancha un pulso bajo completo para
+    sincronizar, mide un pulso alto y otro bajo con ``pulseIn`` y emite la
+    evidencia por serial (``TEST:555=ALTO``, ``BAJO`` y ``FREQ``) mas un
+    veredicto explicito que el runner usa como oraculo. Los timeouts acotan
+    el peor caso (555 que no oscila) para no comerse la ventana de 5 s.
+    """
+    _validate_pin(out_pin)
+    if not isinstance(timeout_us, int) or isinstance(timeout_us, bool) or timeout_us < 1000:
+        raise ValueError(f"timeout_us debe ser un entero >= 1000: {timeout_us!r}")
+
+    return "\n".join(
+        [
+            "// 555 astable (R=10k, C=10uF): pulso alto ~69 ms (~14 Hz).",
+            "// El Uno solo mide; el oraculo es el serial, no el pixel.",
+            f"const byte OUT = {out_pin};",
+            f"const unsigned long TIMEOUT = {timeout_us}UL;",
+            "",
+            "void setup() {",
+            "  pinMode(OUT, INPUT);",
+            "  Serial.begin(9600);",
+            "  delay(100);",
+            '  Serial.println("TEST:555=LISTO");',
+            "  // Sincroniza con un pulso bajo completo para medir uno entero.",
+            "  pulseIn(OUT, LOW, TIMEOUT);",
+            "  unsigned long alto = pulseIn(OUT, HIGH, TIMEOUT);",
+            "  unsigned long bajo = pulseIn(OUT, LOW, TIMEOUT);",
+            "  unsigned long periodo = alto + bajo;",
+            '  Serial.print("TEST:555=ALTO,");',
+            "  Serial.println(alto);",
+            '  Serial.print("TEST:555=BAJO,");',
+            "  Serial.println(bajo);",
+            "  if (periodo > 0) {",
+            '    Serial.print("TEST:555=FREQ,");',
+            "    Serial.println(1000000.0 / periodo, 1);",
+            "  } else {",
+            '    Serial.println("TEST:555=FREQ,0.0");',
+            "  }",
+            "  bool ok = alto >= 40000UL && alto <= 200000UL",
+            "            && periodo >= 40000UL && periodo <= 400000UL;",
+            '  Serial.println(ok ? "TEST:555=OK" : "TEST:555=FAIL");',
+            "}",
+            "",
+            "void loop() {",
+            "  delay(1000);",
+            "}",
+            "",
+        ]
+    )

@@ -246,7 +246,17 @@ FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 # huecos de protoboard. Comparten un solo apilado en orden de fixture.
 SHIFT_REGISTER_TYPE = "shift-register"
 LOGIC_GATE_TYPES = ("xor-gate", "nand-gate", "flip-flop-d")
-IC_STACK_TYPES = (SHIFT_REGISTER_TYPE,) + LOGIC_GATE_TYPES
+# El 555 (8 pines) y su capacitor tambien van libres en ese apilado: el
+# capacitor es de dos patas y se cablea directo, sin geometria de huecos.
+TIMER_555_TYPE = "timer-555"
+CAPACITOR_TYPE = "capacitor"
+IC_STACK_TYPES = (SHIFT_REGISTER_TYPE,) + LOGIC_GATE_TYPES + (TIMER_555_TYPE,)
+# El capacitor del 555 va libre a la derecha del apilado y a la altura del
+# integrado. Apilado encima, sus cables al nodo de tiempo bajan cruzando el
+# cuerpo del 555 (verificado en vivo en abIk7XRpSR4).
+FREE_CAPACITOR_X = 690
+FREE_CAPACITOR_Y = -230
+FREE_CAPACITOR_STEP_Y = 150
 FREE_SHIFT_REGISTER_X = 560
 FREE_SHIFT_REGISTER_Y = -230
 FREE_SHIFT_REGISTER_STEP_Y = 200
@@ -360,6 +370,21 @@ def plan_layout(fixture: dict) -> dict:
             }
         }
         shift_count += 1
+
+    # Capacitores: libres a la derecha del apilado, para que sus cables no
+    # crucen el cuerpo del integrado que acompanan.
+    capacitor_count = 0
+    for component in components:
+        if component["type"] != CAPACITOR_TYPE:
+            continue
+        placements[component["ref"]] = {
+            "free": {
+                "x": FREE_CAPACITOR_X,
+                "y": FREE_CAPACITOR_Y - capacitor_count * FREE_CAPACITOR_STEP_Y,
+                "angle": 0,
+            }
+        }
+        capacitor_count += 1
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.

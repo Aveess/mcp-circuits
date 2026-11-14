@@ -224,6 +224,26 @@ _PIN_ALIASES_BY_TYPE = {
         "Input 2": "2D", "Clock 2": "2CP", "Reset 2": "2RD",
         "Set 2": "2SD", "Output 2": "2Q", "Inverted Output 2": "2NQ",
     },
+    # 555 Timer (descubierto en vivo en abIk7XRpSR4): inspect devuelve
+    # CTRL/Reset/OUT/THR/GND/DIS/TRIG/Vcc, pero el cableado guardado usa
+    # "Power", "Reset", "Ground", "Discharge", "Threshold", "Trigger",
+    # "Out" y "Control". Power/Ground van a Vcc/GND con mayuscula.
+    "timer-555": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Reset": "Reset",
+        "Discharge": "DIS",
+        "Threshold": "THR",
+        "Trigger": "TRIG",
+        "Out": "OUT",
+        "Control": "CTRL",
+    },
+    # Capacitor: inspect y guardado coinciden en "1"/"2"; "Terminal 1/2"
+    # es lo que reportan los cables (canal compartido con el resistor).
+    "capacitor": {
+        "Terminal 1": "1",
+        "Terminal 2": "2",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

@@ -30,6 +30,12 @@ REPORTS_DIR = REPO_ROOT / "docs" / "reportes"
 
 # fixture_id -> presets a aplicar tras el build (valor calibrado en vivo)
 _PRESETS_BY_FIXTURE = {
+    # 555 astable: resistencia 10k (prefijo k) y capacitor 10uF (prefijo u).
+    # El cuarto argumento de setProperty es el prefijo, no la unidad.
+    "temporizador-555": [
+        {"component": "Resistor", "property": "resistance", "value": 10, "unit": "k"},
+        {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
+    ],
     "sensor-ultrasonico": [
         {
             "component": "Ultrasonic Distance Sensor (4-pin)",
@@ -67,6 +73,7 @@ _SKETCH_BY_FIXTURE = {
     "desplazador-595": "shift_register_sketch",
     "media-suma-logica": "half_adder_sketch",
     "biestable-d": "d_flip_flop_sketch",
+    "temporizador-555": "astable_555_sketch",
 }
 
 

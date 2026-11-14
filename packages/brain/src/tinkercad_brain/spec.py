@@ -88,6 +88,12 @@ PIN_TABLE: dict[str, frozenset[str]] = {
         {"1D", "1CP", "1RD", "1SD", "1Q", "1NQ",
          "2D", "2CP", "2RD", "2SD", "2Q", "2NQ", "Vcc", "GND"}
     ),
+    # 555 Timer (did 116689): 8 pines del DIP.
+    "timer-555": frozenset(
+        {"CTRL", "Reset", "OUT", "THR", "GND", "DIS", "TRIG", "Vcc"}
+    ),
+    # Capacitor (did 57752): dos terminales sin polaridad.
+    "capacitor": frozenset({"1", "2"}),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

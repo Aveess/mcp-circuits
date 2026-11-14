@@ -98,6 +98,8 @@ RAW_TYPE = {
     "xor-gate": "Quad XOR gate [74HC86]",
     "nand-gate": "Quad NAND gate [74HC00]",
     "flip-flop-d": "Dual D Flip-Flop [74HC74]",
+    "timer-555": "555 Timer",
+    "capacitor": "Capacitor",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -171,6 +173,14 @@ INSPECT_PIN = {
         **{f"{i}Q": f"Output {i}" for i in range(1, 3)},
         **{f"{i}NQ": f"Inverted Output {i}" for i in range(1, 3)},
     },
+    # El guardado del 555 usa Power/Reset/Ground/Discharge/Threshold/
+    # Trigger/Out (descubierto en vivo en abIk7XRpSR4).
+    "timer-555": {
+        "Vcc": "Power", "Reset": "Reset", "GND": "Ground",
+        "DIS": "Discharge", "THR": "Threshold", "TRIG": "Trigger",
+        "OUT": "Out", "CTRL": "Control",
+    },
+    "capacitor": {"1": "Terminal 1", "2": "Terminal 2"},
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}
@@ -795,8 +805,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 19, rows
-    assert [int(number) for number in rows] == list(range(1, 20))
+    assert len(rows) == 20, rows
+    assert [int(number) for number in rows] == list(range(1, 21))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

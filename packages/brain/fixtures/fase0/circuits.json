@@ -1371,5 +1371,56 @@
       "Serial"
     ],
     "tinkercad_id": "euU4CI6HwhX"
+  },
+  {
+    "id": "temporizador-555",
+    "title": "Temporizador 555 en astable (reloj de ~14 Hz)",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2"
+      ],
+      [
+        "r1.2",
+        "t1.DIS",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.OUT",
+        "uno.D2"
+      ]
+    ],
+    "code_features": [
+      "pulseIn",
+      "Serial"
+    ],
+    "tinkercad_id": "abIk7XRpSR4"
   }
 ]

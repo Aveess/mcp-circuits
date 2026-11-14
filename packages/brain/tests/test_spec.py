@@ -99,7 +99,7 @@ def test_ref_invalid_chars_rejected(ref):
 
 def test_unknown_type_rejected():
     spec = blink_spec()
-    spec["parts"] = [{"ref": "c1", "type": "capacitor", "at": "1a"}]
+    spec["parts"] = [{"ref": "c1", "type": "not-a-real-part", "at": "1a"}]
     spec["wires"] = []
     with pytest.raises(SpecError, match="type"):
         validate_spec(spec)

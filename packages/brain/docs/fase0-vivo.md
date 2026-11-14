@@ -347,3 +347,35 @@ Hallazgos en vivo:
 
 Con esto quedan cubiertos los dos bloques combinacional (fase 25) y
 secuencial (fase 26) antes del 555 y los contadores.
+
+## Fase 27: 555 en astable (2026-11-14)
+
+Reloj de ~14 Hz con el 555: R=10k de Vcc al nodo de tiempo, C=10uF del nodo
+a GND y DIS/THR/TRIG atados al nodo (astable de una sola resistencia).
+Circuito `abIk7XRpSR4`, 100%.
+
+Oráculo: el Uno mide con `pulseIn` y emite la evidencia completa:
+`TEST:555=ALTO,73173`, `TEST:555=BAJO,427`, `TEST:555=FREQ,13.6` y el
+veredicto `TEST:555=OK` (alto 40..200 ms y periodo 40..400 ms).
+
+Hallazgos en vivo:
+
+- **Los valores se fijan por prefijo, no por unidad**: el cuarto argumento
+  de `setProperty` es el prefijo. `resistance=10` con `k` da 10 kΩ y
+  `capacitance=10` con `u` da 10 µF (el modelo guarda `unit: "ohm"/"F"` y
+  `prefix: "k"/"u"`). Los presets del runner ahora pasan `unit` opcional,
+  sin cambiar la forma de los presets que no lo usan.
+- **El capacitor también va libre**: sus dos patas se cablean por terminal
+  (`c1.1`, `c1.2`), así que no hace falta conocer el paso de huecos de la
+  placa. Comparte el apilado de integrados (`x=560`, de 200 en 200).
+- **Nombres de pin del 555**: `inspect` dice `CTRL/Reset/OUT/THR/GND/DIS/
+  TRIG/Vcc`; el cableado guardado usa `Power`, `Reset`, `Ground`,
+  `Discharge`, `Threshold`, `Trigger`, `Out` y `Control`. Sin alias, la
+  conectividad daba 0%.
+- **Medición real**: alto 73.17 ms (teórico 69.3 ms), bajo 427 µs (descarga
+  por el transistor interno) y 13.6 Hz. El `pulseIn` del simulador es
+  fiable a esta escala; el timeout de 500 ms acota el peor caso (555 que no
+  oscila) a 1.5 s dentro de la ventana de 5 s.
+
+Con esto queda la familia de tiempo: compuertas (fase 25), biestable (26) y
+555 (27). Falta el contador para cerrar el bloque del proyecto real.
