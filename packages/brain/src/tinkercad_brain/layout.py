@@ -93,40 +93,18 @@ L293D_END_COLUMN = 17
 FREE_BATTERY_X = 560
 FREE_BATTERY_Y = 300
 FREE_BATTERY_STEP_X = 120
-# LCD 16x2 (fixture slug "lcd-16x2", did 113878, type "LCD 16 x 2"),
-# live-verified: all 16 terminals sit on ONE row. Anchoring "GND" at <c>j
-# with angle 0 lays them out left to right as
-# GND, VDD, VO, RS, RW, E, DB0..DB7, LED+, LED- (columns c..c+15).
-# The body is huge: it is drawn from ~c-1 to ~c+25 and covers rows f, e,
-# d, c of the board, leaving only j, i, h, g and b, a visible.
+# LCD 16x2 (fixture slug "lcd-16x2", did 113878, type "LCD 16 x 2").
+# It is NEVER mounted on the board: its body is ~25 columns wide and
+# covered rows f..c, so nothing else could be built next to it. It is
+# placed as a free module directly above the board (the board sits at
+# x=870, y=0; y=-230 clears its top edge with the terminals facing down),
+# and it consumes no columns: the rest of the board is laid out exactly
+# as if the display were not in the fixture. Extra displays stack upward
+# in steps of 200 on the same x so their bodies do not overlap.
 LCD_TYPE = "lcd-16x2"
-LCD_ROW = "j"
-LCD_ANCHOR_PIN = "GND"
-LCD_PINS = 16
-# 16 pin columns + 1 column of bezel on each side.
-LCD_WIDTH = 18
-# The display always starts at column 1 so its pin order stays fixed and
-# the rest of the planner simply starts after it.
-LCD_START_COLUMN = 1
-# Rows hidden behind the LCD body: anything mounted there would be drawn
-# under the display and look broken/absent on screen.
-LCD_OCCLUDED_ROWS = frozenset({"c", "d", "e", "f"})
-# Block types whose mounting row is one of LCD_OCCLUDED_ROWS, so they
-# cannot be built while an LCD is on the board: piezo and LDR divider
-# (row e), HC-SR04 (row d), pushbutton (row f), the 3-pin parts (row c)
-# and the L293D (rows f and e). LED blocks (rows i and g), the diode
-# (row g), the RGB (row i plus resistors on g/h/j) and standalone
-# resistors (row g) stay visible and are placed normally.
-LCD_OCCLUDED_TYPES = frozenset(
-    {
-        PIEZO_TYPE,
-        LDR_TYPE,
-        "ultrasonic-hcsr04",
-        "pushbutton",
-        "l293d",
-    }
-    | set(THREE_PIN_FIRST_PIN)
-)
+FREE_LCD_X = 870
+FREE_LCD_Y = -230
+FREE_LCD_STEP_Y = 200
 
 
 class LayoutError(Exception):
@@ -320,22 +298,20 @@ def plan_layout(fixture: dict) -> dict:
     )
     ldr_divider_resistors = set(ldr_to_resistor.values())
 
-    # The LCD is placed first and its body covers whole rows, so every
-    # part mounted on an occluded row goes to `unplaced` instead of being
-    # half-built under the display. A blocked LDR takes its divider
-    # resistor with it: the divider is part of the same block.
-    lcd_refs = [c["ref"] for c in components if c["type"] == LCD_TYPE]
-    occluded_refs = set()
-    if lcd_refs:
-        for component in components:
-            ref, ctype = component["ref"], component["type"]
-            if ctype not in LCD_OCCLUDED_TYPES:
-                continue
-            occluded_refs.add(ref)
-            if ctype == LDR_TYPE and ref in ldr_to_resistor:
-                occluded_refs.add(ldr_to_resistor[ref])
-        for ref in sorted(occluded_refs, key=lambda r: order[r]):
-            unplaced.append(ref)
+    # The LCD is a free module above the board: it takes no columns and
+    # hides nothing, so every other part is placed normally.
+    lcd_count = 0
+    for component in components:
+        if component["type"] != LCD_TYPE:
+            continue
+        placements[component["ref"]] = {
+            "free": {
+                "x": FREE_LCD_X,
+                "y": FREE_LCD_Y - lcd_count * FREE_LCD_STEP_Y,
+                "angle": 0,
+            }
+        }
+        lcd_count += 1
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
@@ -370,23 +346,6 @@ def plan_layout(fixture: dict) -> dict:
         return start
 
     next_column = 1
-    if lcd_refs:
-        # The display claims the left edge, row j, pin GND. Everything
-        # else starts after its footprint (16 pin columns + bezel), so a
-        # cursor of 19 on the empty board.
-        placements[lcd_refs[0]] = {
-            "at": f"{LCD_START_COLUMN}{LCD_ROW}",
-            "pin": LCD_ANCHOR_PIN,
-            "angle": 0,
-        }
-        occupied_columns.update(
-            range(LCD_START_COLUMN, LCD_START_COLUMN + LCD_WIDTH)
-        )
-        next_column = LCD_START_COLUMN + LCD_WIDTH
-        # One display already spans the full left side: there is no room
-        # for a second one.
-        for ref in lcd_refs[1:]:
-            unplaced.append(ref)
 
     for _, led_ref, resistor_ref in units:
         if next_column > LAST_BLOCK_START:
@@ -458,11 +417,7 @@ def plan_layout(fixture: dict) -> dict:
     battery_count = 0
     for component in components:
         ref, ctype = component["ref"], component["type"]
-        if (
-            ctype in ("arduino-uno", LCD_TYPE)
-            or ref in placements
-            or ref in occluded_refs
-        ):
+        if ctype in ("arduino-uno", LCD_TYPE) or ref in placements:
             continue
         if ctype in LARGE_BODY_TYPES:
             continue
@@ -579,7 +534,7 @@ def plan_layout(fixture: dict) -> dict:
     # type has claimed its columns.
     for component in components:
         ref, ctype = component["ref"], component["type"]
-        if ref in placements or ref in occluded_refs:
+        if ref in placements:
             continue
         if ctype == PIEZO_TYPE:
             place_piezo(ref)
