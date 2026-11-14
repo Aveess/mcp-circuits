@@ -389,7 +389,7 @@ def _validate_analog_pin(name: str, pin: str) -> None:
         raise ValueError(f"{name} fuera de A0..A5: {pin!r}")
 
 
-def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 500) -> str:
+def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 300) -> str:
     _validate_analog_pin("ldr_pin", ldr_pin)
     _validate_pin(led_pin)
     _validate_ldr_threshold(threshold)
@@ -397,6 +397,7 @@ def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 500)
     lines = [
         "// Divisor: 5V -> LDR -> A0 -> resistencia 10k -> GND.",
         "// Mas luz = menos resistencia en el LDR = mas tension en A0 = lectura mas alta.",
+        "// Logica de luz nocturna: a oscuras la lectura baja y el LED se enciende.",
         "void setup() {",
         f"  pinMode({led_pin}, OUTPUT);",
         "  Serial.begin(9600);",
@@ -405,14 +406,14 @@ def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 500)
         "",
         "void loop() {",
         f"  int luz = analogRead({ldr_pin});",
-        f"  if (luz > {threshold}) {{",
+        f"  if (luz < {threshold}) {{",
         f"    digitalWrite({led_pin}, HIGH);",
         '    Serial.println("TEST:LED=ON");',
         "  } else {",
         f"    digitalWrite({led_pin}, LOW);",
         '    Serial.println("TEST:LED=OFF");',
         "  }",
-        '  Serial.print("TEST:LUX=");',
+        '  Serial.print("TEST:LUZ=");',
         "  Serial.println(luz);",
         "  delay(200);",
         "}",
@@ -420,6 +421,9 @@ def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 500)
     return "\n".join(lines) + "\n"
 
 
+# El default 130.0 cm sale de medir la escena real: la distancia simulada es
+# ~112 cm segun los objetos, asi que con umbrales tipo 20 la barrera nunca abre
+# y la demo no muestra nada. Con 130 arranca ABIERTO (servo 90 + LED verde).
 def parking_servo_sketch(
     trig: int = 7,
     echo: int = 6,
@@ -427,7 +431,7 @@ def parking_servo_sketch(
     red: int = 10,
     green: int = 11,
     blue: int = 3,
-    threshold_cm: float = 20.0,
+    threshold_cm: float = 130.0,
 ) -> str:
     pins = (trig, echo, servo_pin, red, green, blue)
     for pin in pins:
