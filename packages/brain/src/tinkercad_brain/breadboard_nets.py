@@ -140,12 +140,24 @@ _PIN_ALIASES_BY_TYPE = {
     },
     # Acotado a lcd-16x2: los 16 terminales reales ya son los nombres de la
     # fixture (identidad). Se declaran explicitos para que el alias generico
-    # "GND" -> "gnd" no rompa la net del LCD.
+    # "GND" -> "gnd" no rompa la net del LCD. Los cables del circuito real
+    # cpySiVSE9vr, en cambio, etiquetan 8 pines con nombres humanos
+    # (gnd, vcc, Contrast, Register Select, Read/Write, Enable, LED Anode,
+    # LED Cathode): se mapean al nombre de inspect_circuit. DB0..DB7 son
+    # identicos en ambos lados.
     "lcd-16x2": {
         "GND": "GND", "VDD": "VDD", "VO": "VO", "RS": "RS", "RW": "RW",
         "E": "E", "DB0": "DB0", "DB1": "DB1", "DB2": "DB2", "DB3": "DB3",
         "DB4": "DB4", "DB5": "DB5", "DB6": "DB6", "DB7": "DB7",
         "LED+": "LED+", "LED-": "LED-",
+        "gnd": "GND",
+        "vcc": "VDD",
+        "Contrast": "VO",
+        "Register Select": "RS",
+        "Read/Write": "RW",
+        "Enable": "E",
+        "LED Anode": "LED+",
+        "LED Cathode": "LED-",
     },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
