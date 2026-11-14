@@ -654,3 +654,130 @@ def test_rgb_backfills_first_free_window_when_cursor_already_passed():
     assert rgb_columns.isdisjoint(range(1, 7))
     assert rgb_columns.isdisjoint(range(18, 22))
     assert rgb_columns.isdisjoint(range(23, 26))
+
+
+def test_lcd_real_fixture_places_display_first_and_resistor_after_its_bezel():
+    # LCD 16x2 verified live: 16 terminals on row j anchored at GND,
+    # body covering rows f..c. Footprint 16 pin columns + 1 bezel each
+    # side, so the rest of the planner starts at column 19.
+    result = plan_layout(_fixture("lcd-contador"))
+
+    assert result["placements"]["lcd1"] == {"at": "1j", "pin": "GND", "angle": 0}
+    assert result["unplaced"] == []
+    assert result["placements"]["r1"] == {"at": "19g", "pin": "1", "angle": 90}
+    r1_column = int(result["placements"]["r1"]["at"][:-1])
+    assert r1_column >= 19
+    lcd_columns = set(range(1, 19))
+    r1_columns = set(range(r1_column, r1_column + 6))
+    assert lcd_columns.isdisjoint(r1_columns)
+
+
+def test_lcd_occludes_pushbutton_but_places_the_display():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+            {"ref": "btn1", "type": "pushbutton"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    # The button mounts on row f, hidden behind the display body.
+    assert result == {
+        "placements": {"lcd1": {"at": "1j", "pin": "GND", "angle": 0}},
+        "unplaced": ["btn1"],
+    }
+
+
+def test_lcd_still_places_led_block_on_visible_rows_after_its_bezel():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [["r1.2", "led1.anode"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == []
+    assert result["placements"]["led1"] == {"at": "23i", "pin": "anode", "angle": 180}
+    assert result["placements"]["r1"] == {"at": "19g", "pin": "1", "angle": 90}
+    lcd_columns = set(range(1, 19))
+    led_columns = set(range(19, 25))
+    assert lcd_columns.isdisjoint(led_columns)
+    anchors = [p["at"] for p in result["placements"].values()]
+    assert len(anchors) == len(set(anchors))
+
+
+def test_lcd_puts_occluded_row_types_in_unplaced():
+    # Rows c, d, e and f are behind the body: 3-pin parts, HC-SR04,
+    # piezo, the LDR with its divider resistor and the L293D (rows f/e)
+    # cannot be built. Types on visible rows (diode, LED block) stay.
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+            {"ref": "servo1", "type": "servo"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+            {"ref": "buzzer1", "type": "buzzer"},
+            {"ref": "ldr1", "type": "photoresistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "drv1", "type": "l293d"},
+            {"ref": "d1", "type": "diode"},
+        ],
+        "nets": [["ldr1.2", "r2.1"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == ["servo1", "us1", "buzzer1", "ldr1", "r2", "drv1"]
+    assert result["placements"]["lcd1"] == {"at": "1j", "pin": "GND", "angle": 0}
+    # Nothing else claimed a block, so the diode takes the first one
+    # after the display: columns 19-23, anode at 23.
+    assert result["placements"]["d1"] == {"at": "23g", "pin": "anode", "angle": 90}
+
+
+def test_two_lcds_leave_the_second_one_unplaced():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+            {"ref": "lcd2", "type": "lcd-16x2"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [],
+    }
+
+    result = plan_layout(fixture)
+
+    # One display already spans the left side: no room for a second one.
+    assert "lcd2" not in result["placements"]
+    assert result["unplaced"] == ["lcd2"]
+    assert result["placements"]["lcd1"] == {"at": "1j", "pin": "GND", "angle": 0}
+    assert result["placements"]["r1"] == {"at": "19g", "pin": "1", "angle": 90}
+
+
+def test_fixture_without_lcd_keeps_first_block_on_column_one():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r1", "type": "resistor"},
+        ],
+        "nets": [["r1.2", "led1.anode"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result == {
+        "placements": {
+            "r1": {"at": "1g", "pin": "1", "angle": 90},
+            "led1": {"at": "5i", "pin": "anode", "angle": 180},
+        },
+        "unplaced": [],
+    }
