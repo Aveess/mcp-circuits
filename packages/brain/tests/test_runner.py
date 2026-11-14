@@ -286,6 +286,38 @@ def test_preset_applied_after_build_before_reopen():
     }
 
 
+def test_preset_resuelve_el_nombre_real_que_dejo_el_editor():
+    """Tinkercad deduplica el nombre: si dejo "r21", el preset va a "r21".
+
+    Sin esto el preset se pierde con "component not found: r2" aunque el
+    cableado y el layout esten bien (fase 39).
+    """
+    fixture = _fixture()
+    build = json.dumps({
+        "success": True,
+        "persisted": True,
+        "placed": {
+            "r2": {"angle": 0, "holes": {}, "name": "r21"},
+            "seg": {"angle": 0, "holes": {}, "free": {"x": 1, "y": 2}},
+        },
+    })
+    call_tool = _fake_call_tool(build_output=build)
+    presets = [
+        {"component": "r2", "property": "resistance", "value": 220},
+        {"component": "Resistor", "property": "resistance", "value": 10, "unit": "k"},
+    ]
+
+    run_build(fixture, CODE, call_tool, "Con nombres raros", presets=presets)
+
+    names = [
+        args["component_name"]
+        for tool, args in call_tool.calls
+        if tool == "tinkercad_set_component_property_model"
+    ]
+    # La ref se traduce al nombre real; un preset por tipo pasa tal cual.
+    assert names == ["r21", "Resistor"]
+
+
 def test_preset_failure_is_recorded_and_does_not_abort():
     fixture = _fixture()
     call_tool = _fake_call_tool(fail_preset=True)

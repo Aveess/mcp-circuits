@@ -246,12 +246,27 @@ def _translations(fixture):
     return placements, type_by_ref
 
 
+def _board_of(endpoint, placements):
+    """Placa del layout donde vive el extremo (0 si es el Uno o la primera).
+
+    Fase 39: una parte puede pedir la segunda protoboard con ``board: 1`` y
+    entonces sus huecos viajan al puente como ``b1/5d``.
+    """
+    ref = endpoint.split(".", 1)[0] if isinstance(endpoint, str) else ""
+    placement = placements.get(ref) or {}
+    return placement.get("board") or 0
+
+
 def _translated_net(fixture, net):
     placements, type_by_ref = _translations(fixture)
-    return [
-        _translate_endpoint(endpoint, placements, type_by_ref)
-        for endpoint in net
-    ]
+    translated = []
+    for endpoint in net:
+        hole = _translate_endpoint(endpoint, placements, type_by_ref)
+        board = _board_of(endpoint, placements)
+        if board and HOLE_RE.fullmatch(hole):
+            hole = f"b{board}/{hole}"
+        translated.append(hole)
+    return translated
 
 
 def _is_uno(endpoint):
@@ -331,14 +346,17 @@ def _railed(fixture):
     return fixture.get("wiring") == "rails"
 
 
-_RAIL_ENDPOINT_RE = re.compile(r"^([TB])([+-])\d+$")
+_RAIL_ENDPOINT_RE = re.compile(r"^((?:b[1-9]/)?)([TB])([+-])\d+$")
 
 
 def _node(endpoint):
-    """Todas las columnas del mismo riel son el mismo nodo electrico."""
+    """Todas las columnas del mismo riel son el mismo nodo electrico.
+
+    El prefijo de placa se conserva: el riel de la placa 2 no es el de la 1.
+    """
     match = _RAIL_ENDPOINT_RE.match(endpoint)
     if match:
-        return f"rail:{match.group(1)}{match.group(2)}"
+        return f"rail:{match.group(1)}{match.group(2)}{match.group(3)}"
     return endpoint
 
 
@@ -414,6 +432,10 @@ def _inspect_for(fixture):
         if component["ref"] != "uno":
             instance[component["ref"]] = "i_" + component["ref"]
 
+    def bb_of(ref):
+        """Instancia de protoboard donde la parte tiene sus patas."""
+        return "bb_b" if (placements.get(ref) or {}).get("board") else "bb_a"
+
     wires = []
 
     def wire(source, target):
@@ -433,7 +455,7 @@ def _inspect_for(fixture):
     for ref, pins in _part_holes(fixture).items():
         real_by_pin = INSPECT_PIN[type_by_ref[ref]]
         for pin, hole in pins.items():
-            wire((instance[ref], real_by_pin[pin]), ("bb_a", hole))
+            wire((instance[ref], real_by_pin[pin]), (bb_of(ref), hole))
 
     def node(endpoint):
         ref, pin = endpoint.split(".", 1)
@@ -442,7 +464,7 @@ def _inspect_for(fixture):
         if "free" in placements[ref]:
             return (instance[ref], INSPECT_PIN[type_by_ref[ref]][pin])
         return (
-            "bb_a",
+            bb_of(ref),
             _translate_endpoint(endpoint, placements, type_by_ref),
         )
 
@@ -455,6 +477,10 @@ def _inspect_for(fixture):
         {"type": RAW_TYPE["arduino-uno"], "instance_id": "uno_a", "pins": []},
         {"type": "Breadboard Small", "instance_id": "bb_a", "pins": []},
     ]
+    if any((placement or {}).get("board") for placement in placements.values()):
+        components.append(
+            {"type": "Breadboard Small", "instance_id": "bb_b", "pins": []}
+        )
     for component in fixture["components"]:
         if component["ref"] == "uno":
             continue

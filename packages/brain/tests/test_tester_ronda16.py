@@ -740,25 +740,46 @@ def test_r16_el_builder_rechaza_un_pin_inventado_del_display():
 
 
 def test_r16_el_display_usa_los_diez_terminales_cuando_se_cablean():
+    """Los diez terminales se traducen. Desde la fase 39 cada segmento pasa
+    por su resistencia de 220: cablearlos directo al Uno ya no se construye
+    (el display estalla en el simulador), asi que las redes de abajo llevan
+    su resistencia y el test sigue midiendo el mapa de pines."""
+    segments = list("abcdefg") + ["dp"]
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
             {"ref": "seg", "type": "seven-segment"},
+            *[
+                {"ref": f"r{index}", "type": "resistor"}
+                for index in range(1, len(segments) + 1)
+            ],
         ],
         "nets": [
-            ["uno.D2", "seg.a"], ["uno.D3", "seg.b"], ["uno.D4", "seg.c"],
-            ["uno.D5", "seg.d"], ["uno.D6", "seg.e"], ["uno.D7", "seg.f"],
-            ["uno.D8", "seg.g"], ["uno.D9", "seg.dp"],
-            ["seg.com1", "uno.5V"], ["seg.com2", "uno.GND1"],
+            net
+            for index, segment in enumerate(segments, start=1)
+            for net in (
+                [f"uno.D{index + 1}", f"r{index}.1"],
+                [f"r{index}.2", f"seg.{segment}"],
+            )
+        ]
+        + [
+            ["seg.com1", "uno.5V"],
+            ["seg.com2", "uno.GND1"],
         ],
     }
     call = fixture_to_model_call(fixture)
     pairs = {(w["from"], w["to"]): w["color"] for w in call["wires"]}
 
-    assert len(call["parts"]) == 1  # solo el display: el Uno no es part
+    # Display + 8 resistencias: el Uno no es part.
+    assert len(call["parts"]) == 1 + len(segments)
     assert pairs[("seg.com1", "uno.5V")] == "red"
     assert pairs[("seg.com2", "uno.GND1")] == "black"
-    assert ("uno.D9", "seg.dp") in pairs
+    # dp esta cableado: su hueco existe y cuelga de una resistencia.
+    dp_holes = [
+        to for (frm, to) in pairs
+        if frm.startswith("seg.dp") or to.startswith("seg.dp")
+    ]
+    assert len(dp_holes) == 1, pairs
 
 
 def test_r16_nueve_resistencias_no_se_construyen_a_medias():

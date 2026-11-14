@@ -87,17 +87,33 @@ def _align_by_type(expected_components, actual_components):
         expected_by_type.setdefault(comp.get("type"), []).append(comp.get("ref"))
 
     mapping = {}
-    position_by_type = {}
     extra_components = []
+    used = set()
+    pending = []
     for comp in actual_components:
         comp_type = comp.get("type")
-        pos = position_by_type.get(comp_type, 0)
-        position_by_type[comp_type] = pos + 1
+        actual_ref = comp.get("ref")
         candidates = expected_by_type.get(comp_type, [])
-        if pos < len(candidates):
-            mapping[comp.get("ref")] = candidates[pos]
+        # El circuito bautizado trae la ref de la fixture como nombre: si
+        # coincide, el emparejamiento es identidad y no hay nada que
+        # permutar (con 8 resistencias la permutacion se sale del tope).
+        if actual_ref is not None and actual_ref in candidates and actual_ref not in used:
+            mapping[actual_ref] = actual_ref
+            used.add(actual_ref)
         else:
-            extra_components.append(comp.get("ref"))
+            pending.append((actual_ref, comp_type))
+
+    # Lo que no se emparejo por nombre toma el primer ref libre de su type,
+    # en orden: el resto (si sobran partes de ese type) es extra. Sin esto
+    # una parte extra del mismo tipo se comeria un ref ya usado y el extra
+    # desaparecia del reporte (ronda 5).
+    for actual_ref, comp_type in pending:
+        free = [ref for ref in expected_by_type.get(comp_type, []) if ref not in used]
+        if free:
+            mapping[actual_ref] = free[0]
+            used.add(free[0])
+        else:
+            extra_components.append(actual_ref)
     return mapping, extra_components, expected_by_type
 
 

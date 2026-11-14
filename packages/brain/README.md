@@ -23,17 +23,26 @@ puente en producción.
    (LED+resistencia de 6 en 6, 3 pines en fila c, HC-SR04 en fila d desde
    la columna 18, botón cruzando el gap, piezo y LDR en una segunda pasada
    al extremo derecho porque su cuerpo es un disco grande que tapa
-   vecinos).
+   vecinos). Con `"board2": [refs]` una segunda protoboard recibe el banco
+   vertical de resistencias (banco de 4 columnas por pieza en la fila d, el
+   pin 2 cae en la f) y los huecos viajan como `b1/5d`.
 3. `builder.fixture_to_model_call` lo traduce a la llamada del puente:
    partes con DID real, wires `{from, to, color}` ordenados
-   alimentación → tierra → señales (negro/rojo/paleta).
+   alimentación → tierra → señales (negro/rojo/paleta). Antes de nada
+   corre el lint de resistencia serie: un LED o un segmento colgado
+   directo de un pin o de 5V/GND no se construye (en el simulador
+   revienta y el serial sigue contando, así que el oráculo no lo ve).
 4. El puente coloca directo en `circuit_editor.data` con insert-wires,
    espera la persistencia ShareJS (`numberPending == 0`) y rutea los
-   cables del Uno en ángulo recto con carriles propios.
+   cables del Uno en ángulo recto con carriles propios, repartidos en dos
+   bandas (arriba/abajo de la placa) que crecen por separado. Devuelve el
+   nombre real que el editor dejó en cada parte (`placed[ref].name`):
+   Tinkercad deduplica (`r2` → `r21`) y el nombre no sirve como identidad.
 5. Tras recargar, `inspect_circuit` + `breadboard_nets.derive_nets`
    reconstruyen el circuito real y `metrics.compare_connectivity`
    lo compara por equivalencia eléctrica (tierras del Uno unificadas,
-   alias de pines por tipo, cortos detectados).
+   alias de pines por tipo, cortos detectados). Las refs salen del mapa
+   `nombre → ref` que devolvió el build, no de la posición de creación.
 6. El comportamiento se verifica en simulación con el **oráculo
    serial instrumentado**: los sketches generan trazas `TEST:...`
    (`TEST:ON/OFF`, `TEST:ANGLE=`, `TEST:TEMP=`, `TEST:DIST=`) que el
@@ -59,7 +68,8 @@ binario 74HC93, un carrusel de LEDs con el contador Johnson 4017 y un faro
 automatico con rele SPDT movido por un NPN, una alarma de movimiento con
 PIR, una cerradura con teclado 4x4, una caja fuerte con teclado y LCD y un
 control de acceso con teclado, LCD y servo (servo en colocacion libre), y un
-contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR. Los
+contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR con las siete
+resistencias de serie del display en una segunda protoboard. Los
 cables del LCD salen de lado antes de bajar, asi que no pasan por detras de
 su propio cuerpo; y cuando un piezo comparte circuito con el sensor
 ultrasonico el piezo va libre, para que su cuerpo no tape la placa)

@@ -61,6 +61,26 @@ def _is_false(value) -> bool:
     return isinstance(value, str) and value.strip().casefold() == "false"
 
 
+def _refs_by_name(output) -> dict[str, str]:
+    """{nombre real en el documento: ref de la fixture} del resultado del build.
+
+    ``placed[ref].name`` lo escribe el puente leyendo el nombre despues de
+    asignarlo. Si el build no lo trae (puente viejo), queda vacio y el
+    verificador sigue con el criterio anterior (nombre del inspect).
+    """
+    placed = _parse_json_dict(output).get("placed")
+    if not isinstance(placed, dict):
+        return {}
+    refs = {}
+    for ref, info in placed.items():
+        if not isinstance(info, dict):
+            continue
+        name = info.get("name")
+        if isinstance(name, str) and name.strip():
+            refs[name.strip()] = ref
+    return refs
+
+
 def _build_persisted(output) -> bool:
     data = _parse_json_dict(output)
     if not data:
@@ -224,11 +244,22 @@ def run_build(
     build_record = _run("tinkercad_build_circuit_model", model_call)
     build_ok = _build_persisted(build_record.output)
     build_success_false = _success_false(build_record.output)
+    # Nombre real que el editor dejo en cada parte -> ref de la fixture. Es
+    # la unica identidad fiable: Tinkercad deduplica (setName("r2") con otro
+    # "r2" en el documento deja "r21"), asi que el verificador no puede
+    # suponer que el nombre es la ref (fase 39).
+    refs_by_name = _refs_by_name(build_record.output)
+    name_by_ref = {ref: name for name, ref in refs_by_name.items()}
 
     preset_reported_failure = False
     for preset in presets or []:
         preset_args = {
-            "component_name": preset.get("component"),
+            # El preset nombra refs de la fixture, pero el editor puede haber
+            # dejado otro nombre (deduplicacion); se resuelve con el mapa del
+            # build. Un preset por tipo ("Resistor") pasa tal cual.
+            "component_name": name_by_ref.get(
+                preset.get("component"), preset.get("component")
+            ),
             "property_name": preset.get("property"),
             "value": preset.get("value"),
         }
@@ -252,10 +283,10 @@ def run_build(
         _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
         inspect_record = _run("tinkercad_inspect_circuit", {})
         inspect_data = _parse_json_dict(inspect_record.output)
-        normalized = normalize_circuit(inspect_data, {"nets": []})
+        normalized = normalize_circuit(inspect_data, {"nets": []}, refs_by_name)
         actual = {
             "components": normalized.get("components", []),
-            "nets": derive_nets(inspect_data),
+            "nets": derive_nets(inspect_data, refs_by_name),
         }
         return compare_connectivity(fixture, actual)
 

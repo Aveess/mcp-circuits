@@ -895,3 +895,73 @@ mueve (595 en 560 → display en 870, 310 de aire, sin regresión).
 - El pulso real queda en ~1,7 s por dígito (teórico 2 Hz con R=68k y C=10uF):
   el simulador es más lento que la fórmula y el valor se ajustó midiendo, no
   calculando.
+
+## Fase 39: el display deja de estallar y los cables se reparten (2026-11-14)
+
+El circuito 28 contaba bien y explotaba. Los dos síntomas venían del mismo
+lugar: el display de 7 segmentos es de **ánodo común** (común a 5V y segmento
+en LOW) y los siete segmentos colgaban de pines del Uno sin resistencia. En el
+simulador eso revienta el componente; el conteo sigue, así que el oráculo
+serial no lo detecta. "Funciona" y "es válido" no eran lo mismo.
+
+### 39a · Resistencia serie obligatoria (lint en el builder)
+
+`_series_resistor_errors` revisa las nets de dos extremos: si un segmento del
+display (o el ánodo de un LED) cuelga directo de `uno.*`, de 5V/GND o de un
+riel, el build falla antes de tocar Tinkercad. Si el otro extremo es una
+resistencia, o la salida de un integrado (595, 555), pasa: ahí la limitación
+es otra y no se opina.
+
+Las siete resistencias son de 220Ω, una por net (`uno.Dx → rN.1`,
+`rN.2 → seg.x`), y el sketch no cambia: la resistencia no toca la lógica.
+
+### 39b · Segunda protoboard para el banco de resistencias
+
+Ocho resistencias no caben en la placa 1 sin apilar bloques sobre los cables
+(la de 555 más siete). La fixture lo pide con `"board2": ["r2", ..., "r8"]`
+(opt-in, solo resistencias) y el planner devuelve `boards` con la placa 1 en
+`(870, 0)` y la 2 en `(1270, 0)`; los huecos de la placa 2 viajan como
+`b1/5d` y el puente acepta `bN/` en huecos y rieles.
+
+El banco va **vertical**: `angle 0`, ancla en la fila `d` y el pin 2 cae en la
+`f`. El pin 1 mira a la mitad de abajo y el 2 a la de arriba, así el cable del
+Uno entra por la banda inferior y el del display sale por la superior: cada
+mitad de la placa tiene su mazo. Las columnas van 1, 5, 9, ... porque los
+cuerpos de las resistencias miden cuatro columnas.
+
+Guardas: `board2` con algo que no sea resistencia, con refs inexistentes,
+repetidas, o junto a `free_parts` (las partes libres de la derecha viven justo
+donde va la placa 2) falla con `LayoutError`. Una resistencia del banco
+tampoco puede ser la de un LED.
+
+### 39c · Bandas por lado en el puente
+
+Antes los carriles eran una numeración única (`115 + lane*5`): los cables
+ruteados crecían en una sola zona. Ahora cada banda lleva su contador
+(`sideLanes.top/bottom`, base 115, paso 8) y el lado lo decide el hueco
+(fila f..j o riel T) o la `y` de la parte libre. Dos cables arriba ya no
+empujan abajo.
+
+### 39d · La identidad no puede ser el nombre
+
+La conectividad daba 36% con el cableado perfecto: las refs se asignaban por
+posición de creación y el orden físico no sigue el de la fixture (r1↔D4).
+Se intentó que el nombre del dispositivo fuera la ref (`dev.setName`), pero
+Tinkercad **deduplica**: con otro `r2` en el documento, `setName("r2")` deja
+`r21`. Y el sufijo aparece justo al reconstruir, que es cuando importa.
+
+La solución no es adivinar el nombre sino **preguntarlo**: el build lee el
+nombre después de asignarlo y lo devuelve en `placed[ref].name`; el runner
+arma `{nombre: ref}` y se lo pasa a `normalize_circuit` y `derive_nets`
+(firma nueva `refs_by_name`). Los presets usan el mismo mapa, así que
+`r2 = 220Ω` aterriza en `r21`.
+
+Con eso: **100% de fidelidad**, presets aplicados sin fallos y el oráculo
+`TEST:COMPUERTAS=LISTO` + `TEST:DIGITO=0..7..0` en una sola corrida
+(`sim_wait_seconds: 28`). Capturas revisadas: dos protoboards alineadas, siete
+resistencias verticales, mazo superior y mazo inferior separados, y el display
+mostrando el dígito sin explotar.
+
+Lección: **un actuador que explota sigue contando**. El oráculo funcional no
+reemplaza la validez eléctrica; el lint tiene que estar en el camino de
+construcción, no en la lista de deseos.

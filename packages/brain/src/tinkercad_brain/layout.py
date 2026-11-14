@@ -123,6 +123,21 @@ FREE_MODULE_STEP_Y = 200
 # de integrados. El corte es 300 (mismo radio que usa la regla de perifericos)
 # y con un solo chip en 560 el display se queda en 870: 310 de aire.
 IC_DISPLAY_CLEARANCE = 300
+# Segunda protoboard (opt-in con ``"board2": [refs]``). La placa 1 ocupa
+# x 725..1015 y la fila de integrados arranca en 560; a la derecha del
+# display (x >= 1125) el lienzo esta vacio, asi que la segunda placa vive
+# ahi con aire de sobra. Se usa para el banco vertical de resistencias de
+# serie del display de 7 segmentos: 8 resistencias no caben en la placa 1
+# sin apilar bloques encima de los cables.
+SECOND_BOARD_X = 1270
+SECOND_BOARD_Y = 0
+SECOND_BOARD_FIRST_COLUMN = 1
+SECOND_BOARD_COLUMN_STEP = 4
+# Ancla vertical: angle 0 con pin "1" en la fila d deja el pin "2" en la
+# fila f (las patas quedan a +-20 de la y del cuerpo, y entre d y f esta el
+# canal central). El pin 1 mira a la mitad de abajo y el 2 a la de arriba,
+# asi el cable del Uno entra por abajo y el del display sale por arriba.
+SECOND_BOARD_ROW = "d"
 
 
 class LayoutError(Exception):
@@ -295,6 +310,42 @@ FREE_RIGHT_STEP_Y = 200
 # LEDs y resistencias son el cuerpo del circuito montado: si la fixture los
 # pide libres es un error de la fixture, no una colocacion.
 BOARD_ONLY_TYPES = ("led", "resistor")
+
+def _second_board_refs(fixture, components):
+    """Refs que la fixture manda a la segunda placa, en orden de fixture.
+
+    Solo resistencias: el banco vertical es la unica geometria verificada
+    (angle 0, pin "1" en la fila d, pin "2" en la f). Cualquier otra parte
+    ahi seria una colocacion a ciegas.
+    """
+    refs = fixture.get("board2")
+    if refs is None:
+        return []
+    if not isinstance(refs, list):
+        raise LayoutError(f"'board2' debe ser una lista de refs: {refs!r}")
+    type_by_ref = {c["ref"]: c["type"] for c in components}
+    ordered = []
+    for ref in refs:
+        if ref not in type_by_ref:
+            raise LayoutError(f"'board2' menciona refs que no existen: {ref!r}")
+        if ref in ordered:
+            raise LayoutError(f"ref repetida en 'board2': {ref!r}")
+        if type_by_ref[ref] != "resistor":
+            raise LayoutError(
+                f"'{ref}' ({type_by_ref[ref]}) no puede ir a la segunda placa: "
+                "solo se coloca ahi el banco vertical de resistencias"
+            )
+        ordered.append(ref)
+    if fixture.get("free_parts"):
+        # Las partes libres de la derecha (servo, motor) viven justo donde
+        # va la segunda placa. Nadie lo necesita todavia: mejor fallar claro
+        # que dibujar dos cuerpos encima.
+        raise LayoutError(
+            "'board2' y 'free_parts' no comparten lienzo: la segunda placa "
+            "ocupa el sitio de las partes libres de la derecha"
+        )
+    return ordered
+
 
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
@@ -530,10 +581,21 @@ def plan_layout(fixture: dict) -> dict:
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
+    second_board = _second_board_refs(fixture, components)
+    for index, ref in enumerate(second_board):
+        placements[ref] = {
+            "at": f"{SECOND_BOARD_FIRST_COLUMN + index * SECOND_BOARD_COLUMN_STEP}{SECOND_BOARD_ROW}",
+            "pin": "1",
+            "angle": 0,
+            "board": 1,
+        }
+
     units = []
     paired_resistors = set(led_to_resistor.values())
     for component in components:
         ref, ctype = component["ref"], component["type"]
+        if ref in second_board:
+            continue
         if ctype == "led":
             if ref in leds_without_resistor:
                 unplaced.append(ref)
@@ -549,6 +611,14 @@ def plan_layout(fixture: dict) -> dict:
         ):
             units.append((order[ref], None, ref))
     units.sort(key=lambda unit: unit[0])
+    # Una resistencia del banco no puede ser ademas la de un LED: el bloque
+    # LED se coloca con su resistencia al lado y pisaria el placement.
+    conflicto = [resistor for _, _, resistor in units if resistor in second_board]
+    if conflicto:
+        raise LayoutError(
+            "estas resistencias estan en 'board2' y a la vez emparejadas con "
+            f"un LED: {sorted(conflicto)!r}"
+        )
 
     occupied_columns = set()
 
@@ -770,4 +840,12 @@ def plan_layout(fixture: dict) -> dict:
             place_ldr(ref)
 
     unplaced.sort(key=lambda ref: order[ref])
-    return {"placements": placements, "unplaced": unplaced}
+    result = {"placements": placements, "unplaced": unplaced}
+    if second_board:
+        # El puente coloca la placa 1 en (870, 0) por defecto; la segunda se
+        # declara solo cuando hace falta.
+        result["boards"] = [
+            {"x": 870, "y": 0},
+            {"x": SECOND_BOARD_X, "y": SECOND_BOARD_Y},
+        ]
+    return result

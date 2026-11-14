@@ -42,9 +42,16 @@ _PRESETS_BY_FIXTURE = {
     ],
     # Mismo astable pero mas lento: 68k con 10uF da ~2 Hz (un digito cada
     # medio segundo); con 10k el conteo pasa demasiado rapido para verlo.
+    # Aqui se nombra por ref: el build nombra cada parte con su ref (con
+    # siete resistencias mas la del 555, "Resistor" es ambiguo y el preset
+    # se pierde). Las 220 ohmios son la resistencia serie de cada segmento.
     "contador-555-compuertas": [
-        {"component": "Resistor", "property": "resistance", "value": 68, "unit": "k"},
-        {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
+        {"component": "r1", "property": "resistance", "value": 68, "unit": "k"},
+        {"component": "c1", "property": "capacitance", "value": 10, "unit": "u"},
+        *[
+            {"component": f"r{index}", "property": "resistance", "value": 220}
+            for index in range(2, 9)
+        ],
     ],
     "sensor-ultrasonico": [        {
             "component": "Ultrasonic Distance Sensor (4-pin)",

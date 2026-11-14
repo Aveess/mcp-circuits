@@ -140,12 +140,29 @@ def test_el_sketch_cuenta_flancos_y_pinta_0_a_7():
 def test_los_pines_del_sketch_son_los_mismos_que_los_cables():
     fixture = _fixture(NEW)
     nets = [set(net) for net in fixture["nets"]]
+    type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
 
     def unidos(a, b):
         return any({a, b} <= net for net in nets)
 
+    def resistor_entre(a, b):
+        """Resistencia serie: a -> rN.1 y rN.2 -> b (misma ref)."""
+        for net in nets:
+            if a not in net:
+                continue
+            for endpoint in net:
+                ref, _, pin = endpoint.partition(".")
+                if type_by_ref.get(ref) != "resistor" or pin != "1":
+                    continue
+                other = [e for e in nets if f"{ref}.2" in e]
+                if other and b in other[0]:
+                    return True
+        return False
+
     for segment, pin in zip("abcdefg", (4, 5, 6, 7, 9, 10, 11)):
-        assert unidos("seg." + segment, f"uno.D{pin}"), segment
+        # Cada segmento pasa por su resistencia de 220: sin ella el display
+        # estalla en el simulador (fase 39).
+        assert resistor_entre(f"uno.D{pin}", "seg." + segment), segment
     assert unidos("t1.OUT", "u1.1A")
     assert unidos("uno.D8", "u1.1B")
     assert unidos("u1.4Y", "uno.D2")

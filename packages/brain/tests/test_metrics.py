@@ -289,6 +289,14 @@ def test_connectivity_corto_real_entre_grupos_esperados_sigue_penalizado():
 
 
 def test_connectivity_ocho_resistencias_no_explota_y_cae_al_mapping_posicional():
+    """8! = 40320 supera el tope de permutaciones (5040).
+
+    Con refs que no coinciden con las esperadas no hay identidad que usar:
+    el mapping cae al posicional y las nets cruzadas no cuentan, pero no
+    explota ni tarda. (Cuando el circuito viene bautizado con las refs de la
+    fixture, el mapping es identidad y el orden de creacion no importa; ver
+    el test de abajo.)
+    """
     refs = [f"r{i}" for i in range(1, 9)]
     expected = {
         "components": [{"ref": "uno", "type": "arduino-uno"}]
@@ -299,17 +307,47 @@ def test_connectivity_ocho_resistencias_no_explota_y_cae_al_mapping_posicional()
             for net in ([f"uno.D{i}", f"{ref}.1"], [f"{ref}.2", f"uno.A{i}"])
         ],
     }
-    # Creacion fisica en orden inverso: el mapping posicional queda cruzado.
+    # Refs ajenas a la fixture: no hay identidad posible.
+    actual = {
+        "components": [{"ref": "uno", "type": "arduino-uno"}]
+        + [{"ref": f"x{i}", "type": "resistor"} for i in reversed(range(1, 9))],
+        "nets": expected["nets"],
+    }
+    result = compare_connectivity(expected, actual)
+    assert result["components_score"] == 1.0
+    assert result["connectivity_score"] == 0.0
+    # Partes bien, cableado sin emparejar: mitad de score y sin cortos
+    # inventados (el posicional no crea pares que el circuito no tiene).
+    assert result["score"] == 0.5
+
+
+def test_connectivity_ocho_resistencias_con_refs_reales_es_identidad():
+    """Creacion en orden inverso, refs correctas: score 1.0.
+
+    Es el caso real de la fase 39: el puente bautiza cada parte con su ref,
+    asi que siete resistencias de 220 y la del 555 no se confunden aunque
+    el orden fisico de creacion no siga el de la fixture.
+    """
+    refs = [f"r{i}" for i in range(1, 9)]
+    expected = {
+        "components": [{"ref": "uno", "type": "arduino-uno"}]
+        + [{"ref": ref, "type": "resistor"} for ref in refs],
+        "nets": [
+            net
+            for i, ref in enumerate(refs, start=1)
+            for net in ([f"uno.D{i}", f"{ref}.1"], [f"{ref}.2", f"uno.A{i}"])
+        ],
+    }
     actual = {
         "components": [{"ref": "uno", "type": "arduino-uno"}]
         + [{"ref": ref, "type": "resistor"} for ref in reversed(refs)],
         "nets": expected["nets"],
     }
     result = compare_connectivity(expected, actual)
-    # 8! = 40320 > tope 5040: se usa el posicional, sin conectar nada.
     assert result["components_score"] == 1.0
-    assert result["connectivity_score"] == 0.0
-    assert result["score"] < 0.5
+    assert result["connectivity_score"] == 1.0
+    assert result["shorts"] == []
+    assert result["score"] == 1.0
 
 
 def test_connectivity_refs_indistinguibles_es_determinista():

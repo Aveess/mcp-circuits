@@ -2166,6 +2166,34 @@
         "type": "pushbutton"
       },
       {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      },
+      {
+        "ref": "r5",
+        "type": "resistor"
+      },
+      {
+        "ref": "r6",
+        "type": "resistor"
+      },
+      {
+        "ref": "r7",
+        "type": "resistor"
+      },
+      {
+        "ref": "r8",
+        "type": "resistor"
+      },
+      {
         "ref": "seg",
         "type": "seven-segment"
       }
@@ -2231,35 +2259,63 @@
       ],
       [
         "uno.D4",
+        "r2.1"
+      ],
+      [
+        "r2.2",
         "seg.a"
       ],
       [
         "uno.D5",
+        "r3.1"
+      ],
+      [
+        "r3.2",
         "seg.b"
       ],
       [
         "uno.D6",
+        "r4.1"
+      ],
+      [
+        "r4.2",
         "seg.c"
       ],
       [
         "uno.D7",
+        "r5.1"
+      ],
+      [
+        "r5.2",
         "seg.d"
       ],
       [
         "uno.D9",
+        "r6.1"
+      ],
+      [
+        "r6.2",
         "seg.e"
       ],
       [
         "uno.D10",
+        "r7.1"
+      ],
+      [
+        "r7.2",
         "seg.f"
       ],
       [
         "uno.D11",
+        "r8.1"
+      ],
+      [
+        "r8.2",
         "seg.g"
       ]
     ],
     "wiring": "rails",
-    "sim_wait_seconds": 20,
+    "sim_wait_seconds": 28,
     "code_features": [
       "pinMode",
       "digitalWrite",
@@ -2267,13 +2323,16 @@
       "Serial"
     ],
     "doc": [
-      "El 555 funciona como reloj (aprox. un pulso por segundo). Su salida no",
-      "va directo al Arduino: pasa por un AND con la senal MARCHA (D8), asi el",
-      "conteo se congela cuando MARCHA esta en bajo, y por un OR con un",
-      "pulsador, asi cada tecla avanzada un digito a mano. El Uno solo cuenta",
-      "los flancos que llegan a D2 y dibuja el digito 0..7 en el display de 7",
-      "segmentos, que vuelve a 0 despues del 7.",
-      "los flancos que llegan a D2 y dibuja el digito 0..7 en el display de 7",
+      "El 555 funciona como reloj (aprox. un pulso cada dos segundos). Su",
+      "salida no va directo al Arduino: pasa por un AND con la senal MARCHA",
+      "(D8), asi el conteo se congela cuando MARCHA esta en bajo, y por un OR",
+      "con un pulsador, asi cada tecla avanza un digito a mano. El Uno solo",
+      "cuenta los flancos que llegan a D2 y dibuja el digito 0..7 en el",
+      "display de 7 segmentos, que vuelve a 0 despues del 7.",
+      "Cada segmento lleva su resistencia de 220 ohmios, y las siete viven en",
+      "la segunda protoboard como banco vertical: el pin de abajo recibe el",
+      "cable del Uno (por debajo de las placas) y el de arriba sale al display",
+      "(por arriba). Asi los cables no se amontonan en una sola zona.",
       "Las compuertas no son decorativas: el AND se arma con una NAND (u1) mas",
       "una XOR (u2) usada como inversor, y el OR con dos NAND (u1). Esa es la",
       "forma clasica de conseguir AND y OR cuando solo hay NAND."
@@ -2284,14 +2343,24 @@
       "a 0: en 5 s de simulacion se ve el ciclo completo."
     ],
     "notes": [
-      "El display es de anodo comun: comun a 5V y segmento en LOW. En el",
-      "simulador los segmentos van directo; en una placa real, 220 ohmios",
-      "por segmento.",
+      "El display es de anodo comun: comun a 5V y segmento en LOW. Sin",
+      "resistencia serie el simulador lo hace estallar aunque el conteo",
+      "siga: 220 ohmios por segmento, uno por net, y el banco va en la",
+      "segunda placa.",
       "El pulsador cuelga de D12 con INPUT_PULLUP: el nodo tambien entra al",
       "OR, asi que el pull-up interno del micro hace de resistencia del",
       "circuito. Sin el, la linea queda flotante y el paso manual no funciona.",
       "R=68k y C=10uF dan el pulso lento; con 10k el conteo se ve borroso."
     ],
-    "tinkercad_id": "jApuXFjHQsc"
+    "tinkercad_id": "jApuXFjHQsc",
+    "board2": [
+      "r2",
+      "r3",
+      "r4",
+      "r5",
+      "r6",
+      "r7",
+      "r8"
+    ]
   }
 ]

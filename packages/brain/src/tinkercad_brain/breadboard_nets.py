@@ -387,14 +387,88 @@ class _UnionFind:
             self._parent[rb] = ra
 
 
-def derive_nets(inspect_data: dict) -> list[list[str]]:
+# Nombre de instancia valido como ref: una letra inicial y sin espacios ni
+# signos. Los nombres automaticos de Tinkercad ("1", "3" en las placas) no
+# pasan el filtro y siguen usando el contador posicional.
+_REF_NAME_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*$")
+
+
+def preferred_refs(components, refs_by_name=None) -> dict:
+    """{instance_id: ref} a partir del nombre que el puente dejo en cada parte.
+
+    Dos fuentes, en este orden:
+
+    1. ``refs_by_name`` ({nombre real en el documento: ref de la fixture}),
+       que el build devuelve en ``placed[*].name``. Es la buena: Tinkercad
+       deduplica los nombres (``setName("r2")`` con otro "r2" en el
+       documento deja "r21"), asi que el unico que sabe que nombre quedo es
+       el build. Sin este mapa, ocho resistencias iguales caen al mapping
+       posicional y un orden de creacion distinto se lee como cortos que no
+       existen (fase 39).
+    2. El nombre del inspect, si TODAS las partes traen uno unico con forma
+       de ref. Sirve para circuitos viejos, donde el nombre no colisionaba.
+
+    Se devuelve ``{}`` (y todo sigue por contador) si la informacion no
+    alcanza. El Uno y las placas quedan fuera de la regla: su nombre
+    automatico no es una ref de la fixture.
+    """
+    if refs_by_name:
+        mapping = {}
+        for comp in components or []:
+            if not isinstance(comp, dict):
+                continue
+            raw_type = comp.get("type")
+            canonical = _canonical_type(raw_type)
+            if canonical is None or canonical == "arduino-uno":
+                continue
+            if _is_breadboard(canonical, raw_type):
+                continue
+            name = comp.get("name")
+            instance_id = comp.get("instance_id")
+            if not isinstance(name, str) or not instance_id:
+                return {}
+            ref = refs_by_name.get(name.strip())
+            if ref is None:
+                return {}
+            mapping[instance_id] = ref
+        return mapping
+
+    mapping = {}
+    seen = set()
+    for comp in components or []:
+        if not isinstance(comp, dict):
+            continue
+        raw_type = comp.get("type")
+        canonical = _canonical_type(raw_type)
+        if canonical is None or canonical == "arduino-uno":
+            continue
+        if _is_breadboard(canonical, raw_type):
+            continue
+        name = comp.get("name")
+        if not isinstance(name, str) or not _REF_NAME_RE.match(name.strip()):
+            return {}
+        name = name.strip()
+        if name in seen:
+            return {}
+        seen.add(name)
+        instance_id = comp.get("instance_id")
+        if not instance_id:
+            return {}
+        mapping[instance_id] = name
+    return mapping
+
+
+def derive_nets(inspect_data: dict, refs_by_name=None) -> list[list[str]]:
     inspect_data = inspect_data or {}
     components = inspect_data.get("components") or []
     wires = inspect_data.get("wires") or []
 
+    named = preferred_refs(components, refs_by_name)
     counters = {}
 
-    def _assign_ref(canonical):
+    def _assign_ref(canonical, instance_id=None):
+        if instance_id and instance_id in named:
+            return named[instance_id]
         if canonical == "arduino-uno":
             counters[canonical] = counters.get(canonical, 0) + 1
             n = counters[canonical]
@@ -414,8 +488,8 @@ def derive_nets(inspect_data: dict) -> list[list[str]]:
         if canonical is None:
             continue
         is_bb = _is_breadboard(canonical, raw_type)
-        ref = None if is_bb else _assign_ref(canonical)
         instance_id = comp.get("instance_id")
+        ref = None if is_bb else _assign_ref(canonical, instance_id)
         if instance_id:
             by_instance[instance_id] = (ref, canonical, is_bb)
             if is_bb:

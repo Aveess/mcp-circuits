@@ -1,3 +1,4 @@
+from tinkercad_brain.breadboard_nets import preferred_refs
 from tinkercad_brain.fase0.component_map import fixture_type
 
 _REF_PREFIX = {
@@ -21,7 +22,7 @@ def _canonical_type(raw_type):
     return _slug(raw_type)
 
 
-def normalize_circuit(inspect_data: dict, schematic_data: dict) -> dict:
+def normalize_circuit(inspect_data: dict, schematic_data: dict, refs_by_name=None) -> dict:
     inspect_data = inspect_data or {}
     schematic_data = schematic_data or {}
 
@@ -31,6 +32,11 @@ def normalize_circuit(inspect_data: dict, schematic_data: dict) -> dict:
     type_groups = []  # list of {"raw": str, "canonical": str, "refs": [str]}
     group_by_raw = {}
     counters = {}
+    # Mismo criterio que derive_nets: si el build devolvio el nombre real de
+    # cada parte (o el circuito viene bautizado con las refs), manda el
+    # nombre; si no, el contador posicional. Las dos funciones tienen que
+    # coincidir o el mapping no encuentra las nets (fase 39).
+    named = preferred_refs(inspect_data.get("components") or [], refs_by_name)
 
     for comp in inspect_data.get("components") or []:
         if not isinstance(comp, dict):
@@ -43,7 +49,10 @@ def normalize_circuit(inspect_data: dict, schematic_data: dict) -> dict:
         if norm_type == "breadboard":
             continue
 
-        if norm_type == "arduino-uno":
+        instance_id = comp.get("instance_id")
+        if instance_id and instance_id in named:
+            ref = named[instance_id]
+        elif norm_type == "arduino-uno":
             counters[norm_type] = counters.get(norm_type, 0) + 1
             n = counters[norm_type]
             ref = "uno" if n == 1 else f"uno{n}"
@@ -53,8 +62,6 @@ def normalize_circuit(inspect_data: dict, schematic_data: dict) -> dict:
             ref = f"{prefix}{counters[prefix]}"
 
         components.append({"ref": ref, "type": norm_type})
-
-        instance_id = comp.get("instance_id")
         if instance_id:
             ref_by_instance_id.setdefault(instance_id, ref)
 

@@ -36,7 +36,7 @@ píxel del LED.
 | 25 | Cerradura con teclado 4x4 y dos LEDs | g3KZdQc0DFu | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` (LED de apertura) y `1111` + `CLAVE=FALLA` (LED de rechazo) |
 | 26 | Caja fuerte con teclado 4x4 y LCD 16x2 | 9wyFlvHHzIo | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `PANTALLA=DENEGADO` |
 | 27 | Control de acceso con teclado, LCD y servo (servo libre) | cjjQKLuBQ2I | 100% | `TEST:KP=LISTO` + `CLAVE=ESPERANDO` + `SERVO=0`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `SERVO=90` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `SERVO=0` + `PANTALLA=DENEGADO` (asta del servo girada en la captura) |
-| 28 | Contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR | jApuXFjHQsc | 100% | `TEST:COMPUERTAS=LISTO` + `TEST:DIGITO=0..7..0` (un pulso cada ~0,5 s; la cadena AND/OR de compuertas arma el pulso que cuenta el Uno) |
+| 28 | Contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR, con banco de resistencias en una segunda placa | jApuXFjHQsc | 100% | `TEST:COMPUERTAS=LISTO` + `TEST:DIGITO=0..7..0` (un pulso cada ~1,7 s; la cadena AND/OR de compuertas arma el pulso que cuenta el Uno; el display ya no estalla) |
 
 ## Qué agrega cada nivel
 
@@ -72,6 +72,14 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Fase 39 (28, corregido):** el display de 7 segmentos de ánodo común
+  estallaba en el simulador: común a 5V y segmentos directos a los pines del
+  Uno, sin resistencia serie. El conteo seguía funcionando, así que el
+  oráculo no lo veía. Ahora cada segmento lleva 220Ω y las siete
+  resistencias viven en una **segunda protoboard** (`"board2": [refs]`)
+  como banco vertical: el pin de abajo recibe el cable del Uno (banda
+  inferior) y el de arriba sale al display (banda superior). El builder
+  rechaza cualquier segmento o LED colgado directo de un pin o de 5V/GND.
 - **Fase 36 (sin circuito nuevo):** las cinco filas con LCD se
   reconstruyeron con el cableado lateral. El LCD vive en `x=1100` y sus
   cables salen de lado antes de bajar; el display de 7 segmentos sigue en
@@ -134,7 +142,8 @@ y es lo que se usa masivamente para verificar.
   defecto deja la pantalla en blanco en el simulador (y su cuerpo tapa el
   display).
 - El 7 segmentos directo no entra: 7 resistencias son 42 columnas para una
-  placa de 30. Necesita 74HC595 o una placa más grande.
+  placa de 30. Se resuelve con el 74HC595 (circuito 17) o con el banco en
+  una segunda protoboard (circuito 28).
 - Dos cuerpos grandes (HC-SR04 + piezo) comparten placa: el sensor cede la
   mitad derecha (arranca en la columna 10) porque su módulo se dibuja mucho
   más ancho que sus cuatro pines.

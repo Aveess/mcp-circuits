@@ -302,11 +302,23 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "decade-counter": _DECADE_COUNTER_REAL_PINS,
 }
 
-_HOLE_RE = re.compile(r"([0-9]+)([a-j])")
+# Con varias placas el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
+# "5g" no dice a que protoboard pertenece y el cable caeria en la primera.
+# El prefijo es opcional para no tocar los circuitos de una sola placa.
+_BOARD_PREFIX = re.compile(r"^b([1-9])/")
+_HOLE_RE = re.compile(r"(?:b[1-9]/)?([0-9]+)([a-j])")
 
 _POWER_ENDPOINTS = frozenset({"uno.5V", "uno.3V3", "uno.VIN"})
-_RAIL_POWER_RE = re.compile(r"[TB]\+(?:[1-9]|[12][0-9]|30)?")
-_RAIL_GROUND_RE = re.compile(r"[TB]-(?:[1-9]|[12][0-9]|30)?")
+_RAIL_POWER_RE = re.compile(r"(?:b[1-9]/)?[TB]\+(?:[1-9]|[12][0-9]|30)?")
+_RAIL_GROUND_RE = re.compile(r"(?:b[1-9]/)?[TB]-(?:[1-9]|[12][0-9]|30)?")
+
+# Filas fisicas de la protoboard de abajo (a) a arriba (j). Sirve para
+# derivar huecos de partes verticales: dos filas "arriba" en esta lista
+# cruzan el canal central pero siguen siendo la misma columna.
+_LADDER_ROWS = ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j")
+
+# Segmentos del display de 7 segmentos que necesitan resistencia serie.
+_SEGMENT_PINS = frozenset("abcdefgdp")
 _SIGNAL_PALETTE = (
     "blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown",
 )
@@ -549,6 +561,12 @@ def _ordered_colored_wires(pairs, power_refs=frozenset()) -> list[dict[str, str]
     return wires
 
 
+def _hole_prefix(hole: str) -> str:
+    """Prefijo "bN/" de un hueco, o "" si vive en la primera placa."""
+    marker = hole.find("/")
+    return hole[: marker + 1] if marker > 0 else ""
+
+
 def _shift_hole(hole: str, columns: int, endpoint: str) -> str:
     match = _HOLE_RE.fullmatch(hole)
     if match is None:
@@ -559,7 +577,30 @@ def _shift_hole(hole: str, columns: int, endpoint: str) -> str:
             f"hueco derivado fuera de la protoboard para {endpoint!r}: "
             f"{column}{match.group(2)}"
         )
-    return f"{column}{match.group(2)}"
+    return f"{_hole_prefix(hole)}{column}{match.group(2)}"
+
+
+def _row_hole(hole: str, up: int, endpoint: str) -> str:
+    """Mismo hueco `up` filas fisicas arriba (d + 2 = f, cruzando el canal)."""
+    match = _HOLE_RE.fullmatch(hole)
+    if match is None:
+        raise BuildError(f"hueco de layout invalido {hole!r} para {endpoint!r}")
+    index = _LADDER_ROWS.index(match.group(2)) + up
+    if not 0 <= index < len(_LADDER_ROWS):
+        raise BuildError(
+            f"fila derivada fuera de la protoboard para {endpoint!r}: "
+            f"{match.group(1)}{_LADDER_ROWS[index] if 0 <= index < len(_LADDER_ROWS) else '?'}"
+        )
+    return f"{_hole_prefix(hole)}{match.group(1)}{_LADDER_ROWS[index]}"
+
+
+def _with_board(endpoint: str, board: int) -> str:
+    """Prefija con "bN/" un hueco o riel de una parte que vive en otra placa."""
+    if not board:
+        return endpoint
+    if _HOLE_RE.fullmatch(endpoint) or _RAIL_POWER_RE.fullmatch(endpoint) or _RAIL_GROUND_RE.fullmatch(endpoint):
+        return f"b{board}/{endpoint}"
+    return endpoint
 
 
 def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
@@ -654,6 +695,11 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
         if pin == "1":
             return at
         if pin == "2":
+            if placement.get("angle") == 0:
+                # Vertical (banco de la segunda placa): las patas quedan a
+                # +-20 de la y del cuerpo, o sea dos filas fisicas arriba
+                # (d -> f) con el canal central de por medio.
+                return _row_hole(at, 2, endpoint)
             return _shift_hole(at, 4, endpoint)
     elif ctype == "buzzer":
         # Geometria verificada en vivo: ancla "+" (angle 0) y "-" a +5.
@@ -737,6 +783,49 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
     raise BuildError(f"pin sin hueco conocido: {endpoint!r} (type {ctype!r})")
 
 
+def _series_resistor_errors(fixture) -> list[str]:
+    """LEDs y segmentos de display colgados directo del Uno o de 5V.
+
+    Sin resistencia serie el pin del micro entrega toda la corriente que el
+    LED pide: en el simulador el display de 7 segmentos estalla (y el conteo
+    sigue funcionando, asi que el oraculo no lo detecta) y en hardware real
+    el pin se quema. Solo se marcan las nets de dos extremos: si el otro
+    extremo es una resistencia la net esta bien, y si es una salida de un
+    integrado (595, 555) la limitacion es otra y no se opina.
+    """
+    type_by_ref = {}
+    for component in fixture.get("components") or []:
+        if isinstance(component, dict) and "ref" in component:
+            type_by_ref[component["ref"]] = component.get("type")
+    errors = []
+    for net in fixture.get("nets") or []:
+        if not isinstance(net, (list, tuple)) or len(net) != 2:
+            continue
+        for endpoint in net:
+            if not isinstance(endpoint, str) or "." not in endpoint:
+                continue
+            ref, pin = endpoint.split(".", 1)
+            ctype = type_by_ref.get(ref)
+            if not (
+                (ctype == "seven-segment" and pin in _SEGMENT_PINS)
+                or (ctype == "led" and pin == "anode")
+            ):
+                continue
+            other = net[0] if net[1] == endpoint else net[1]
+            source = str(other).split(".", 1)[0]
+            if (
+                source == "uno"
+                or other in _POWER_ENDPOINTS
+                or _RAIL_POWER_RE.fullmatch(str(other))
+                or _RAIL_GROUND_RE.fullmatch(str(other))
+            ):
+                errors.append(
+                    f"{endpoint} cuelga de {other} sin resistencia serie "
+                    "(el display se quema en el simulador)"
+                )
+    return errors
+
+
 def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     """Convierte una fixture en {"parts", "wires", "code"} para el puente.
 
@@ -744,6 +833,9 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     a medias), si un type colocado no tiene DID conocido, o si una net usa
     un pin cuya geometria de huecos se desconoce.
     """
+    problems = _series_resistor_errors(fixture)
+    if problems:
+        raise BuildError("; ".join(problems))
     try:
         layout = plan_layout(fixture)
     except LayoutError as exc:
@@ -779,6 +871,8 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             part = {"ref": ref, "did": did, "free": free}
             if angle is not None:
                 part["angle"] = angle
+            if placement.get("board"):
+                part["board"] = placement["board"]
             parts.append(part)
             continue
         part_pin = placement["pin"]
@@ -800,15 +894,16 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
                     f"{part_pin!r} (type {ctype!r})"
                 )
             part_pin = real_by_fixture[part_pin]
-        parts.append(
-            {
-                "ref": ref,
-                "did": did,
-                "at": placement["at"],
-                "pin": part_pin,
-                "angle": placement["angle"],
-            }
-        )
+        part = {
+            "ref": ref,
+            "did": did,
+            "at": _with_board(placement["at"], placement.get("board") or 0),
+            "pin": part_pin,
+            "angle": placement["angle"],
+        }
+        if placement.get("board"):
+            part["board"] = placement["board"]
+        parts.append(part)
 
     free_refs = {
         ref for ref, placement in placements.items() if "free" in placement
@@ -817,12 +912,13 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     for net in fixture.get("nets") or []:
         if not isinstance(net, (list, tuple)) or len(net) < 2:
             raise BuildError(f"net invalida (se esperaban 2+ extremos): {net!r}")
-        translated_nets.append(
-            [
-                _translate_endpoint(endpoint, placements, type_by_ref)
-                for endpoint in net
-            ]
-        )
+        translated = []
+        for endpoint in net:
+            value = _translate_endpoint(endpoint, placements, type_by_ref)
+            ref = endpoint.split(".", 1)[0] if isinstance(endpoint, str) else ""
+            placement = placements.get(ref) or {}
+            translated.append(_with_board(value, placement.get("board") or 0))
+        translated_nets.append(translated)
     wiring = fixture.get("wiring")
     if wiring not in (None, "rails"):
         raise BuildError(
@@ -830,6 +926,10 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
         )
     rail_kinds = _rail_kinds(translated_nets) if wiring == "rails" else set()
     rail_taps = {kind: [] for kind in rail_kinds}
+    # Una parte de la segunda placa no puede bajar al riel de la primera:
+    # el tap caeria en otra placa. Va directa al pin del Uno, que es el
+    # unico nodo de alimentacion comun a las dos.
+    rail_direct = {kind: [] for kind in rail_kinds}
     rail_uno = {}
     pairs = []
     for translated in translated_nets:
@@ -838,23 +938,36 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             for endpoint in translated:
                 if endpoint.startswith("uno."):
                     rail_uno[kind] = endpoint
+                elif _BOARD_PREFIX.match(endpoint):
+                    rail_direct[kind].append(endpoint)
                 else:
                     rail_taps[kind].append(endpoint)
             continue
         pairs.extend(_star_pairs(translated, free_refs))
     for kind in sorted(rail_kinds):
-        pairs.extend(
-            _rail_wires(rail_taps[kind], kind, rail_uno.get(kind), placements)
-        )
+        if rail_taps[kind]:
+            pairs.extend(
+                _rail_wires(rail_taps[kind], kind, rail_uno.get(kind), placements)
+            )
+        if rail_direct[kind]:
+            feed = rail_uno.get(kind) or (
+                "uno.5V" if kind == "power" else "uno.GND1"
+            )
+            for endpoint in sorted(set(rail_direct[kind])):
+                pairs.append((feed, endpoint))
 
     power_refs = frozenset(
         ref for ref, ctype in type_by_ref.items() if ctype == "battery-9v"
     )
-    return {
+    call = {
         "parts": parts,
         "wires": _ordered_colored_wires(pairs, power_refs),
         "code": code,
     }
+    boards = layout.get("boards")
+    if boards:
+        call["boards"] = boards
+    return call
 
 
 def build_circuit(fixture, code, call_tool) -> dict:
