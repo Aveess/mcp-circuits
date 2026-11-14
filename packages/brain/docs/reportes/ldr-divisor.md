@@ -2,68 +2,78 @@
 - Circuito: https://www.tinkercad.com/things/lo9VkvBdWmT-fase3-ldr-divisor-con-led/editel
 
 ## Verificación
-- Fidelidad: 83.3%
-- Componentes: 100.0% / Conectividad: 66.7%
+- Fidelidad: 100.0%
+- Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 40,
+  "total_lines": 55,
   "lines": [
-    "READY",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "TEST:LED=OFF",
-    "TEST:LUX=6",
-    "T"
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6",
+    "TEST:LED=ON",
+    "TEST:LUZ=6"
   ],
-  "raw_output": "READY\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nTEST:LED=OFF\nTEST:LUX=6\nT",
-  "message": "Retrieved 40 lines from Serial Monitor."
+  "raw_output": "TEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6\nTEST:LED=ON\nTEST:LUZ=6",
+  "message": "Retrieved 50 lines from Serial Monitor."
 }
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 2 | 4.2 | 8.3 |
-| tinkercad_inspect_circuit | 2 | 0.1 | 0.1 |
-| tinkercad_list_circuits | 1 | 9.8 | 9.8 |
-| tinkercad_open_circuit | 3 | 10.0 | 10.6 |
-| tinkercad_read_serial_monitor | 1 | 1.5 | 1.5 |
-| tinkercad_set_code | 1 | 15.9 | 15.9 |
-| tinkercad_start_simulation | 1 | 5.7 | 5.7 |
-| tinkercad_stop_simulation | 1 | 1.6 | 1.6 |
+| tinkercad_build_circuit_model | 1 | 4.3 | 4.3 |
+| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
+| tinkercad_list_circuits | 1 | 9.5 | 9.5 |
+| tinkercad_open_circuit | 2 | 11.0 | 11.3 |
+| tinkercad_read_serial_monitor | 1 | 1.7 | 1.7 |
+| tinkercad_set_code | 1 | 15.8 | 15.8 |
+| tinkercad_start_simulation | 1 | 5.8 | 5.8 |
+| tinkercad_stop_simulation | 1 | 1.7 | 1.7 |
 
 ## Fallos
 Sin fallos.

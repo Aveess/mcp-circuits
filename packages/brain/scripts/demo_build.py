@@ -60,6 +60,7 @@ _SKETCH_BY_FIXTURE = {
     "parking-servo-ultrasonico-rgb": "parking_servo_sketch",
     "buzzer-activo": "buzzer_button_sketch",
     "ldr-divisor": "ldr_led_sketch",
+    "lcd-contador": "lcd_counter_sketch",
 }
 
 

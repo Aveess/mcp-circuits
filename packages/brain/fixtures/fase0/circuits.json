@@ -709,5 +709,72 @@
       "pinMode",
       "digitalWrite"
     ]
+  },
+  {
+    "id": "lcd-contador",
+    "title": "Pantalla LCD 16x2 en modo 4 bits con contador de segundos",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1"
+      ],
+      [
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "uno.GND1"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.D12",
+        "lcd1.RS"
+      ],
+      [
+        "uno.D11",
+        "lcd1.E"
+      ],
+      [
+        "uno.D5",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.D4",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.D3",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.D2",
+        "lcd1.DB7"
+      ]
+    ],
+    "code_features": [
+      "LiquidCrystal",
+      "begin",
+      "print",
+      "setCursor",
+      "Serial"
+    ]
   }
 ]
