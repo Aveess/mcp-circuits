@@ -21,6 +21,7 @@ píxel del LED.
 | 11 | LDR divisor, luz nocturna | lo9VkvBdWmT | 100% | `TEST:LUZ=6` + `TEST:LED=ON` |
 | 12 | Barrera de parking (HC-SR04 + servo + RGB) | 2xxjwQBZuOH | 100% | `TEST:DIST=112` + `TEST:ESTADO=ABIERTO` + `TEST:SERVO=90` |
 | 13 | LCD 16x2 en modo 4 bits (contador) | cpySiVSE9vr | 100% | `TEST:LCD=LISTO` + `TEST:SEG=N` (mismo valor que muestra la pantalla) |
+| 14 | Termómetro TMP36 en LCD 16x2 | 9hZJgbsYOC5 | 100% | `TEST:TEMP=24.78` (mismo valor que muestra la pantalla) |
 
 ## Qué agrega cada nivel
 
@@ -33,10 +34,12 @@ píxel del LED.
 - **Nivel 4 (10-12):** componentes con geometría no trivial (piezo de 5
   columnas, fotorresistencia de 1 columna) y un circuito de integración con
   tres subsistemas: sensor de distancia, actuador (servo) e indicador (RGB).
-- **Nivel 5 (13):** bus de 4 bits y salida de texto. El LCD 16x2 tiene 16
-  terminales en una sola fila y su cuerpo tapa las filas f..c de la placa, así
-  que exige reglas propias: el display se coloca primero (columna 1, fila j) y
-  el resto de componentes que caerían debajo se rechaza en vez de quedar oculto.
+- **Nivel 5 (13-14):** bus de 4 bits y salida de texto. El LCD 16x2 va como
+  módulo fuera de la placa (`free`, arriba de la placa): 16 terminales en una
+  fila y un cuerpo de ~25 columnas que taparía las filas f..c, así que se
+  monta con cables en vez de ensartarlo en la protoboard. Eso deja la placa
+  entera para el sensor y permite combinaciones sensor + display (el 14 mide
+  temperatura con un TMP36 y la muestra).
 
 ## Latencias
 

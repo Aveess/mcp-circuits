@@ -1,28 +1,44 @@
 """Tester independiente ronda 13: LCD 16x2 en modo 4 bits (nivel 5).
 
-Contratos juzgados sin repetir los tests de produccion:
+Contrato NUEVO de la fase 21 (verificado en vivo). El LCD 16x2 ya NO se
+monta en la protoboard: su cuerpo mide ~25 columnas y tapaba las filas
+f..c, asi que con el display puesto no se podia colocar junto a un sensor,
+un boton ni un divisor. Ahora se emite SIEMPRE como modulo libre arriba de
+la placa -- ``{"free": {"x": 870, "y": -230, "angle": 0}}``, el segundo en
+y=-430 -- sin ``pin`` ni ``at``, y sus cables van por terminal real
+(``lcd1.RS``, ``lcd1.DB4``...) en vez de por huecos. Como consecuencia:
+no reserva columnas (el primer bloque de placa arranca en la columna 1) y
+no hay guarda de oclusion: piezo, LDR, ultrasonic, pushbutton, 3-pin y
+L293D se colocan normalmente junto al LCD.
 
-- Geometria: los 16 pines del LCD caen en UNA fila, el hueco traducido por
-  el builder coincide con el que impone el placement del layout (columna =
-  ancla + offset) y ningun par de pines comparte hueco. LED- tiene que
-  terminar en ancla+15 y la fila del ancla no puede cambiar.
-- Oclusion: con un LCD en la placa, todo tipo montado en las filas que el
-  cuerpo tapa (f/e/d/c) va a ``unplaced`` entero, nunca a medias; un LDR
-  ocluido arrastra su resistencia divisora. Un segundo LCD tampoco entra.
-  Los tipos de filas visibles (LED, resistencia, LED RGB, diodo) siguen
-  entrando despues del bisel. Sin LCD el primer bloque sigue en columna 1.
-- Builder: ancla distinta de "GND", pin inventado (DB9/Gnd) o type sin DID
-  tienen que explotar con BuildError, y el type sin DID antes de invocar
-  al puente.
-- Refs: para el MISMO inspect, ``derive_nets`` y ``normalize_circuit``
-  numeran el LCD igual ("lcd1"); los alias humanos de los cables reales
-  (Ground/Power/Contrast/...) no cambian las nets.
-- Punta a punta sin Tinkercad: inspect armado a mano con los placements del
-  layout y los offsets del builder -> ``compare_connectivity == 1.0``.
-- Sketch: la traza TEST:SEG viene de la MISMA variable que se imprime en
-  el display; pines, periodo y titulo se validan en los bordes.
-- Independencia de orden (ronda 12): mismo circuito fisico declarado en
-  otro orden da el mismo score, incluso si eso cruza los refs.
+Tests reescritos en esta pasada (mismo poder de deteccion, contrato nuevo):
+
+- geometria de 16 huecos en ``1j`` -> LCD libre con coordenadas exactas y
+  cero consumo de columnas (comparado contra el mismo circuito sin LCD);
+- part anclado en hueco con DID -> part ``free`` sin ``at``/``pin``;
+- reserva de columnas y bisel -> el primer bloque de placa cae en columna 1;
+- tipos ocluidos a ``unplaced`` y LDR ocluido arrastrando el divisor ->
+  LCD + pushbutton / ultrasonic / LDR-divisor se colocan TODOS, sin solape
+  de columnas ni huecos compartidos;
+- segundo LCD sin colocar -> segundo LCD apilado en y=-430, ninguno
+  ``unplaced``;
+- "el LCD se coloca primero sin importar donde se declare" -> el LCD en
+  cualquier posicion del array da el MISMO layout;
+- "convive con partes libres" -> LCD, motor y bateria son libres y ninguno
+  pisa la posicion de otro;
+- "model call solo usa huecos" -> el LCD no tiene ``pin``/``at``, los
+  huecos de las demas partes son validos (1-30, a-j) y los cables al LCD
+  son terminales reales, nunca huecos;
+- ancla distinta de "GND" -> solo aplica al camino de compatibilidad con
+  ``at`` (la rama sigue en builder.py); en el camino libre un pin invalido
+  ("DB9") sigue siendo BuildError.
+
+Se mantienen de la ronda 13: fixture lcd-contador y component map, alias de
+pines (Ground/Power/Contrast/Register Select/Read/Write/Enable/LED
+Anode/LED Cathode y gnd/vcc), refs de ``derive_nets`` == ``normalize_circuit``,
+``compare_connectivity == 1.0`` del fixture armando el inspect a mano,
+BuildError de type sin DID antes de tocar el puente, validaciones del sketch
+``lcd_counter`` e independencia de orden de declaracion.
 """
 import copy
 import json
@@ -104,6 +120,27 @@ def _holes(fixture, ref, pins=None):
     }
 
 
+def _board_columns(fixture, ref):
+    """Columnas de placa que ocupa ``ref`` (sus pines cableados)."""
+    return {_col(hole) for hole in _holes(fixture, ref).values()}
+
+
+def _assert_board_side_by_side(fixture, refs):
+    """Ningun hueco ni columna de placa usado por dos partes distintas."""
+    used = {}
+    for ref in refs:
+        for pin, hole in _holes(fixture, ref).items():
+            assert hole not in used, (ref, pin, hole, used.get(hole))
+            used[hole] = (ref, pin)
+    for ref in refs:
+        for other in refs:
+            if ref >= other:
+                continue
+            assert _board_columns(fixture, ref).isdisjoint(
+                _board_columns(fixture, other)
+            ), (ref, other)
+
+
 # ------------------------------------------------------------- fixture
 
 def test_r13_fixture_lcd_contador_carga_con_su_lcd_y_su_resistencia():
@@ -140,36 +177,44 @@ def test_r13_component_map_y_did_del_lcd():
     assert DID_BY_TYPE["lcd-16x2"] == 113878
 
 
-# ---------------------------------------------------- geometria del LCD
+# ------------------------------------------------- LCD como modulo libre
 
-def test_r13_geometria_los_16_pines_caen_en_una_fila_sin_repetir_hueco():
-    fixture = dict(_fixture("lcd-contador"), nets=[])
+LCD_FREE_ABOVE = {"free": {"x": 870, "y": -230, "angle": 0}}
+LCD_FREE_STACKED = {"free": {"x": 870, "y": -430, "angle": 0}}
+
+
+def test_r13_el_lcd_es_un_modulo_libre_y_no_consume_columnas_de_placa():
+    fixture = _fixture("lcd-contador")
+    # El mismo circuito sin el display: no hay nada mas que cambie.
+    without_lcd = {
+        "components": [c for c in fixture["components"] if c["ref"] != "lcd1"],
+        "nets": [],
+    }
+
     layout = plan_layout(fixture)
     placement = layout["placements"]["lcd1"]
-    assert placement == {"at": "1j", "pin": "GND", "angle": 0}
 
-    anchor_column = _col(placement["at"])
-    anchor_row = _row(placement["at"])
-    holes = _holes(
-        dict(fixture, nets=[["uno.5V", f"lcd1.{pin}"] for pin in LCD_PINS]),
-        "lcd1",
-        pins=list(LCD_PINS),
-    )
+    # Coordenadas exactas del contrato y ni `at` ni `pin`: el display no se
+    # monta en la placa, flota como modulo arriba de ella.
+    assert placement == LCD_FREE_ABOVE
+    assert set(placement) == {"free"}
+    assert placement["free"]["angle"] == 0
 
-    assert set(holes) == set(LCD_PINS)
-    for index, pin in enumerate(LCD_PINS):
-        # columna = ancla + offset, misma fila que el ancla
-        assert holes[pin] == f"{anchor_column + index}{anchor_row}", pin
-        assert _row(holes[pin]) == anchor_row
-        assert 1 <= _col(holes[pin]) <= 30
-    # Ningun par de pines comparte hueco.
-    assert len(set(holes.values())) == len(LCD_PINS)
-    # Bordes explicitos del bloque.
-    assert holes["GND"] == "1j"
-    assert holes["VDD"] == "2j"
-    assert holes["DB7"] == "14j"
-    assert holes["LED+"] == "15j"
-    assert holes["LED-"] == f"{anchor_column + 15}{anchor_row}" == "16j"
+    # Cero consumo de columnas: los placements de placa son identicos a los
+    # del circuito sin LCD.
+    board_only = {r: p for r, p in layout["placements"].items() if r != "lcd1"}
+    assert board_only == plan_layout(without_lcd)["placements"]
+    assert board_only["r1"] == {"at": "1g", "pin": "1", "angle": 90}
+    assert _board_columns(fixture, "r1") == {1, 5}
+
+    # Los 16 terminales se traducen al terminal real del display, nunca a
+    # un hueco de la protoboard.
+    type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+    for pin in LCD_PINS:
+        assert (
+            _translate_endpoint(f"lcd1.{pin}", layout["placements"], type_by_ref)
+            == f"lcd1.{pin}"
+        )
 
 
 def test_r13_parts_del_lcd_usan_el_ancla_y_el_did_reales():
@@ -179,79 +224,100 @@ def test_r13_parts_del_lcd_usan_el_ancla_y_el_did_reales():
     assert parts["lcd1"] == {
         "ref": "lcd1",
         "did": 113878,
-        "at": "1j",
-        "pin": "GND",
-        "angle": 0,
+        "free": {"x": 870, "y": -230, "angle": 0},
     }
-    # Los huecos de todos los pines cableados de la fixture real.
-    assert _holes(_fixture("lcd-contador"), "lcd1") == {
-        "DB4": "11j", "DB5": "12j", "DB6": "13j", "DB7": "14j",
-        "E": "6j", "GND": "1j", "LED+": "15j", "LED-": "16j",
-        "RS": "4j", "RW": "5j", "VDD": "2j", "VO": "3j",
+    # Ni hueco ni ancla: el puente lo coloca por coordenadas.
+    assert "at" not in parts["lcd1"]
+    assert "pin" not in parts["lcd1"]
+    # La resistencia si va en la placa, y su bloque arranca en la columna 1.
+    assert parts["r1"] == {
+        "ref": "r1",
+        "did": 53184,
+        "at": "1g",
+        "pin": "1",
+        "angle": 90,
     }
+    # La traduccion de los pines cableados del LCD es identidad (terminal).
+    type_by_ref = {c["ref"]: c["type"] for c in _fixture("lcd-contador")["components"]}
+    placements = plan_layout(_fixture("lcd-contador"))["placements"]
+    wired = {
+        endpoint.split(".", 1)[1]
+        for net in _fixture("lcd-contador")["nets"]
+        for endpoint in net
+        if endpoint.startswith("lcd1.")
+    }
+    for pin in wired:
+        assert _translate_endpoint(f"lcd1.{pin}", placements, type_by_ref) == (
+            f"lcd1.{pin}"
+        )
 
 
 # ------------------------------------------------------------- layout
 
-def test_r13_layout_coloca_el_lcd_primero_y_el_bloque_despues_del_bisel():
-    result = plan_layout(_fixture("lcd-contador"))
+def test_r13_el_primer_bloque_de_placa_arranca_en_la_columna_1():
+    fixture = _fixture("lcd-contador")
+    result = plan_layout(fixture)
 
     assert result["unplaced"] == []
-    assert result["placements"]["lcd1"] == {"at": "1j", "pin": "GND", "angle": 0}
-    # 16 columnas de pines + bisel: la resistencia no puede caer antes de 19.
-    assert _col(result["placements"]["r1"]["at"]) == 19
+    assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+    # Ya no hay reserva de 16 columnas + bisel: la resistencia usa 1g.
+    assert result["placements"]["r1"] == {"at": "1g", "pin": "1", "angle": 90}
+    resistor_holes = _holes(fixture, "r1", pins=["1", "2"])
+    assert resistor_holes == {"1": "1g", "2": "5g"}
+    # Y la placa sigue cabiendo en el rango real de huecos.
+    for hole in resistor_holes.values():
+        assert 1 <= _col(hole) <= 30
+        assert _row(hole) in "abcdefghij"
 
-    lcd_columns = set(range(1, 19))
-    resistor_holes = _holes(_fixture("lcd-contador"), "r1", pins=["1", "2"])
-    resistor_columns = {_col(hole) for hole in resistor_holes.values()}
-    assert lcd_columns.isdisjoint(resistor_columns)
 
-
-# Tipos que montan en las filas que tapa el cuerpo del LCD (f/e/d/c).
-_OCCLUDED_CASES = {
-    "buzzer": ([{"ref": "b1", "type": "buzzer"}], [["uno.D8", "b1.positive"]]),
-    "photoresistor": (
-        [{"ref": "ldr1", "type": "photoresistor"}], [["uno.A0", "ldr1.2"]],
+# Lo que antes quedaba ocluido por el cuerpo del display y ahora convive
+# con el: boton, sensor ultrasonico y LDR con su divisor.
+_LCD_COMPANION_CASES = {
+    "pushbutton": (
+        [{"ref": "btn1", "type": "pushbutton"}],
+        [["uno.D2", "btn1.1"]],
     ),
     "ultrasonic-hcsr04": (
         [{"ref": "us1", "type": "ultrasonic-hcsr04"}],
         [["uno.D7", "us1.trig"], ["uno.D6", "us1.echo"]],
     ),
-    "pushbutton": ([{"ref": "btn1", "type": "pushbutton"}], [["uno.D2", "btn1.1"]]),
-    "servo": ([{"ref": "srv1", "type": "servo"}], [["uno.D9", "srv1.signal"]]),
-    "potentiometer": (
-        [{"ref": "pot1", "type": "potentiometer"}], [["uno.A0", "pot1.2"]],
+    "ldr-divisor": (
+        [{"ref": "ldr1", "type": "photoresistor"}, {"ref": "rdiv", "type": "resistor"}],
+        [["ldr1.2", "uno.A0", "rdiv.1"], ["uno.5V", "ldr1.1"]],
     ),
-    "tmp36": ([{"ref": "tmp1", "type": "tmp36"}], [["uno.A0", "tmp1.vout"]]),
-    "transistor-npn": (
-        [{"ref": "q1", "type": "transistor-npn"}], [["uno.D9", "q1.base"]],
-    ),
-    "l293d": ([{"ref": "drv1", "type": "l293d"}], [["uno.D9", "drv1.input1"]]),
 }
 
 
-@pytest.mark.parametrize("ctype", sorted(_OCCLUDED_CASES))
-def test_r13_con_lcd_los_tipos_ocluidos_van_a_unplaced_enteros(ctype):
-    components, nets = _OCCLUDED_CASES[ctype]
+@pytest.mark.parametrize("case", sorted(_LCD_COMPANION_CASES))
+def test_r13_con_lcd_los_vecinos_de_placa_se_colocan_todos(case):
+    companions, nets = _LCD_COMPANION_CASES[case]
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
             {"ref": "lcd1", "type": "lcd-16x2"},
         ]
-        + components,
+        + companions,
         "nets": nets,
     }
     result = plan_layout(fixture)
 
-    # Solo se coloca el LCD: el tipo ocluido no queda a medias.
-    assert set(result["placements"]) == {"lcd1"}
-    assert result["unplaced"] == [components[0]["ref"]]
-    # Y el builder se niega a construir el circuito incompleto.
-    with pytest.raises(BuildError, match=components[0]["ref"]):
-        fixture_to_model_call(fixture)
+    # Nada queda sin colocar y el LCD sigue siendo modulo libre.
+    assert result["unplaced"] == []
+    assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+    assert set(result["placements"]) == {"lcd1"} | {
+        c["ref"] for c in companions
+    }
+    for component in companions:
+        assert "at" in result["placements"][component["ref"]], component["ref"]
+
+    # Sin solape: ni huecos ni columnas compartidas entre las partes de placa.
+    _assert_board_side_by_side(fixture, [c["ref"] for c in companions])
+
+    # Y el circuito completo se puede construir.
+    assert fixture_to_model_call(fixture)["parts"]
 
 
-def test_r13_con_lcd_el_ldr_ocluido_arrastra_su_divisor():
+def test_r13_con_lcd_el_ldr_y_su_divisor_se_colocan_juntos():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -263,13 +329,27 @@ def test_r13_con_lcd_el_ldr_ocluido_arrastra_su_divisor():
     }
     result = plan_layout(fixture)
 
-    assert set(result["placements"]) == {"lcd1"}
-    assert result["unplaced"] == ["ldr1", "rdiv"]
-    with pytest.raises(BuildError, match="ldr1"):
-        fixture_to_model_call(fixture)
+    assert result["unplaced"] == []
+    assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+
+    ldr_holes = _holes(fixture, "ldr1", pins=["1", "2"])
+    divider_holes = _holes(fixture, "rdiv", pins=["1", "2"])
+    # El sensor sigue entrando en la placa: sus dos terminales caen en la
+    # misma fila, en columnas consecutivas.
+    assert _row(ldr_holes["1"]) == _row(ldr_holes["2"])
+    assert _col(ldr_holes["2"]) == _col(ldr_holes["1"]) + 1
+    # Y el divisor viaja con el: arranca despues del sensor, en su fila, y
+    # el bloque entero no se sale del ancho que le toca.
+    assert _col(divider_holes["1"]) > _col(ldr_holes["2"])
+    assert _row(divider_holes["1"]) == _row(ldr_holes["1"])
+    assert _col(divider_holes["1"]) - _col(ldr_holes["1"]) + 3 <= 8
+    assert _col(divider_holes["2"]) <= 30
+
+    _assert_board_side_by_side(fixture, ["ldr1", "rdiv"])
+    assert fixture_to_model_call(fixture)["parts"]
 
 
-def test_r13_un_segundo_lcd_queda_sin_colocar():
+def test_r13_dos_lcd_se_apilan_arriba_y_ninguno_queda_sin_colocar():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -280,10 +360,23 @@ def test_r13_un_segundo_lcd_queda_sin_colocar():
     }
     result = plan_layout(fixture)
 
-    assert result["placements"] == {"lcd1": {"at": "1j", "pin": "GND", "angle": 0}}
-    assert result["unplaced"] == ["lcd2"]
-    with pytest.raises(BuildError, match="lcd2"):
-        fixture_to_model_call(fixture)
+    assert result["unplaced"] == []
+    assert result["placements"] == {
+        "lcd1": LCD_FREE_ABOVE,
+        "lcd2": LCD_FREE_STACKED,
+    }
+    # Mismo x, escalonado en y, mismo angulo: los cuerpos no se pisan.
+    assert result["placements"]["lcd2"]["free"]["x"] == 870
+    assert (
+        result["placements"]["lcd1"]["free"]["y"]
+        - result["placements"]["lcd2"]["free"]["y"]
+        == 200
+    )
+
+    parts = {p["ref"]: p for p in fixture_to_model_call(fixture)["parts"]}
+    for ref in ("lcd1", "lcd2"):
+        assert "at" not in parts[ref] and "pin" not in parts[ref]
+        assert parts[ref]["free"] == result["placements"][ref]["free"]
 
 
 def test_r13_con_lcd_led_y_resistencia_todo_se_coloca_sin_compartir_hueco():
@@ -305,19 +398,24 @@ def test_r13_con_lcd_led_y_resistencia_todo_se_coloca_sin_compartir_hueco():
 
     assert result["unplaced"] == []
     assert set(result["placements"]) == {"lcd1", "led1", "r1"}
-    assert _col(result["placements"]["r1"]["at"]) == 19
-    assert result["placements"]["led1"]["at"] == "23i"
+    assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+    # Bloque LED+resistencia en las primeras columnas, sin bisel de por medio.
+    assert result["placements"]["r1"] == {"at": "1g", "pin": "1", "angle": 90}
+    assert result["placements"]["led1"] == {
+        "at": "5i", "pin": "anode", "angle": 180,
+    }
     assert fixture_to_model_call(fixture)["parts"]
 
-    # Ningun hueco usado por dos partes distintas.
+    # Ningun hueco usado por dos partes de placa distintas (el LCD no usa
+    # huecos: sus cables son terminales).
     used = {}
-    for ref in ("lcd1", "led1", "r1"):
+    for ref in ("led1", "r1"):
         for pin, hole in _holes(fixture, ref).items():
             assert hole not in used, (ref, pin, hole, used.get(hole))
             used[hole] = (ref, pin)
 
 
-def test_r13_el_lcd_se_coloca_primero_sin_importar_donde_se_declare():
+def test_r13_el_lcd_da_igual_en_cualquier_posicion_del_array():
     lcd = {"ref": "lcd1", "type": "lcd-16x2"}
     led = {"ref": "led1", "type": "led"}
     resistor = {"ref": "r1", "type": "resistor"}
@@ -333,15 +431,14 @@ def test_r13_el_lcd_se_coloca_primero_sin_importar_donde_se_declare():
 
     for result in results:
         assert result["unplaced"] == []
-        assert result["placements"]["lcd1"] == {
-            "at": "1j", "pin": "GND", "angle": 0,
-        }
-        assert result["placements"]["r1"]["at"] == "19g"
-        assert result["placements"]["led1"]["at"] == "23i"
+        assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+        assert result["placements"]["r1"]["at"] == "1g"
+        assert result["placements"]["led1"]["at"] == "5i"
+    # Literalmente el mismo layout, sin importar el indice en el array.
     assert all(result == results[0] for result in results)
 
 
-def test_r13_lcd_convive_con_las_partes_libres_del_layout():
+def test_r13_el_lcd_convive_con_las_partes_libres_sin_pisar_su_posicion():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -359,34 +456,53 @@ def test_r13_lcd_convive_con_las_partes_libres_del_layout():
     layout = plan_layout(fixture)
 
     assert layout["unplaced"] == []
-    assert layout["placements"]["lcd1"] == {"at": "1j", "pin": "GND", "angle": 0}
+    # Los tres son modulos libres, cada uno en su posicion.
+    free_spots = [p["free"] for p in layout["placements"].values()]
+    assert layout["placements"]["lcd1"] == LCD_FREE_ABOVE
     assert "free" in layout["placements"]["motor1"]
     assert "free" in layout["placements"]["bat1"]
-    # El LCD no puede terminar con placement libre ni cambiar de ancla.
+    assert len(free_spots) == 3
+    assert len({(spot["x"], spot["y"]) for spot in free_spots}) == 3
+
     parts = {p["ref"]: p for p in fixture_to_model_call(fixture)["parts"]}
-    assert parts["lcd1"] == {
-        "ref": "lcd1", "did": 113878, "at": "1j", "pin": "GND", "angle": 0,
-    }
+    for ref in ("lcd1", "motor1", "bat1"):
+        assert "at" not in parts[ref] and "pin" not in parts[ref]
+    assert parts["lcd1"]["free"] == LCD_FREE_ABOVE["free"]
 
 
-def test_r13_model_call_del_lcd_contador_solo_usa_huecos_y_pines_del_uno():
+def test_r13_model_call_del_lcd_es_por_terminal_y_los_huecos_son_validos():
     call = fixture_to_model_call(_fixture("lcd-contador"))
+    parts = {p["ref"]: p for p in call["parts"]}
+
+    # El LCD no trae hueco ni ancla: se coloca por coordenadas.
+    assert "at" not in parts["lcd1"]
+    assert "pin" not in parts["lcd1"]
+    assert parts["lcd1"]["free"] == {"x": 870, "y": -230, "angle": 0}
+
     holes = set()
+    lcd_terminals = set()
     for wire in call["wires"]:
         assert wire["from"] != wire["to"]
         for text in (wire["from"], wire["to"]):
             if text.startswith("uno."):
                 continue
-            match = re.fullmatch(r"(\d+)([a-j])", text)
+            if text.startswith("lcd1."):
+                lcd_terminals.add(text.split(".", 1)[1])
+                continue
+            # Lo que no es el Uno ni el LCD tiene que ser un hueco real.
+            match = re.fullmatch(r"([0-9]+)([a-j])", text)
             assert match, text
-            assert 1 <= int(match.group(1)) <= 30
+            assert 1 <= int(match.group(1)) <= 30, text
             holes.add(text)
 
-    # 12 pines cableados del LCD + las dos patas de la resistencia.
-    assert holes == (
-        {f"{column}j" for column in (1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16)}
-        | {"19g", "23g"}
-    )
+    # Solo las dos patas de la resistencia tocan la protoboard.
+    assert holes == {"1g", "5g"}
+    # Y el LCD se cablea por sus terminales reales, nunca por huecos.
+    assert lcd_terminals == {
+        "GND", "VDD", "VO", "RS", "RW", "E",
+        "DB4", "DB5", "DB6", "DB7", "LED+", "LED-",
+    }
+    assert lcd_terminals <= set(LCD_PINS)
 
 
 def test_r13_sin_lcd_el_primer_bloque_sigue_en_la_columna_1():

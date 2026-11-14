@@ -164,3 +164,19 @@ Hechos medidos en vivo:
    `LED Anode`, `LED Cathode`) distintos de los de `inspect_circuit`
    (`GND`, `VDD`, `VO`, `RS`, `RW`, `E`, `LED+`, `LED-`): hacen falta alias
    por tipo o la conectividad se cae a 44% sin que el cableado este mal.
+
+## Fase 21: el LCD pasa a modulo libre (2026-11-13)
+
+El LCD ensartado en la protoboard tapaba las filas f..c en ~25 columnas: no se
+podia combinar con sensores. Medido en vivo que `free` funciona (el LCD queda
+fuera de la placa, con cables de terminal a terminal), se cambio el contrato:
+
+- El LCD se emite como `{"free": {"x": 870, "y": -230, "angle": 0}}` (arriba
+  de la placa; un segundo LCD se apila en y=-430).
+- Desaparecen la reserva de columnas y la guarda de oclusion: piezo, LDR,
+  ultrasonico, boton, 3 pines y L293D vuelven a colocarse junto al display.
+- El builder emite el part sin `pin`/`at` y rutea los cables del LCD por
+  terminal real (`lcd1.RS`, `lcd1.DB4`...). La rama con `at` queda solo por
+  compatibilidad.
+- Resultado: `lcd-contador` y `lcd-temperatura` (TMP36 + display, `9hZJgbsYOC5`)
+  al 100%, con el display mostrando exactamente el valor del oraculo serial.

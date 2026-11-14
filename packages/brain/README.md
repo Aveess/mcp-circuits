@@ -44,10 +44,11 @@ puente en producción.
 
 ## Circuitos ya construidos y verificados
 
-Ver `docs/benchmark.md` (13 circuitos en cinco niveles, todos al 100% de
+Ver `docs/benchmark.md` (14 circuitos en cinco niveles, todos al 100% de
 fidelidad: blink, semáforo, botón, servo, TMP36, ultrasónico, RGB, motor con
 transistor, motor con L293D y batería, buzzer con botón, LDR en luz nocturna,
-una barrera de parking con sensor + servo + RGB y un LCD 16x2 en modo 4 bits)
+una barrera de parking con sensor + servo + RGB, un LCD 16x2 en modo 4 bits y un
+termómetro TMP36 que muestra la lectura en ese LCD)
 y los reportes individuales en `docs/reportes/`.
 
 ## Puesta en marcha
