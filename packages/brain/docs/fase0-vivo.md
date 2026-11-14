@@ -198,9 +198,12 @@ Dos defectos visuales que la conectividad al 100% no veia:
    puente rutea todos esos cables por carriles. Las nets de 2 extremos se
    dejan tal cual.
 2. Con dos cuerpos grandes en la misma placa, el disco del piezo tapaba el
-   transductor derecho del HC-SR04. Regla: si el piezo esta presente, el
-   sensor arranca en la columna 10 y el piezo conserva el extremo derecho
-   (24e).
+   transductor derecho del HC-SR04. Regla de entonces: si el piezo esta
+   presente, el sensor arranca en la columna 10 y el piezo conserva el
+   extremo derecho (24e). **Correccion (fase 37):** esa regla se retiro.
+   Con el sensor en 10 su cuerpo tapa las filas altas sobre las columnas
+   3..20 y ahi caia la resistencia del LCD. Ahora el que cede es el piezo,
+   que se va libre. Detalle en la fase 37.
 
 ## Fase 23: display 7 segmentos (2026-11-14)
 
@@ -743,11 +746,64 @@ se midieron antes de escribirlas.
   borde superior del módulo, salen por la izquierda del cuerpo y bajan sin
   pasar por detrás del display. Suite del cerebro 1786 verdes; puente 252.
 
-**Deuda que sigue abierta (medida, no diagnosticada):** en
+**Deuda que sigue abierta al cerrar la fase (resuelta en la 37):** en
 `lcd-distancia` un cable turquesa termina detrás del cuerpo del HC-SR04.
 Se comprobó que **no** lo causa el escape: reconstruir el circuito con
 `FREE_ESCAPE = {}` deja esa línea idéntica (misma captura). El cuerpo del
-sensor está sobre las filas altas y el cable llega desde arriba; hay que
-instrumentar los puntos de ruta por cable para saber a qué hueco va y
-decidir si el sensor se coloca con las terminales hacia el lado del cable
-o si el ruteo tiene que rodear su cuerpo. Es una fase propia.
+sensor está sobre las filas altas y el cable llega desde arriba. Al
+instrumentar los puntos de ruta por cable se vio que la línea sale del
+hueco `5g` (pin 2 de la resistencia del LCD), que queda dentro del cuerpo.
+La fase 37 lo cierra moviendo el cuerpo, no el cable.
+
+## Fase 37: el piezo cede la placa (2026-11-14)
+
+Cierra la deuda de la fase 36. El diagnóstico salió de los puntos de ruta
+reales, no de mirar la captura: el cable que "terminaba" en el sensor era
+`5g -> lcd1.LED+`, y `5g` es el pin 2 de la resistencia de backlight del
+LCD, que cae debajo del cuerpo.
+
+**Geometría medida** (captura + calibración con los rieles, escala ≈0,74
+px/unidad): el cuerpo del HC-SR04 se dibuja unos 17 huecos de ancho
+alrededor de sus cuatro pines, 7 columnas a la izquierda de `vcc` y 10 a
+la derecha, y tapa las filas altas `j..f`. Con el sensor en `10d` esa
+sombra es `3..20`, justo donde cae `5g`.
+
+**Por qué no alcanzaba con mover el hueco.** El carril lo elige la parte
+libre (el LCD está en `y=-230`, así que todos sus cables van por arriba),
+no el hueco. Cualquier hueco dentro de `3..20` obliga al cable a subir por
+dentro del cuerpo hasta el carril; bajarlo a la fila `e` solo alargaba el
+tramo escondido. El cuerpo es el que tiene que moverse.
+
+**La regla nueva:** dos cuerpos grandes no comparten placa. El piezo tiene
+dos cables y se va libre a la derecha (`FREE_RIGHT_X/Y` = 1250/60, el
+mecanismo de la fase 35); el sensor recupera la columna 18, que es la
+posición verificada en vivo donde su cuerpo no tapa nada. Se retiró
+`ULTRASONIC_MIN_COLUMN_WITH_PIEZO`: el sensor ya no negocia su columna con
+el piezo.
+
+- **Puente de pines:** el piezo entra en `_FREE_PART_PINS` con sus
+  terminales reales (`+` y `-`), los mismos que usa montado en la placa.
+- **Color:** `_wire_group` trataba cualquier extremo que termina en `+`
+  como alimentación. Con el piezo libre eso pintaba de rojo el cable de
+  `uno.D8 -> buzzer1.+`, que es una señal. Ahora `+`/`-` son
+  alimentación/tierra solo si la parte es una fuente real (`bat1`); el
+  positivo del piezo sigue la paleta de señal (verde) y su negativo es
+  negro por venir de `uno.GND1`.
+- **Verificado en vivo:**
+  - Los 27 model calls comparados contra `HEAD` con el código anterior en
+    un worktree: **solo cambia `lcd-distancia`**. Los otros dos circuitos
+    con sensor (`sensor-ultrasonico`, `parking-servo-ultrasonico-rgb`) no
+    tienen piezo y su cableado es idéntico byte a byte.
+  - `lcd-distancia` (`blN5d8qCr2z`) reconstruido al 100% con el oráculo
+    completo (`TEST:LCD=LISTO`, `TEST:DIST=110.1..110.3`,
+    `TEST:ALARMA=ON`). En la captura el pin 2 de la resistencia se ve, el
+    cable azul sube por la columna 5 fuera del cuerpo del sensor, y el
+    piezo libre se cablea en verde/negro sin cruzar nada.
+  - `sensor-ultrasonico` y `parking-servo-ultrasonico-rgb` reconstruidos
+    al 100% (sin cambios de spec, como prueba de que el builder sigue
+    sano).
+  - Cerebro 1798 verdes + 5 skip + 1 xfail; puente 252.
+
+**Lección:** si el carril lo decide un extremo, mover el otro extremo no
+cambia la ruta: hay que mover el cuerpo que estorba. Y una terminal con
+nombre `+` no es una fuente: el color tiene que mirar el tipo de parte.

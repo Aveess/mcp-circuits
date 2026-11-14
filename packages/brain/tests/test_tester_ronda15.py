@@ -19,9 +19,11 @@ Contrato que se pone a prueba
 3. Las partes libres (``free``) emiten ``{"ref", "did", "free": {"x", "y"},
    "angle"}``: el angulo va a NIVEL DE PART. Motor DC y bateria 9V no
    inventan angulo. El part del LCD pasa ``spec.validate_spec``.
-4. Layout: con piezo y ultrasonico juntos el HC-SR04 arranca en la columna 10
-   y el piezo conserva 24e; sin piezo el sensor sigue en 18; un cursor ya
-   pasado de 10 se respeta y no se solapa con nada.
+4. Layout: con piezo y ultrasonico juntos **el piezo cede la placa** y va
+   libre a la derecha, asi que el HC-SR04 arranca en su columna verificada
+   (18) y no depende de cuantos bloques LED haya antes. (La regla vieja
+   —sensor en 10 y piezo en 24e— se retiro en la fase 37: el cuerpo del
+   sensor en 10 tapa la resistencia del LCD.)
 5. Conectividad: para las 15 fixtures, un inspect armado a mano (placements
    del layout + traduccion de endpoints del builder) da
    ``compare_connectivity == 1.0`` sin shorts.
@@ -62,7 +64,6 @@ LDIST = "blN5d8qCr2z"  # lcd-distancia, nivel 6
 
 # Columnas del contrato (tabla propia, no importada de layout.py).
 ULTRASONIC_COLUMN_WITHOUT_PIEZO = 18
-ULTRASONIC_COLUMN_WITH_PIEZO = 10
 PIEZO_COLUMN = 24
 ULTRASONIC_PINS = 4
 
@@ -261,11 +262,21 @@ def _is_hole(text):
     return HOLE_RE.fullmatch(text) is not None
 
 
+def _is_source_terminal(endpoint):
+    """El "+"/"-" solo es alimentacion/tierra si la parte es una fuente.
+
+    Desde la fase 37 el piezo puede ir libre y sus terminales se llaman
+    "+"/"-" igual que las de la bateria, pero su positivo lo maneja un pin
+    digital: pintarlo de rojo seria mentir sobre el circuito.
+    """
+    return endpoint.split(".", 1)[0].startswith("bat")
+
+
 def _is_power(endpoint):
     return (
         endpoint in POWER_ENDPOINTS
         or RAIL_POWER_RE.fullmatch(endpoint) is not None
-        or endpoint.endswith(".+")
+        or (endpoint.endswith(".+") and _is_source_terminal(endpoint))
     )
 
 
@@ -273,7 +284,7 @@ def _is_ground(endpoint):
     return (
         endpoint.startswith("uno.GND")
         or RAIL_GROUND_RE.fullmatch(endpoint) is not None
-        or endpoint.endswith(".-")
+        or (endpoint.endswith(".-") and _is_source_terminal(endpoint))
     )
 
 
@@ -714,19 +725,28 @@ def test_r15_motor_y_bateria_libres_no_inventan_angulo(ref, did, spot):
 
 # --------------------------------------------- 4. dos cuerpos grandes
 
-def test_r15_lcd_distancia_sensor_en_10d_y_piezo_en_24e_sin_compartir_columnas():
+def test_r15_lcd_distancia_libera_el_piezo_y_el_sensor_vuelve_a_18d():
+    """Fase 37: el piezo cede la placa.
+
+    Con el piezo montado en 24e el sensor tenia que arrancar en 10d para no
+    chocar con su disco, y ahi su cuerpo tapaba la resistencia del LCD (pin
+    2 en 5g). Ahora el piezo va libre y el sensor usa su columna verificada.
+    """
     fixture = _fixture("lcd-distancia")
     placements = plan_layout(fixture)["placements"]
 
-    assert placements["us1"] == {"at": "10d", "pin": "vcc", "angle": 0}
-    assert placements["buzzer1"] == {"at": "24e", "pin": "positive", "angle": 0}
-
-    sensor_cols = set(range(10, 10 + ULTRASONIC_PINS))  # 10..13
-    buzzer_cols = {PIEZO_COLUMN, PIEZO_COLUMN + 5}  # 24..29
-    assert sensor_cols.isdisjoint(buzzer_cols)
-
-    buzzer_holes = _part_holes(fixture)["buzzer1"]
-    assert buzzer_holes == {"positive": "24e", "negative": "29e"}
+    assert placements["us1"] == {"at": "18d", "pin": "vcc", "angle": 0}
+    assert placements["buzzer1"] == {
+        "free": {"x": 1250, "y": 60, "angle": 0},
+    }
+    # El piezo ya no ocupa huecos de placa.
+    assert "buzzer1" not in _part_holes(fixture)
+    # El segundo pin de la resistencia queda fuera del cuerpo del sensor
+    # (7 columnas a la izquierda y 10 a la derecha de su pin "vcc").
+    holes = _part_holes(fixture)
+    assert holes["r1"] == {"1": "1g", "2": "5g"}
+    sombra = set(range(18 - 7, 18 + 10 + 1))
+    assert _col(holes["r1"]["2"]) not in sombra
 
 
 def test_r15_sin_piezo_el_sensor_sigue_en_la_columna_18():
@@ -743,7 +763,7 @@ def test_r15_sin_piezo_el_sensor_sigue_en_la_columna_18():
     assert placements["us1"]["at"] == "18d"
 
 
-def test_r15_con_piezo_el_sensor_cede_la_derecha():
+def test_r15_con_piezo_el_que_cede_es_el_piezo():
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -754,18 +774,17 @@ def test_r15_con_piezo_el_sensor_cede_la_derecha():
     }
     placements = plan_layout(fixture)["placements"]
 
-    assert placements["us1"]["at"] == f"{ULTRASONIC_COLUMN_WITH_PIEZO}d"
-    assert placements["us1"]["at"] == "10d"
-    assert placements["buzzer1"]["at"] == f"{PIEZO_COLUMN}e"
+    assert placements["us1"]["at"] == f"{ULTRASONIC_COLUMN_WITHOUT_PIEZO}d"
+    assert placements["buzzer1"] == {
+        "free": {"x": 1250, "y": 60, "angle": 0},
+    }
 
 
-@pytest.mark.parametrize("led_blocks, expected_column", [(1, 10), (2, 13)])
-def test_r15_un_cursor_ya_pasado_de_10_se_respeta_y_no_se_solapa(
-    led_blocks, expected_column
-):
-    """Con 1 bloque LED el cursor (7) queda antes del minimo y manda el 10;
-    con 2 bloques el cursor (13) ya paso y el sensor arranca ahi. En ambos
-    casos no pisa huecos de otras partes ni las columnas del piezo."""
+@pytest.mark.parametrize("led_blocks", [1, 2])
+def test_r15_con_piezo_el_sensor_no_choca_con_los_bloques_led(led_blocks):
+    """Sin el piezo en la placa el sensor siempre arranca en 18 (fase 37),
+    sin importar cuantos bloques LED se hayan colocado antes, y no comparte
+    ningun hueco con ellos."""
     components = [
         {"ref": "uno", "type": "arduino-uno"},
         {"ref": "us1", "type": "ultrasonic-hcsr04"},
@@ -793,16 +812,16 @@ def test_r15_un_cursor_ya_pasado_de_10_se_respeta_y_no_se_solapa(
     fixture = {"components": components, "nets": nets}
 
     placements = plan_layout(fixture)["placements"]
-    assert placements["us1"]["at"] == f"{expected_column}d"
-    assert placements["buzzer1"]["at"] == f"{PIEZO_COLUMN}e"
+    assert placements["us1"]["at"] == f"{ULTRASONIC_COLUMN_WITHOUT_PIEZO}d"
+    assert "free" in placements["buzzer1"]
 
     holes = _part_holes(fixture)
     sensor = set(holes["us1"].values())
     assert sensor == {
-        f"{col}d" for col in range(expected_column, expected_column + ULTRASONIC_PINS)
+        f"{col}d"
+        for col in range(ULTRASONIC_COLUMN_WITHOUT_PIEZO,
+                          ULTRASONIC_COLUMN_WITHOUT_PIEZO + ULTRASONIC_PINS)
     }
-    buzzer = set(holes["buzzer1"].values())
-    assert {_col(h) for h in sensor}.isdisjoint({_col(h) for h in buzzer})
     for ref, part_holes in holes.items():
         if ref == "us1":
             continue

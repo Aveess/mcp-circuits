@@ -55,13 +55,10 @@ PIEZO_WIDTH = 6
 # column 24 or later keeps the disc on the right edge; a cursor already
 # past 24 is respected. Same rule as ULTRASONIC_MIN_COLUMN.
 PIEZO_MIN_COLUMN = 24
-# HC-SR04 + piezo juntos (medido en vivo en lcd-distancia): el modulo del
-# sensor tambien se dibuja mucho mas ancho que sus pines. Con el sensor en
-# 18d su cuerpo llegaba al disco del piezo anclado en 24e y tapaba el
-# transductor derecho. Cuando ambos cuerpos grandes comparten placa, el
-# sensor cede la mitad derecha y arranca en la columna 10 (su cuerpo
-# termina antes del disco del piezo); un cursor ya pasado de 10 se respeta.
-ULTRASONIC_MIN_COLUMN_WITH_PIEZO = 10
+# HC-SR04 + piezo (medido en vivo en lcd-distancia): con el sensor en 18d
+# su cuerpo llegaba al disco del piezo anclado en 24e. Ya no se resuelve
+# moviendo el sensor a la columna 10: ahi su cuerpo tapa la resistencia
+# del LCD (fase 37). Ahora el piezo cede la placa y va libre.
 # Photoresistor/LDR (fixture slug "photoresistor", did 116691),
 # live-verified: anchoring pin "1" at <c>e with angle 0 puts pin "2" at
 # <c+1>e. Footprint 2 columns.
@@ -454,13 +451,13 @@ def plan_layout(fixture: dict) -> dict:
     #
     # Es opt-in: un servo montado en la placa ya esta verificado en dos
     # circuitos y no se mueve de ahi.
+    right_count = 0
     free_parts = fixture.get("free_parts")
     if free_parts is not None:
         if not isinstance(free_parts, list):
             raise LayoutError(
                 f"'free_parts' debe ser una lista de refs: {free_parts!r}"
             )
-        right_count = 0
         seen_free = set()
         # En orden de fixture para que el resultado no dependa del orden de
         # las nets ni de la suerte del diccionario.
@@ -493,6 +490,26 @@ def plan_layout(fixture: dict) -> dict:
                 f"'free_parts' menciona refs que no existen: {missing!r}"
             )
 
+    # Dos cuerpos grandes no comparten placa. El disco del piezo se pisa
+    # con el cuerpo del HC-SR04 (medido en vivo, fase 22): la unica forma
+    # de que ambos cupieran era empujar el sensor a la columna 10, y ahi
+    # su cuerpo tapa las filas altas sobre las columnas 3..20, justo donde
+    # queda el segundo pin de la resistencia del LCD en `lcd-distancia`
+    # (fase 37). El piezo tiene dos cables y se va libre a la derecha; el
+    # sensor recupera la columna 18, donde su cuerpo no tapa nada.
+    if any(component["type"] == "ultrasonic-hcsr04" for component in components):
+        for component in components:
+            if component["type"] != PIEZO_TYPE or component["ref"] in placements:
+                continue
+            placements[component["ref"]] = {
+                "free": {
+                    "x": FREE_RIGHT_X,
+                    "y": FREE_RIGHT_Y + right_count * FREE_RIGHT_STEP_Y,
+                    "angle": 0,
+                }
+            }
+            right_count += 1
+
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
     units = []
@@ -516,7 +533,6 @@ def plan_layout(fixture: dict) -> dict:
     units.sort(key=lambda unit: unit[0])
 
     occupied_columns = set()
-    has_piezo = any(component["type"] == PIEZO_TYPE for component in components)
 
     def skip_occupied(start, footprint_width):
         while any(
@@ -676,12 +692,11 @@ def plan_layout(fixture: dict) -> dict:
                 )
                 next_column += THREE_PIN_WIDTH
         elif ctype == "ultrasonic-hcsr04":
-            min_column = (
-                ULTRASONIC_MIN_COLUMN_WITH_PIEZO
-                if has_piezo
-                else ULTRASONIC_MIN_COLUMN
-            )
-            start = skip_occupied(max(next_column, min_column), ULTRASONIC_PINS)
+            # Ya no hay "sensor pegado al piezo": si coexisten, el piezo se
+            # va libre antes de llegar aqui, asi que el sensor siempre puede
+            # usar su columna verificada.
+            start = skip_occupied(max(next_column, ULTRASONIC_MIN_COLUMN),
+                                  ULTRASONIC_PINS)
             if start + ULTRASONIC_PINS - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:

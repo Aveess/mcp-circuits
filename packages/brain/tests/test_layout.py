@@ -786,22 +786,22 @@ def test_fixture_without_lcd_keeps_first_block_on_column_one():
     }
 
 
-def test_ultrasonico_y_piezo_comparten_placa_sin_taparse():
-    """Dos cuerpos grandes: el ultrasónico cede la mitad derecha al piezo.
+def test_ultrasonico_y_piezo_no_comparten_placa():
+    """Dos cuerpos grandes: cede el piezo (fase 37).
 
-    Medido en vivo (blN5d8qCr2z): con el ultrasónico en 18d su cuerpo llega
-    hasta la columna del piezo y el disco de este tapa el transductor derecho
-    del sensor. Con ambos presentes el sensor arranca en la columna 10 y el
-    piezo conserva el extremo derecho (24e).
+    Medido en vivo (blN5d8qCr2z): con el sensor en 18d su cuerpo llega al
+    disco del piezo en 24e, y empujarlo a 10d hacia que su cuerpo tapara la
+    resistencia del LCD (su pin 2 cae en 5g). Ahora el piezo va libre a la
+    derecha y el sensor conserva su columna verificada.
     """
     result = plan_layout(_fixture("lcd-distancia"))
 
-    assert result["placements"]["us1"] == {"at": "10d", "pin": "vcc", "angle": 0}
+    assert result["placements"]["us1"] == {"at": "18d", "pin": "vcc", "angle": 0}
     assert result["placements"]["buzzer1"] == {
-        "at": "24e", "pin": "positive", "angle": 0,
+        "free": {"x": 1250, "y": 60, "angle": 0},
     }
     assert result["unplaced"] == []
 
     used = _pin_columns(result)
-    assert used["us1"].isdisjoint(used["buzzer1"])
-    assert max(used["us1"]) < min(used["buzzer1"])
+    # Libre: no ocupa ningun hueco de placa.
+    assert "buzzer1" not in used

@@ -57,7 +57,8 @@ automatico con rele SPDT movido por un NPN, una alarma de movimiento con
 PIR, una cerradura con teclado 4x4, una caja fuerte con teclado y LCD y un
 control de acceso con teclado, LCD y servo (servo en colocacion libre). Los
 cables del LCD salen de lado antes de bajar, asi que no pasan por detras de
-su propio cuerpo)
+su propio cuerpo; y cuando un piezo comparte circuito con el sensor
+ultrasonico el piezo va libre, para que su cuerpo no tape la placa)
 y los reportes individuales en `docs/reportes/`.
 
 ## Puesta en marcha

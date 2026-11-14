@@ -290,6 +290,9 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "pir-sensor": _PIR_REAL_PINS,
     "keypad-4x4": _KEYPAD_REAL_PINS,
     "servo": _SERVO_REAL_PINS,
+    # El piezo puede ir libre cuando comparte placa con el HC-SR04 (fase 37):
+    # sus dos terminales guardadas son "+" y "-", las mismas del montaje.
+    "buzzer": _BUZZER_REAL_PINS,
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
@@ -309,19 +312,31 @@ _SIGNAL_PALETTE = (
 )
 
 
-def _wire_group(first: str, second: str) -> int:
+def _wire_group(first: str, second: str, power_refs=frozenset()) -> int:
+    """Grupo de color: 0 alimentacion, 1 tierra, 2 senal.
+
+    Los terminales "+"/"-" solo son alimentacion/tierra en las partes que
+    de verdad son fuente (la bateria libre `bat1`). Un piezo tambien tiene
+    "+"/"-", pero su positivo lo maneja un pin digital: pintarlo de rojo
+    hacia creer que era una fuente (fase 37).
+    """
+
+    def is_source_terminal(endpoint, suffix):
+        ref, _, _pin = endpoint.partition(".")
+        return endpoint.endswith(suffix) and ref in power_refs
+
     endpoints = (first, second)
     if any(
         e in _POWER_ENDPOINTS
         or _RAIL_POWER_RE.fullmatch(e)
-        or e.endswith(".+")  # terminal positivo de bateria libre (bat1.+)
+        or is_source_terminal(e, ".+")
         for e in endpoints
     ):
         return 0
     if any(
         e.startswith("uno.GND")
         or _RAIL_GROUND_RE.fullmatch(e)
-        or e.endswith(".-")  # terminal negativo de bateria libre (bat1.-)
+        or is_source_terminal(e, ".-")
         for e in endpoints
     ):
         return 1
@@ -515,10 +530,10 @@ def _star_pairs(endpoints, free_refs=()):
     return pairs
 
 
-def _ordered_colored_wires(pairs) -> list[dict[str, str]]:
+def _ordered_colored_wires(pairs, power_refs=frozenset()) -> list[dict[str, str]]:
     grouped: dict[int, list[tuple[str, str]]] = {0: [], 1: [], 2: []}
     for first, second in pairs:
-        grouped[_wire_group(first, second)].append((first, second))
+        grouped[_wire_group(first, second, power_refs)].append((first, second))
     wires = []
     signal_index = 0
     for group in (0, 1, 2):
@@ -832,7 +847,14 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             _rail_wires(rail_taps[kind], kind, rail_uno.get(kind), placements)
         )
 
-    return {"parts": parts, "wires": _ordered_colored_wires(pairs), "code": code}
+    power_refs = frozenset(
+        ref for ref, ctype in type_by_ref.items() if ctype == "battery-9v"
+    )
+    return {
+        "parts": parts,
+        "wires": _ordered_colored_wires(pairs, power_refs),
+        "code": code,
+    }
 
 
 def build_circuit(fixture, code, call_tool) -> dict:

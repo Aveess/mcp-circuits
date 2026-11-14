@@ -72,6 +72,12 @@ píxel del LED.
   `870` porque sus terminales miran abajo. Los taps de alimentación buscan
   la columna libre mas cercana, asi que el GND del LCD cae en `T-26..T-29`
   junto a su parte y no al otro extremo del riel.
+- **Fase 37 (sin circuito nuevo):** el piezo deja la placa cuando comparte
+  circuito con el HC-SR04 (dos cuerpos grandes no caben sin que uno tape al
+  otro) y el sensor recupera su columna 18. Con el sensor en 10 su cuerpo
+  tapaba las filas altas sobre las columnas 3..20, donde caia el pin 2 de
+  la resistencia del LCD. Los `+`/`-` de una parte que no es fuente ya no
+  se pintan como alimentacion: el cable al piezo libre va en verde.
 - **Nivel 11 (27):** tres bloques integrados y **colocacion libre** de
   una parte grande. La fixture pide `"free_parts": ["sv1"]` y el servo
   deja de montarse: va a la derecha de la placa y a su altura, con sus
