@@ -57,6 +57,7 @@ _SKETCH_BY_FIXTURE = {
     "motor-dc-transistor": "motor_sketch",
     "motor-l293d-bateria": "motor_driver_sketch",
     "boton-pullup": "button_led_sketch",
+    "parking-servo-ultrasonico-rgb": "parking_servo_sketch",
 }
 
 

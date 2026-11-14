@@ -619,5 +619,95 @@
       "analogWrite",
       "analogRead"
     ]
+  },
+  {
+    "id": "parking-servo-ultrasonico-rgb",
+    "title": "Barrera de estacionamiento: HC-SR04 mide, servo abre, RGB indica estado",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "rgb1",
+        "type": "led-rgb-common-cathode"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "servo1",
+        "type": "servo"
+      },
+      {
+        "ref": "us1",
+        "type": "ultrasonic-hcsr04"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "us1.vcc",
+        "servo1.vcc"
+      ],
+      [
+        "us1.gnd",
+        "servo1.gnd",
+        "rgb1.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D7",
+        "us1.trig"
+      ],
+      [
+        "uno.D6",
+        "us1.echo"
+      ],
+      [
+        "uno.D9",
+        "servo1.signal"
+      ],
+      [
+        "uno.D10",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "rgb1.red"
+      ],
+      [
+        "uno.D11",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "rgb1.green"
+      ],
+      [
+        "uno.D3",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "rgb1.blue"
+      ]
+    ],
+    "code_features": [
+      "Servo",
+      "pulseIn",
+      "write",
+      "pinMode",
+      "digitalWrite"
+    ]
   }
 ]
