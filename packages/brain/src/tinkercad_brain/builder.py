@@ -51,6 +51,9 @@ DID_BY_TYPE: dict[str, int] = {
     "seven-segment": 129710,
     # 74HC595 (8-Bit Shift Register) verificado en vivo: did 116695.
     "shift-register": 116695,
+    # 74HC86 (Quad XOR) y 74HC00 (Quad NAND) verificados en vivo.
+    "xor-gate": 116727,
+    "nand-gate": 116696,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -184,6 +187,29 @@ _SHIFT_REGISTER_REAL_PINS: dict[str, str] = {
     "Q4": "Q4", "Q5": "Q5", "Q6": "Q6", "Q7": "Q7",
     "Q7S": "Q7S", "DS": "DS", "SHCP": "SHCP", "STCP": "STCP",
     "OE": "OE", "MR": "MR", "Vcc": "Vcc", "GND": "GND",
+}
+
+# Compuertas logicas (14 pines). Van libres fuera de la placa, como el 595:
+# sus terminales se cablean directo y no hace falta geometria de huecos. Los
+# nombres de la fixture son los del catalogo, asi que el mapa es identidad
+# (explicito para rechazar un pin inventado).
+_XOR_REAL_PINS: dict[str, str] = {
+    "1A": "1A", "1B": "1B", "1Y": "1Y",
+    "2A": "2A", "2B": "2B", "2Y": "2Y",
+    "3A": "3A", "3B": "3B", "3Y": "3Y",
+    "4A": "4A", "4B": "4B", "4Y": "4Y",
+    "Vcc": "Vcc", "GND": "GND",
+}
+_NAND_REAL_PINS: dict[str, str] = {
+    "1A": "1A", "1B": "1B", "1Y": "1Y",
+    "2A": "2A", "2B": "2B", "2Y": "2Y",
+    "3A": "3A", "3B": "3B", "3Y": "3Y",
+    "4A": "4A", "4B": "4B", "4Y": "4Y",
+    "Vcc": "Vcc", "GND": "GND",
+}
+_FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
+    "xor-gate": _XOR_REAL_PINS,
+    "nand-gate": _NAND_REAL_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
@@ -325,6 +351,14 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
         return f"{ref}.{terminal}"
     if ctype == "shift-register" and "free" in placement:
         terminal = _SHIFT_REGISTER_REAL_PINS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
+    logic_pins = _FREE_LOGIC_PINS.get(ctype)
+    if logic_pins is not None and "free" in placement:
+        terminal = logic_pins.get(pin)
         if terminal is None:
             raise BuildError(
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"

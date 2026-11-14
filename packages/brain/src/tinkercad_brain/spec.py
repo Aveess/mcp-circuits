@@ -71,6 +71,17 @@ PIN_TABLE: dict[str, frozenset[str]] = {
         {"Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q7S",
          "DS", "SHCP", "STCP", "OE", "MR", "Vcc", "GND"}
     ),
+    # Compuertas logicas de 14 pines (74HC86 XOR, 74HC00 NAND): cuatro
+    # compuertas de 2 entradas + alimentacion. Los nombres son los del
+    # catalogo (1A/1B/1Y ...).
+    "xor-gate": frozenset(
+        {"1A", "1B", "1Y", "2A", "2B", "2Y", "3A", "3B", "3Y",
+         "4A", "4B", "4Y", "Vcc", "GND"}
+    ),
+    "nand-gate": frozenset(
+        {"1A", "1B", "1Y", "2A", "2B", "2Y", "3A", "3B", "3Y",
+         "4A", "4B", "4Y", "Vcc", "GND"}
+    ),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

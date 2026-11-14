@@ -1207,5 +1207,104 @@
       "delay"
     ],
     "tinkercad_id": "kBGbtwAbFlz"
+  },
+  {
+    "id": "media-suma-logica",
+    "title": "Media suma con compuertas XOR y NAND",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "xor1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "nand1",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "nand2",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "xor1.Vcc",
+        "nand1.Vcc",
+        "nand2.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "xor1.GND",
+        "nand1.GND",
+        "nand2.GND"
+      ],
+      [
+        "uno.D2",
+        "xor1.1A",
+        "nand1.1A"
+      ],
+      [
+        "uno.D3",
+        "xor1.1B",
+        "nand1.1B"
+      ],
+      [
+        "xor1.1Y",
+        "uno.D4",
+        "led1.anode"
+      ],
+      [
+        "nand1.1Y",
+        "nand2.1A",
+        "nand2.1B"
+      ],
+      [
+        "nand2.1Y",
+        "uno.D5",
+        "led2.anode"
+      ],
+      [
+        "led1.cathode",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "uno.GND1"
+      ],
+      [
+        "led2.cathode",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "4z8ZkFcpmuC"
   }
 ]

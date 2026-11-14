@@ -192,6 +192,26 @@ _PIN_ALIASES_BY_TYPE = {
         "VCC": "Vcc",
         "GND": "GND",
     },
+    # Compuertas logicas (74HC86 XOR, 74HC00 NAND): inspect devuelve 1A/1B/
+    # 1Y, pero el cableado guardado etiqueta "Input 1A", "Input 1B" y
+    # "Output 1". Power/Ground van a Vcc/GND con mayuscula (el alias
+    # generico los dejaria en vcc/gnd y romperia la net).
+    "xor-gate": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Input 1A": "1A", "Input 1B": "1B", "Output 1": "1Y",
+        "Input 2A": "2A", "Input 2B": "2B", "Output 2": "2Y",
+        "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
+        "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
+    },
+    "nand-gate": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Input 1A": "1A", "Input 1B": "1B", "Output 1": "1Y",
+        "Input 2A": "2A", "Input 2B": "2B", "Output 2": "2Y",
+        "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
+        "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

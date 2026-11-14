@@ -926,3 +926,70 @@ def shift_register_sketch(
             "",
         ]
     )
+
+
+def half_adder_sketch(
+    a: int = 2,
+    b: int = 3,
+    sum_pin: int = 4,
+    carry_pin: int = 5,
+    settle_ms: int = 50,
+) -> str:
+    """Media suma con XOR (74HC86) y acarreo con dos NAND (74HC00).
+
+    El Uno maneja A y B, y LEE la salida de las compuertas en ``sum_pin`` y
+    ``carry_pin`` (esas salidas tambien encienden un LED con su resistencia).
+    La tabla completa (a, b, suma, acarreo) sale por serial para que el
+    oraculo del runner la compare con la verdad de una media suma.
+    """
+    pins = (a, b, sum_pin, carry_pin)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(f"pines repetidos en media suma: {pins}")
+    _validate_ms("settle_ms", settle_ms)
+
+    return "\n".join(
+        [
+            "// Media suma: XOR (74HC86) da SUMA; NAND+NAND (74HC00) da ACARREO.",
+            "// A y B los maneja el Uno; SUMA y ACARREO se leen como entradas.",
+            f"const byte A = {a};",
+            f"const byte B = {b};",
+            f"const byte SUMA = {sum_pin};",
+            f"const byte ACARREO = {carry_pin};",
+            "",
+            "void medir(byte a, byte b) {",
+            "  digitalWrite(A, a);",
+            "  digitalWrite(B, b);",
+            f"  delay({settle_ms});",
+            "  byte suma = digitalRead(SUMA);",
+            "  byte acarreo = digitalRead(ACARREO);",
+            '  Serial.print("TEST:HA=");',
+            "  Serial.print(a);",
+            '  Serial.print(",");',
+            "  Serial.print(b);",
+            '  Serial.print(",");',
+            "  Serial.print(suma);",
+            '  Serial.print(",");',
+            "  Serial.println(acarreo);",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(A, OUTPUT);",
+            "  pinMode(B, OUTPUT);",
+            "  pinMode(SUMA, INPUT);",
+            "  pinMode(ACARREO, INPUT);",
+            "  Serial.begin(9600);",
+            '  Serial.println("TEST:LOGICA=LISTO");',
+            "  medir(0, 0);",
+            "  medir(0, 1);",
+            "  medir(1, 0);",
+            "  medir(1, 1);",
+            "}",
+            "",
+            "void loop() {",
+            "  delay(1000);",
+            "}",
+            "",
+        ]
+    )

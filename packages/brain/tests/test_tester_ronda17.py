@@ -657,7 +657,7 @@ def test_r17_cada_fixture_tiene_id_alfanumerico_y_coincide_su_reporte(fixture):
 def test_r17_los_ids_presentes_son_unicos():
     ids = [c["tinkercad_id"] for c in _fixtures() if c.get("tinkercad_id")]
     assert len(ids) == len(set(ids)), ids
-    assert len(_fixtures()) == 17
+    assert len(_fixtures()) == 18
 
 
 @pytest.mark.parametrize(
@@ -686,14 +686,18 @@ def test_r17_el_id_clavado_de_cada_fixture_evita_listar_y_crear(fixture_id):
     assert result["reused"] is True
 
 
-def test_r17_el_reporte_del_595_prueba_que_el_build_no_reuso_por_id():
-    """Evidencia del hallazgo ALTA: el build en vivo listo la cuenta.
+def test_r17_el_reporte_del_595_prueba_que_el_build_ya_reuso_por_id():
+    """Hallazgo ALTA cerrado: el reporte ya no lista la cuenta.
 
-    Con preferred_id valido el runner NO llama tinkercad_list_circuits. El
-    reporte de la fase 24 registra una llamada: se construyo por titulo.
+    Antes de la ronda 17 el build por titulo registraba
+    ``tinkercad_list_circuits``. Tras clavar el id en la fixture y
+    regenerar el reporte, el unico abrir es el del id (dos veces: validarlo
+    y medir), sin listar ni crear.
     """
     report = (REPORTS_DIR / "desplazador-595.md").read_text(encoding="utf-8")
-    assert "tinkercad_list_circuits" in report
+    assert "tinkercad_list_circuits" not in report
+    assert "tinkercad_create_circuit" not in report
+    assert "tinkercad_open_circuit" in report
 
 
 # --------------------------------------------------------------------------

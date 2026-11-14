@@ -30,6 +30,10 @@ TYPE_MAP: dict[str, str] = {
     "7 Segment Display": "seven-segment",  # Verificado en vivo (did 129710, pines a..g, dp, com1, com2).
     "8-Bit Shift Register [74HC595]": "shift-register",  # Verificado en vivo (did 116695, pines Q0..Q7, DS, SHCP, STCP, OE, MR, Vcc, GND).
     "Shift Register": "shift-register",  # Alias del buscador del catalogo ("Shift Register" es lo que hay que pedir en add_component).
+    "Quad XOR gate [74HC86]": "xor-gate",  # Verificado en vivo (did 116727, pines 1A..4A, 1B..4B, 1Y..4Y, Vcc, GND).
+    "XOR Gate": "xor-gate",  # Alias del buscador (add_component acepta "XOR Gate").
+    "Quad NAND gate [74HC00]": "nand-gate",  # Verificado en vivo (did 116696, pines 1A..4A, 1B..4B, 1Y..4Y, Vcc, GND).
+    "Quad NAND gate": "nand-gate",  # Alias del buscador (add_component acepta "Quad NAND gate").
 }
 
 

@@ -65,6 +65,7 @@ _SKETCH_BY_FIXTURE = {
     "lcd-distancia": "lcd_distance_sketch",
     "siete-segmentos": "seven_seg_sketch",
     "desplazador-595": "shift_register_sketch",
+    "media-suma-logica": "half_adder_sketch",
 }
 
 

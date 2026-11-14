@@ -95,6 +95,8 @@ RAW_TYPE = {
     "lcd-16x2": "LCD 16 x 2",
     "seven-segment": "7 Segment Display",
     "shift-register": "8-Bit Shift Register [74HC595]",
+    "xor-gate": "Quad XOR gate [74HC86]",
+    "nand-gate": "Quad NAND gate [74HC00]",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -144,6 +146,19 @@ INSPECT_PIN = {
             "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q7S",
             "DS", "SHCP", "STCP", "OE", "MR", "Vcc", "GND",
         )
+    },
+    # El guardado etiqueta Input 1A/Input 1B/Output 1 y Power/Ground.
+    "xor-gate": {
+        "Vcc": "Power", "GND": "Ground",
+        **{f"{i}A": f"Input {i}A" for i in range(1, 5)},
+        **{f"{i}B": f"Input {i}B" for i in range(1, 5)},
+        **{f"{i}Y": f"Output {i}" for i in range(1, 5)},
+    },
+    "nand-gate": {
+        "Vcc": "Power", "GND": "Ground",
+        **{f"{i}A": f"Input {i}A" for i in range(1, 5)},
+        **{f"{i}B": f"Input {i}B" for i in range(1, 5)},
+        **{f"{i}Y": f"Output {i}" for i in range(1, 5)},
     },
 }
 
@@ -769,8 +784,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 17, rows
-    assert [int(number) for number in rows] == list(range(1, 18))
+    assert len(rows) == 18, rows
+    assert [int(number) for number in rows] == list(range(1, 19))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

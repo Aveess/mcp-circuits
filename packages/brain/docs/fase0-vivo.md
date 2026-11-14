@@ -280,3 +280,42 @@ Hallazgos en vivo:
 - Verificación visual: el display mostró 4 mientras el serial emitía
   `TEST:DIGITO=4`; en la corrida por MCP se vieron 3, 6 y 9 con su serial
   correspondiente.
+
+## Fase 25: compuertas lógicas — media suma (2026-11-14)
+
+Primer circuito con lógica discreta: la SUMA sale de un XOR (74HC86) y el
+ACARREO de dos NAND (74HC00) en cascada — el primero hace NAND(A,B) y el
+segundo, con sus dos entradas atadas, lo invierte a AND. Circuito
+`4z8ZkFcpmuC`, 100%, oráculo `TEST:LOGICA=LISTO` + `TEST:HA=a,b,suma,acarreo`
+con la tabla completa:
+
+| A | B | SUMA | ACARREO |
+|---|---|---|---|
+| 0 | 0 | 0 | 0 |
+| 0 | 1 | 1 | 0 |
+| 1 | 0 | 1 | 0 |
+| 1 | 1 | 0 | 1 |
+
+Hallazgos en vivo:
+
+- **Las compuertas también van libres**: 74HC86 (did 116727) y 74HC00 (did
+  116696) son DIP de 14 pines; se colocan en el apilado de integrados
+  (`x=560`, desde `y=-230` hacia arriba de 200 en 200) y se cablean a sus
+  terminales reales. Cero geometría de huecos.
+- **Nombres de pin**: `inspect` dice `1A`, `1B`, `1Y`, `Vcc`, `GND`; el
+  cableado guardado los etiqueta `Input 1A`, `Input 1B`, `Output 1`, `Power`
+  y `Ground`. Sin alias por tipo la conectividad mide 36.4% con el circuito
+  perfecto; con alias, 100%.
+- **El alias genérico vuelve a morder**: `Power` caía a `vcc` y `Ground` a
+  `gnd`, en minúscula, mientras la fixture usa `Vcc`/`GND`. Cada tipo fija
+  los suyos.
+- **No existen 74HC08/74HC32/74HC04 en el drawer**, aunque el catálogo local
+  del puente los liste. Con NAND se construyen NOT, AND y OR (De Morgan),
+  así que la fase usa NAND como universal.
+- Los LEDs de suma y acarreo se verifican con el serial (no por brillo):
+  en la captura, con A=1 y B=1, el LED de acarreo es el encendido
+  (promedio de rojo 184 vs 143 del apagado).
+
+Nota para el proyecto real: el mismo patrón sirve para cualquier combinación
+(comparadores, sumadores completos, decodificadores) sin depender de chips
+que Tinkercad no tiene.

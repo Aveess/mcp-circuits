@@ -240,10 +240,13 @@ SEVEN_SEG_TYPE = "seven-segment"
 # que aparecen en la fixture.
 FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 
-# 74HC595 (did 116695): integrado de 16 pines que va libre, a la izquierda
-# del display y a la misma altura. Sus terminales se cablean directo, sin
-# huecos de protoboard.
+# Integrados que van libres a la izquierda del display, a la misma altura y
+# apilados hacia arriba: el 74HC595 (16 pines) y las compuertas logicas de 14
+# pines (74HC86 XOR, 74HC00 NAND). Sus terminales se cablean directo, sin
+# huecos de protoboard. Comparten un solo apilado en orden de fixture.
 SHIFT_REGISTER_TYPE = "shift-register"
+LOGIC_GATE_TYPES = ("xor-gate", "nand-gate")
+IC_STACK_TYPES = (SHIFT_REGISTER_TYPE,) + LOGIC_GATE_TYPES
 FREE_SHIFT_REGISTER_X = 560
 FREE_SHIFT_REGISTER_Y = -230
 FREE_SHIFT_REGISTER_STEP_Y = 200
@@ -342,12 +345,12 @@ def plan_layout(fixture: dict) -> dict:
         }
         free_module_count += 1
 
-    # El integrado 74HC595 no comparte apilado con los displays: va a la
-    # izquierda, a la altura del primero, para que sus cables no cruzen el
-    # display.
+    # Los integrados no comparten apilado con los displays: van a la
+    # izquierda, a la altura del primero, para que sus cables no crucen el
+    # display. Varios integrados se apilan de 200 en 200.
     shift_count = 0
     for component in components:
-        if component["type"] != SHIFT_REGISTER_TYPE:
+        if component["type"] not in IC_STACK_TYPES:
             continue
         placements[component["ref"]] = {
             "free": {
