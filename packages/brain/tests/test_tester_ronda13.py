@@ -65,9 +65,10 @@ from tinkercad_brain.sketches import lcd_counter_sketch
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES_PATH = ROOT / "fixtures" / "fase0" / "circuits.json"
 
-# Orden fisico real de los 16 terminales del LCD, de izquierda a derecha
-# con el ancla "GND" en angle 0. Tabla propia del tester (no se importa de
-# produccion: si el builder cambia de orden, esto tiene que romperse).
+# Orden fisico real de los 16 terminales del LCD, de izquierda a derecha.
+# Tabla propia del tester (no se importa de produccion: si el builder cambia
+# de orden o inventa un terminal, esto tiene que romperse). El LCD ya no se
+# monta en la placa, pero el orden de sus terminales sigue siendo el mismo.
 LCD_PINS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
     "DB0", "DB1", "DB2", "DB3", "DB4", "DB5", "DB6", "DB7",
@@ -125,16 +126,21 @@ def _board_columns(fixture, ref):
     return {_col(hole) for hole in _holes(fixture, ref).values()}
 
 
-def _assert_board_side_by_side(fixture, refs):
-    """Ningun hueco ni columna de placa usado por dos partes distintas."""
+def _assert_board_side_by_side(fixture, refs, allowed_column_sharing=()):
+    """Ningun hueco de placa usado dos veces y columnas disjuntas.
+
+    ``allowed_column_sharing`` son pares que comparten columna a proposito
+    (un LED con su resistencia en serie: filas distintas, misma columna).
+    """
+    shared_ok = {frozenset(pair) for pair in allowed_column_sharing}
     used = {}
     for ref in refs:
         for pin, hole in _holes(fixture, ref).items():
             assert hole not in used, (ref, pin, hole, used.get(hole))
             used[hole] = (ref, pin)
-    for ref in refs:
-        for other in refs:
-            if ref >= other:
+    for index, ref in enumerate(refs):
+        for other in refs[index + 1:]:
+            if frozenset({ref, other}) in shared_ok:
                 continue
             assert _board_columns(fixture, ref).isdisjoint(
                 _board_columns(fixture, other)
@@ -217,7 +223,7 @@ def test_r13_el_lcd_es_un_modulo_libre_y_no_consume_columnas_de_placa():
         )
 
 
-def test_r13_parts_del_lcd_usan_el_ancla_y_el_did_reales():
+def test_r13_parts_del_lcd_son_libres_y_conservan_el_did():
     parts = {
         p["ref"]: p for p in fixture_to_model_call(_fixture("lcd-contador"))["parts"]
     }
@@ -315,6 +321,53 @@ def test_r13_con_lcd_los_vecinos_de_placa_se_colocan_todos(case):
 
     # Y el circuito completo se puede construir.
     assert fixture_to_model_call(fixture)["parts"]
+
+
+def test_r13_con_lcd_la_placa_entera_convive_sin_solape_de_columnas():
+    """El caso que el cuerpo del display impedia: sensores + boton + LDR."""
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "lcd1", "type": "lcd-16x2"},
+            {"ref": "btn1", "type": "pushbutton"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+            {"ref": "ldr1", "type": "photoresistor"},
+            {"ref": "rdiv", "type": "resistor"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "rl1", "type": "resistor"},
+        ],
+        "nets": [
+            ["uno.D2", "btn1.1"],
+            ["uno.D7", "us1.trig"],
+            ["uno.D6", "us1.echo"],
+            ["ldr1.2", "uno.A0", "rdiv.1"],
+            ["uno.5V", "ldr1.1"],
+            ["uno.D9", "rl1.1"],
+            ["rl1.2", "led1.anode"],
+            ["led1.cathode", "uno.GND1"],
+        ],
+    }
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == []
+    assert result["placements"]["lcd1"] == LCD_FREE_ABOVE
+    board_refs = ["btn1", "us1", "ldr1", "rdiv", "led1", "rl1"]
+    assert set(result["placements"]) == {"lcd1"} | set(board_refs)
+
+    # El LED y su resistencia comparten columna a proposito; el resto no.
+    _assert_board_side_by_side(
+        fixture, board_refs, allowed_column_sharing=[("led1", "rl1")]
+    )
+    # Ningun bloque se sale de la placa.
+    for ref in board_refs:
+        for hole in _holes(fixture, ref).values():
+            assert 1 <= _col(hole) <= 30, (ref, hole)
+            assert _row(hole) in "abcdefghij", (ref, hole)
+
+    call = fixture_to_model_call(fixture)
+    parts = {p["ref"]: p for p in call["parts"]}
+    assert "pin" not in parts["lcd1"] and "at" not in parts["lcd1"]
+    assert all("at" in parts[ref] for ref in board_refs)
 
 
 def test_r13_con_lcd_el_ldr_y_su_divisor_se_colocan_juntos():
@@ -519,32 +572,64 @@ def test_r13_sin_lcd_el_primer_bloque_sigue_en_la_columna_1():
 
 # ------------------------------------------------------------ builder
 
-def _patched_layout(monkeypatch, overrides):
-    """Fuerza placements por ref manteniendo el resto del layout real."""
+def _patched_layout(monkeypatch, placements_by_ref):
+    """Fuerza placements por ref (reemplaza, no fusiona) manteniendo el resto."""
     real_plan_layout = builder_module.plan_layout
 
     def patched(fixture):
         layout = real_plan_layout(fixture)
         placements = {ref: dict(p) for ref, p in layout["placements"].items()}
-        for ref, changes in overrides.items():
-            if ref in placements:
-                placements[ref].update(changes)
+        for ref, placement in placements_by_ref.items():
+            placements[ref] = dict(placement)
         return {"placements": placements, "unplaced": list(layout["unplaced"])}
 
     monkeypatch.setattr(builder_module, "plan_layout", patched)
 
 
-def test_r13_ancla_distinta_de_gnd_es_build_error(monkeypatch):
+def test_r13_camino_de_compatibilidad_con_at_exige_el_ancla_gnd(monkeypatch):
+    """La rama vieja (LCD montado en la placa) sigue viva y sigue exigiendo GND."""
+    fixture = _fixture("lcd-contador")
+
+    # Con `at` y ancla GND el builder todavia deriva los 16 huecos.
+    _patched_layout(
+        monkeypatch, {"lcd1": {"at": "1j", "pin": "GND", "angle": 0}}
+    )
+    call = fixture_to_model_call(fixture)
+    parts = {p["ref"]: p for p in call["parts"]}
+    assert parts["lcd1"] == {
+        "ref": "lcd1", "did": 113878, "at": "1j", "pin": "GND", "angle": 0,
+    }
+    texts = {text for wire in call["wires"] for text in (wire["from"], wire["to"])}
+    # GND=1j, RS=4j, DB4=11j, LED-=16j: el ancla mas el offset de cada pin.
+    assert {"1j", "4j", "11j", "16j"} <= texts
+
+    # Cualquier otro ancla en ese camino tiene que explotar.
     for bad_anchor in ("VDD", "RS", "Ground", "1j"):
-        _patched_layout(monkeypatch, {"lcd1": {"pin": bad_anchor}})
+        _patched_layout(
+            monkeypatch, {"lcd1": {"at": "1j", "pin": bad_anchor, "angle": 0}}
+        )
         with pytest.raises(BuildError, match="ancla") as excinfo:
-            fixture_to_model_call(_fixture("lcd-contador"))
+            fixture_to_model_call(fixture)
         assert "lcd1" in str(excinfo.value)
+
+
+def test_r13_en_el_camino_libre_un_pin_invalido_sigue_siendo_build_error():
+    fixture = copy.deepcopy(_fixture("lcd-contador"))
+    # El layout por defecto es el libre: no hay `at`, solo terminales.
+    assert plan_layout(fixture)["placements"]["lcd1"] == {
+        "free": {"x": 870, "y": -230, "angle": 0}
+    }
+    fixture["nets"] = [["uno.D12", "lcd1.DB9"]]
+
+    with pytest.raises(BuildError, match="DB9") as excinfo:
+        fixture_to_model_call(fixture)
+    assert "lcd1" in str(excinfo.value)
 
 
 @pytest.mark.parametrize("bad_pin", ["DB9", "Gnd", "gnd", "DB10", "LED"])
 def test_r13_pin_desconocido_del_lcd_es_build_error(bad_pin):
     fixture = copy.deepcopy(_fixture("lcd-contador"))
+    assert "free" in plan_layout(fixture)["placements"]["lcd1"]
     fixture["nets"] = [["uno.D12", f"lcd1.{bad_pin}"]]
 
     with pytest.raises(BuildError, match=bad_pin) as excinfo:
@@ -583,12 +668,6 @@ _HUMAN_WIRE_NAMES = {
     "LED-": "LED Cathode",
 }
 
-_LCD_HOLES = {
-    "GND": "1j", "VDD": "2j", "VO": "3j", "RS": "4j", "RW": "5j", "E": "6j",
-    "DB4": "11j", "DB5": "12j", "DB6": "13j", "DB7": "14j",
-    "LED+": "15j", "LED-": "16j",
-}
-
 UNO_INSTANCE = "uno_a"
 BB_INSTANCE = "bb_a"
 LCD_INSTANCE = "lcd_a"
@@ -602,8 +681,9 @@ def _endpoint(instance_id, pin):
 def _hand_built_inspect(pin_names=None):
     """Inspect de lcd-contador armado a mano (sin Tinkercad).
 
-    Usa los huecos del layout (LCD anclado en 1j) y los offsets reales del
-    builder: GND=1j .. LED-=16j para el LCD y 19g/23g para la resistencia.
+    Contrato de la fase 21: el LCD es modulo libre, asi que sus cables van
+    de terminal a terminal (o al hueco de la resistencia) y no pasan por
+    huecos propios. La resistencia si esta en la placa (1g/5g).
     ``pin_names`` reetiqueta los pines del LCD como lo hacen los cables.
     """
     names = dict(pin_names or {})
@@ -614,29 +694,30 @@ def _hand_built_inspect(pin_names=None):
             {"source": _endpoint(*source), "target": _endpoint(*target)}
         )
 
-    # Pata de la parte -> hueco (lo que el puente agrega al colocarla).
-    for pin, hole in _LCD_HOLES.items():
-        wire((LCD_INSTANCE, names.get(pin, pin)), (BB_INSTANCE, hole))
-    wire((RESISTOR_INSTANCE, "Terminal 1"), (BB_INSTANCE, "19g"))
-    wire((RESISTOR_INSTANCE, "Terminal 2"), (BB_INSTANCE, "23g"))
+    def lcd(pin):
+        return (LCD_INSTANCE, names.get(pin, pin))
 
-    # 5V -> VDD del LCD -> pin 1 de la resistencia.
-    wire((UNO_INSTANCE, "5V"), (BB_INSTANCE, "2j"))
-    wire((BB_INSTANCE, "2j"), (BB_INSTANCE, "19g"))
-    # Net de GND con sus 5 endpoints encadenados por la protoboard.
-    wire((BB_INSTANCE, "1j"), (BB_INSTANCE, "3j"))
-    wire((BB_INSTANCE, "3j"), (BB_INSTANCE, "5j"))
-    wire((BB_INSTANCE, "5j"), (BB_INSTANCE, "16j"))
-    wire((BB_INSTANCE, "16j"), (UNO_INSTANCE, "GND"))
-    # LED+ por la resistencia de 220.
-    wire((BB_INSTANCE, "23g"), (BB_INSTANCE, "15j"))
-    # Senales del modo 4 bits.
-    wire((UNO_INSTANCE, "D12"), (BB_INSTANCE, "4j"))
-    wire((UNO_INSTANCE, "D11"), (BB_INSTANCE, "6j"))
-    wire((UNO_INSTANCE, "D5"), (BB_INSTANCE, "11j"))
-    wire((UNO_INSTANCE, "D4"), (BB_INSTANCE, "12j"))
-    wire((UNO_INSTANCE, "D3"), (BB_INSTANCE, "13j"))
-    wire((UNO_INSTANCE, "D2"), (BB_INSTANCE, "14j"))
+    # Pata de la resistencia -> sus dos huecos.
+    wire((RESISTOR_INSTANCE, "Terminal 1"), (BB_INSTANCE, "1g"))
+    wire((RESISTOR_INSTANCE, "Terminal 2"), (BB_INSTANCE, "5g"))
+
+    # 5V -> VDD del LCD -> pata 1 de la resistencia (hueco 1g).
+    wire((UNO_INSTANCE, "5V"), lcd("VDD"))
+    wire(lcd("VDD"), (BB_INSTANCE, "1g"))
+    # LED+ por la resistencia de 220 (pata 2 en 5g).
+    wire(lcd("LED+"), (BB_INSTANCE, "5g"))
+    # Net de GND con sus 5 endpoints, encadenados por los terminales.
+    wire(lcd("GND"), lcd("VO"))
+    wire(lcd("VO"), lcd("RW"))
+    wire(lcd("RW"), lcd("LED-"))
+    wire(lcd("LED-"), (UNO_INSTANCE, "GND"))
+    # Senales del modo 4 bits, directo al terminal del display.
+    wire((UNO_INSTANCE, "D12"), lcd("RS"))
+    wire((UNO_INSTANCE, "D11"), lcd("E"))
+    wire((UNO_INSTANCE, "D5"), lcd("DB4"))
+    wire((UNO_INSTANCE, "D4"), lcd("DB5"))
+    wire((UNO_INSTANCE, "D3"), lcd("DB6"))
+    wire((UNO_INSTANCE, "D2"), lcd("DB7"))
 
     return {
         "components": [
