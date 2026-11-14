@@ -913,6 +913,11 @@ async def tinkercad_simulate_samples(
     144.0 — calibrated from ~128 off / 160-190 on, recalibrate live), then
     reads the serial monitor (if read_serial) and stops the simulation.
 
+    Each sample reports `window_px` (the real crop measured: it shrinks when
+    the LED sits near a screenshot edge). If the resolved pin falls outside
+    the capture the sampler returns no samples and an `led_offscreen` error
+    instead of reporting a LED it never looked at.
+
     Args:
         samples_ms: Offsets in milliseconds from simulation start, e.g. [0, 250, 500].
         led_component: Component name/type of the LED (default 'LED').

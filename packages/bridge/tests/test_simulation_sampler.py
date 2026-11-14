@@ -200,5 +200,50 @@ class TestSampleFlow(unittest.IsolatedAsyncioTestCase):
         self.assertIn("start", order)
 
 
+class TestVentanaMedida(unittest.IsolatedAsyncioTestCase):
+    """El sampler no puede confundir "no lo vi" con "estaba apagado".
+
+    `brightness_at` recorta una ventana de 9x9 centrada en el pin y la clampa
+    al borde de la captura. Si el LED queda **fuera** de la captura (el lienzo
+    de Tinkercad se puede panelear), el recorte queda vacio y la lectura da
+    0.0: el LED se reporta apagado sin haberlo mirado nunca. Eso es un falso
+    negativo que hace mentir al oraculo.
+    """
+
+    async def test_un_led_fuera_de_la_captura_no_se_reporta_como_apagado(self):
+        service, _, _, sim, _ = _make_service(
+            [_png_b64((220, 220, 220))], position=(2000, 100))
+        result = await service.sample([100])
+        self.assertEqual(result["samples"], [])
+        self.assertTrue(any("led_offscreen" in e for e in result["errors"]), result["errors"])
+        # La simulacion se arranco y se paro igual: no queda corriendo.
+        sim.stop_simulation.assert_awaited_once()
+
+    async def test_cada_muestra_dice_que_ventana_midio(self):
+        service, *_ = _make_service([_png_b64((220, 220, 220))], position=(15, 15))
+        result = await service.sample([100])
+        self.assertEqual(result["samples"][0]["window_px"], [9, 9])
+
+    async def test_led_pegado_al_borde_mide_una_ventana_menor(self):
+        """Cerca del borde el recorte se achica: se mide y se informa igual."""
+        service, *_ = _make_service([_png_b64((220, 220, 220))], position=(1, 1))
+        result = await service.sample([100])
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["samples"][0]["window_px"], [6, 6])
+        self.assertTrue(result["samples"][0]["led"]["on"])
+
+    async def test_una_imagen_mas_pequena_que_la_ventana_se_mide_completa(self):
+        service, *_ = _make_service([_png_b64((220, 220, 220), size=(4, 4))], position=(2, 2))
+        result = await service.sample([100])
+        self.assertEqual(result["errors"], [])
+        self.assertEqual(result["samples"][0]["window_px"], [4, 4])
+
+    def test_window_bounds_devuelve_none_solo_si_no_hay_nada_que_medir(self):
+        img = Image.new("RGB", (30, 30), (10, 10, 10))
+        self.assertEqual(SimulationSamplerService.window_bounds(img, 15, 15), (11, 11, 20, 20))
+        self.assertIsNone(SimulationSamplerService.window_bounds(img, 60, 15))
+        self.assertIsNone(SimulationSamplerService.window_bounds(img, -20, 15))
+
+
 if __name__ == "__main__":
     unittest.main()

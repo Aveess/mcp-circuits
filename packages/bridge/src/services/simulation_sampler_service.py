@@ -61,11 +61,22 @@ class SimulationSamplerService:
     # Brightness helpers (pure, unit-testable without a browser)
     # ------------------------------------------------------------------ #
     @staticmethod
-    def brightness_at(image: Image.Image, x: int, y: int, window: int = LED_WINDOW_SIZE) -> float:
-        """Average of the per-pixel max RGB channel in a window around (x, y).
+    def window_bounds(
+        image: Image.Image,
+        x: int,
+        y: int,
+        window: int = LED_WINDOW_SIZE,
+    ) -> Optional[Tuple[int, int, int, int]]:
+        """Recorte ``(left, upper, right, lower)`` que se va a medir.
 
-        The window is ``window`` x ``window`` px centred on (x, y), clamped to
-        the image bounds. Returns a value in 0..255.
+        Devuelve ``None`` cuando el punto cae **completamente fuera** de la
+        captura: ahi no hay nada que medir y devolver 0.0 seria reportar como
+        apagado un LED que nunca se vio (el lienzo de Tinkercad se puede
+        panelear, asi que el pin resuelto puede quedar fuera del viewport).
+
+        Cerca de un borde el recorte se achica (de 9x9 a menos). Eso es
+        legitimo y se informa como ``window_px`` en cada muestra, para que una
+        lectura de 3x3 no se confunda con una de 9x9.
         """
         img = image.convert("RGB")
         half = max(0, int(window) // 2)
@@ -74,7 +85,21 @@ class SimulationSamplerService:
         right = min(img.width, int(x) + half + 1)
         lower = min(img.height, int(y) + half + 1)
         if right <= left or lower <= upper:
+            return None
+        return (left, upper, right, lower)
+
+    @staticmethod
+    def brightness_at(image: Image.Image, x: int, y: int, window: int = LED_WINDOW_SIZE) -> float:
+        """Average of the per-pixel max RGB channel in a window around (x, y).
+
+        The window is ``window`` x ``window`` px centred on (x, y), clamped to
+        the image bounds. Returns a value in 0..255.
+        """
+        img = image.convert("RGB")
+        bounds = SimulationSamplerService.window_bounds(img, x, y, window)
+        if bounds is None:
             return 0.0
+        left, upper, right, lower = bounds
         crop = img.crop((left, upper, right, lower))
         total = 0
         count = 0
@@ -239,18 +264,33 @@ class SimulationSamplerService:
                 remaining_ms = at_ms - (time.monotonic() - start_monotonic) * 1000.0
                 if remaining_ms > 0:
                     await page.wait_for_timeout(int(remaining_ms))
+                bounds = None
                 try:
                     image = await self._capture_image()
+                    bounds = self.window_bounds(image, led_x, led_y)
+                    if bounds is None:
+                        # Sin ventana no hay medida. Seguir reportaria "apagado"
+                        # un LED que no esta en la captura: un falso negativo
+                        # que hace mentir al oraculo.
+                        errors.append(
+                            f"led_offscreen: el pin del LED en ({led_x}, {led_y}) cae "
+                            f"fuera de la captura de {image.width}x{image.height}; "
+                            f"no se mide"
+                        )
+                        break
                     brightness = self.brightness_at(image, led_x, led_y)
                     on, level = self.classify(brightness, brightness_threshold)
                 except Exception as exc:
                     errors.append(f"sample_failed at {at_ms}ms: {exc}")
                     on, level = False, 0.0
-                samples.append({
+                sample = {
                     "at_ms": int(at_ms),
                     "led": {"on": bool(on), "level": float(level)},
                     "sim_time": await self._sim_time(),
-                })
+                }
+                if bounds is not None:
+                    sample["window_px"] = [bounds[2] - bounds[0], bounds[3] - bounds[1]]
+                samples.append(sample)
 
             # 4a. Read serial output (still running) if requested.
             if read_serial:
