@@ -262,6 +262,11 @@ _RELAY_REAL_PINS: dict[str, str] = {
 _LIGHT_BULB_REAL_PINS: dict[str, str] = {"1": "1", "2": "2"}
 # PIR: modulo libre de 3 pines; el puente los resuelve por nombre de inspect.
 _PIR_REAL_PINS: dict[str, str] = {"out": "out", "vcc": "vcc", "gnd": "gnd"}
+# Servo libre (``"free_parts"``): mismos nombres que usa el montaje en
+# placa, verificados en vivo en servo-potenciometro y parking.
+_SERVO_REAL_PINS: dict[str, str] = {
+    "gnd": "Ground", "vcc": "Power", "signal": "Signal",
+}
 # Keypad 4x4: matriz de 4 filas por 4 columnas, sin alimentacion. Los
 # nombres de inspect (row1..row4, column1..column4) son los que acepta el
 # puente; el guardado los etiqueta "Row 1".."Column 4" (ver breadboard_nets).
@@ -284,6 +289,7 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "light-bulb": _LIGHT_BULB_REAL_PINS,
     "pir-sensor": _PIR_REAL_PINS,
     "keypad-4x4": _KEYPAD_REAL_PINS,
+    "servo": _SERVO_REAL_PINS,
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
@@ -394,13 +400,19 @@ def _rail_tap(endpoint, top, bottom, placements):
     ref = endpoint.split(".", 1)[0]
     placement = placements.get(ref)
     if placement is not None and "free" in placement:
-        # Las partes libres viven encima de la placa: siempre al riel de
-        # arriba, en la columna mas cercana a su x para que la bajada no
-        # cruce el lienzo.
-        x = placement["free"]["x"]
-        column = round((x - _BOARD_FIRST_COLUMN_X) / _BOARD_COLUMN_PITCH) + 1
-        column = min(max(column, 1), _MAX_RAIL_COLUMN)
-        return top, column
+        # Las partes libres bajan al riel en la columna mas cercana a su x
+        # para que la bajada no cruce el lienzo. Las que viven encima de la
+        # placa (y < 0: display, teclado, integrados) van al riel de arriba;
+        # las que viven a la altura de la placa o debajo (servo, motor)
+        # bajan al de abajo en vez de trepar por encima de todo.
+        free = placement["free"]
+        column = round((free["x"] - _BOARD_FIRST_COLUMN_X) / _BOARD_COLUMN_PITCH) + 1
+        # La ultima columna esta reservada al puente de rieles: pedirla haria
+        # que el asignador diera la vuelta y bajara el servo en la columna 1,
+        # al otro extremo de la placa.
+        column = min(max(column, 1), _MAX_RAIL_COLUMN - 1)
+        rail = bottom if free.get("y", 0) > 0 else top
+        return rail, column
     return top, 1
 
 

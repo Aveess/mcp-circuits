@@ -35,6 +35,7 @@ píxel del LED.
 | 24 | Alarma de movimiento con PIR, buzzer y LED | dgFz6r0k1xV | 100% | `TEST:PIR=LISTO` + `TEST:MOV=0`; con estimulo: `MOV=1` (LED encendido, buzer sonando) y `MOV=0` al soltar |
 | 25 | Cerradura con teclado 4x4 y dos LEDs | g3KZdQc0DFu | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` (LED de apertura) y `1111` + `CLAVE=FALLA` (LED de rechazo) |
 | 26 | Caja fuerte con teclado 4x4 y LCD 16x2 | 9wyFlvHHzIo | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `PANTALLA=DENEGADO` |
+| 27 | Control de acceso con teclado, LCD y servo (servo libre) | cjjQKLuBQ2I | 100% | `TEST:KP=LISTO` + `CLAVE=ESPERANDO` + `SERVO=0`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `SERVO=90` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `SERVO=0` + `PANTALLA=DENEGADO` (asta del servo girada en la captura) |
 
 ## Qué agrega cada nivel
 
@@ -65,6 +66,14 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Nivel 11 (27):** tres bloques integrados y **colocacion libre** de
+  una parte grande. La fixture pide `"free_parts": ["sv1"]` y el servo
+  deja de montarse: va a la derecha de la placa y a su altura, con sus
+  nets de alimentacion bajando al **riel de abajo**, no al de arriba. La
+  posicion se midio en vivo (sonda `1altWwNOQdW`): en la fila del display
+  el cable de senal lo cruza, y una fila mas arriba el cuerpo del servo se
+  monta encima del teclado. El cerrojo se abre a 90 grados y vuelve solo a
+  0; el LCD muestra ABIERTO / DENEGADO.
 - **Nivel 10 (26):** integracion de bloques. Primer circuito con dos
   bloques ya verificados conviviendo: entrada matricial (D2..D9) y salida
   de texto (LCD en 4 bits sobre A0..A5, que el simulador trata como

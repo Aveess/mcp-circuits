@@ -44,7 +44,7 @@ puente en producción.
 
 ## Circuitos ya construidos y verificados
 
-Ver `docs/benchmark.md` (26 circuitos en diez niveles, todos al 100% de
+Ver `docs/benchmark.md` (27 circuitos en once niveles, todos al 100% de
 fidelidad: blink, semáforo, botón, servo, TMP36, ultrasónico, RGB, motor con
 transistor, motor con L293D y batería, buzzer con botón, LDR en luz nocturna,
 una barrera de parking con sensor + servo + RGB, un LCD 16x2 en modo 4 bits, un
@@ -54,7 +54,8 @@ mismo contador con un registro de desplazamiento 74HC595, una media suma con
 compuertas, un biestable D como divisor, un 555 como reloj, un contador
 binario 74HC93, un carrusel de LEDs con el contador Johnson 4017 y un faro
 automatico con rele SPDT movido por un NPN, una alarma de movimiento con
-PIR, una cerradura con teclado 4x4 y una caja fuerte con teclado y LCD)
+PIR, una cerradura con teclado 4x4, una caja fuerte con teclado y LCD y un
+control de acceso con teclado, LCD y servo (servo en colocacion libre))
 y los reportes individuales en `docs/reportes/`.
 
 ## Puesta en marcha

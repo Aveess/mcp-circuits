@@ -80,6 +80,7 @@ _SKETCH_BY_FIXTURE = {
     "alarma-pir": "pir_alarm_sketch",
     "cerradura-teclado": "keypad_lock_sketch",
     "clave-lcd": "keypad_lcd_sketch",
+    "control-acceso": "access_control_sketch",
 }
 
 

@@ -2012,5 +2012,125 @@
     ],
     "wiring": "rails",
     "tinkercad_id": "9wyFlvHHzIo"
+  },
+  {
+    "id": "control-acceso",
+    "title": "Control de acceso con teclado, LCD y servo",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "kp1",
+        "type": "keypad-4x4"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "sv1",
+        "type": "servo"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "kp1.row1"
+      ],
+      [
+        "uno.D3",
+        "kp1.row2"
+      ],
+      [
+        "uno.D4",
+        "kp1.row3"
+      ],
+      [
+        "uno.D5",
+        "kp1.row4"
+      ],
+      [
+        "uno.D6",
+        "kp1.column1"
+      ],
+      [
+        "uno.D7",
+        "kp1.column2"
+      ],
+      [
+        "uno.D8",
+        "kp1.column3"
+      ],
+      [
+        "uno.D9",
+        "kp1.column4"
+      ],
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1",
+        "sv1.vcc"
+      ],
+      [
+        "uno.GND1",
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "sv1.gnd"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.A0",
+        "lcd1.RS"
+      ],
+      [
+        "uno.A1",
+        "lcd1.E"
+      ],
+      [
+        "uno.A2",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.A3",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.A4",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.A5",
+        "lcd1.DB7"
+      ],
+      [
+        "uno.D10",
+        "sv1.signal"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "INPUT_PULLUP",
+      "LiquidCrystal",
+      "Servo",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "free_parts": [
+      "sv1"
+    ],
+    "tinkercad_id": "cjjQKLuBQ2I"
   }
 ]

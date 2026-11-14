@@ -48,6 +48,23 @@ async def _serial(page):
     return [line.strip() for line in text.splitlines() if line.strip().startswith("TEST:")]
 
 
+async def _linea_completa(page, prefijo, minimo, timeout_ms=2500):
+    """Espera a que el serial termine de imprimir una linea.
+
+    El monitor se lee del DOM: si se lee mientras el sketch esta a media
+    impresion, la linea llega cortada (``TEST:PANTALLA=A`` en vez de
+    ``ABIERTO``). Se sondea hasta que el valor tenga el largo esperado.
+    """
+    limite = timeout_ms
+    while limite > 0:
+        for line in reversed(await _serial(page)):
+            if line.startswith(prefijo) and len(line) - len(prefijo) >= minimo:
+                return line
+        await page.wait_for_timeout(120)
+        limite -= 120
+    return None
+
+
 async def _arrancar(page, circuit_id):
     await page.goto(
         f"https://www.tinkercad.com/things/{circuit_id}/editel",
@@ -75,6 +92,8 @@ async def _pulsar(page, xy, hold_ms=350):
 async def _secuencia(page, coords, teclas, antes):
     for tecla in teclas:
         await _pulsar(page, coords[tecla])
+    # La pantalla se imprime con print + println: se espera la linea entera.
+    await _linea_completa(page, "TEST:PANTALLA=", 4)
     lineas = await _serial(page)
     return lineas[antes:]
 
@@ -128,6 +147,14 @@ async def main() -> int:
                 errores.append(f"la clave correcta no abrio: {bien}")
             if "TEST:CLAVE=FALLA" not in mal:
                 errores.append(f"el codigo erroneo no fallo: {mal}")
+            # Si el sketch escribe la pantalla, el oraculo la exige: el
+            # display no se verifica solo con la captura.
+            pantalla_ok = [l for l in bien if l.startswith("TEST:PANTALLA=")]
+            if pantalla_ok and pantalla_ok[-1] != "TEST:PANTALLA=ABIERTO":
+                errores.append(f"pantalla inesperada al abrir: {pantalla_ok[-1]}")
+            pantalla_mal = [l for l in mal if l.startswith("TEST:PANTALLA=")]
+            if pantalla_mal and pantalla_mal[-1] != "TEST:PANTALLA=DENEGADO":
+                errores.append(f"pantalla inesperada al denegar: {pantalla_mal[-1]}")
             if errores:
                 for error in errores:
                     print("FALLO:", error)

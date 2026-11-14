@@ -275,6 +275,19 @@ FREE_PERIPHERAL_TYPES = (
     "relay-spdt", "light-bulb", "pir-sensor", "keypad-4x4",
 )
 
+# Partes que la fixture puede pedir libres con ``"free_parts": [...]``. Van
+# a la derecha de la placa (esta ocupa x 725..1015) y a la altura de la
+# placa, apiladas hacia abajo. Medido en vivo (sonda 1altWwNOQdW): a
+# y=-430 el cuerpo del servo se monta encima del teclado, y a la misma fila
+# del LCD el cable de senal lo cruza; a la derecha y abajo, el cable corre
+# por debajo de la placa sin tocar nada.
+FREE_RIGHT_X = 1250
+FREE_RIGHT_Y = 60
+FREE_RIGHT_STEP_Y = 200
+# LEDs y resistencias son el cuerpo del circuito montado: si la fixture los
+# pide libres es un error de la fixture, no una colocacion.
+BOARD_ONLY_TYPES = ("led", "resistor")
+
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
     for start in range(1, MAX_COLUMN - width + 2):
@@ -414,6 +427,53 @@ def plan_layout(fixture: dict) -> dict:
             }
         }
         capacitor_count += 1
+
+    # Partes que la fixture pide libres (``"free_parts": ["sv1"]``): un
+    # servo o un motor en una placa densa tapa con su cuerpo los taps del
+    # riel y su cable de senal rodea el Uno. Van a la derecha de la placa y
+    # a su altura, apiladas hacia abajo: el cable corre por debajo de la
+    # placa en vez de cruzar por encima del display.
+    #
+    # Es opt-in: un servo montado en la placa ya esta verificado en dos
+    # circuitos y no se mueve de ahi.
+    free_parts = fixture.get("free_parts")
+    if free_parts is not None:
+        if not isinstance(free_parts, list):
+            raise LayoutError(
+                f"'free_parts' debe ser una lista de refs: {free_parts!r}"
+            )
+        right_count = 0
+        seen_free = set()
+        # En orden de fixture para que el resultado no dependa del orden de
+        # las nets ni de la suerte del diccionario.
+        for component in components:
+            ref, ctype = component["ref"], component["type"]
+            if ref not in free_parts:
+                continue
+            if ref in seen_free:
+                raise LayoutError(f"ref repetida en 'free_parts': {ref!r}")
+            seen_free.add(ref)
+            if ctype in BOARD_ONLY_TYPES:
+                raise LayoutError(
+                    f"'{ref}' ({ctype}) va montado en la placa, no puede ir libre"
+                )
+            if ref in placements:
+                raise LayoutError(
+                    f"'{ref}' ya se coloca libre por su tipo ({ctype})"
+                )
+            placements[ref] = {
+                "free": {
+                    "x": FREE_RIGHT_X,
+                    "y": FREE_RIGHT_Y + right_count * FREE_RIGHT_STEP_Y,
+                    "angle": 0,
+                }
+            }
+            right_count += 1
+        missing = [ref for ref in free_parts if ref not in seen_free]
+        if missing:
+            raise LayoutError(
+                f"'free_parts' menciona refs que no existen: {missing!r}"
+            )
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.

@@ -656,3 +656,57 @@ Lección: integrar no es sumar cables, es repartir recursos. El pin, la
 columna y el riel son escasos, y el primer choque aparece ahí, no en el
 código. Y cuando una parte no encaja, sacarla del circuito es una decisión
 de diseño válida; maquillarla con un cable largo, no.
+
+## Fase 35: partes libres y control de acceso (2026-11-14)
+
+Cierra la deuda que dejó la fase 34: una parte grande puede salirse de la
+placa sin quedar colgada en un sitio arbitrario.
+
+- Circuito: `control-acceso` (`cjjQKLuBQ2I`), 100% de fidelidad, con
+  rieles. Teclado en D2..D9, LCD en 4 bits sobre A0..A5 y servo en D10.
+- **API nueva en la fixture:** `"free_parts": ["sv1"]`. Es opt-in, como
+  `"wiring": "rails"`: un servo montado en la placa ya está verificado en
+  `servo-potenciometro` y `parking-servo-ultrasonico-rgb` y no se mueve.
+- **Dónde va una parte libre:** a la derecha de la placa y a la altura de
+  la placa (`x=1250`, `y=60`), apiladas hacia abajo de 200 en 200. No es
+  una corazonada: se midió en vivo con tres servos en el mismo circuito
+  (sonda `1altWwNOQdW`). En `(1250,-230)`, la fila del display, el cable
+  de señal lo cruza; en `(560,-430)` el cuerpo del servo se monta **encima
+  del teclado** (los cuerpos miden ~200 unidades de alto, no 200 de fila
+  libre); en `(1250,60)` el cable corre por debajo de la placa sin tocar
+  nada.
+- **Riel según altura:** una parte libre con `y > 0` baja al riel de
+  **abajo** (`sv1.Power -> B+29`, `sv1.Ground -> B-29`); las que viven
+  encima de la placa siguen bajando al de arriba. La columna propuesta se
+  limita a 29 porque la 30 está reservada al puente de borde: pedirla hacía
+  que el asignador diera la vuelta y bajara el servo en la columna 1, al
+  otro extremo.
+- **Pines del servo libre:** `Ground` / `Power` / `Signal`, los mismos
+  nombres que ya usa el montaje en placa; sin alias la conectividad no
+  cierra.
+- Oráculo del runner (5 s, reposo): `TEST:KP=LISTO` +
+  `TEST:CLAVE=ESPERANDO` + `TEST:SERVO=0`. Con estímulo: 1-2-3-4 →
+  `TECLA=1..4`, `CLAVE=OK`, `SERVO=90`, `PANTALLA=ABIERTO`; 1-1-1-1 →
+  `CLAVE=FALLA`, `SERVO=0`, `PANTALLA=DENEGADO`. El asta del servo se ve
+  girada a 45° en la captura de ABIERTO y vertical en la de cerrado: el
+  actuador se verifica moviéndose, no leyendo un número.
+- El estímulo ya no lee el serial a media impresión: `_linea_completa`
+  sondea hasta que `PANTALLA=` tiene valor entero (antes leyó `A` en vez de
+  `ABIERTO`). Y si el sketch escribe la pantalla, el oráculo la exige: el
+  display no se aprueba solo con la captura.
+
+**Deuda que sigue abierta (diagnosticada, no maquillada):** las 16
+terminales del LCD 16x2 miran hacia **arriba**, y el módulo va encima de la
+placa. El puente dibuja la bajada del terminal al riel en vertical, así que
+ese tramo pasa por detrás del cuerpo del display: los cables aparecen
+saliendo por el borde inferior en vez de nacer en su pin. Se ve igual en
+`lcd-contador`, `lcd-temperatura`, `lcd-distancia`, `clave-lcd` y aquí. El
+arreglo no es mover el display: es que el ruteo de una parte libre salga
+primero de lado (fuera de su cuerpo) y después baje. Eso toca el router del
+puente y hay que re-verificar los cinco circuitos con LCD; es una fase
+propia, no un retoque.
+
+Lección: una parte libre no se coloca "donde sobre sitio", se coloca donde
+su cable no cruce nada. Y el criterio hay que medirlo con el cuerpo real:
+los cuerpos son más altos que el paso de la fila, así que apilar de 200 en
+200 en la misma x no garantiza nada.

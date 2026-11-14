@@ -914,8 +914,8 @@ def test_r16_el_benchmark_lista_los_circuitos_y_el_display_al_100():
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
 
     # La fase 24 agrego la fila 17: el benchmark crece con cada fase.
-    # La fase 34 suma la fila 26 (caja fuerte con LCD).
-    assert [int(number) for number in rows] == list(range(1, 27))
+    # La fase 35 suma la fila 27 (control de acceso con servo).
+    assert [int(number) for number in rows] == list(range(1, 28))
     line = next(line for line in text.splitlines() if "gfgLntRuWJv" in line)
     assert "100%" in line
     assert "7 segmentos" in line

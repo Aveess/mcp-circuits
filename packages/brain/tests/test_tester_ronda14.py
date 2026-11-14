@@ -791,9 +791,9 @@ def test_r14_el_benchmark_lista_los_circuitos_y_los_del_lcd():
         r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([A-Za-z0-9]+)\s*\|", text, re.M
     )
     numbers = [int(number) for number, _title, _cid in rows]
-    # La fase 34 agrega la fila 26 (caja fuerte con LCD).
-    assert len(rows) == 26, (len(rows), numbers)
-    assert numbers == list(range(1, 27))
+    # La fase 35 agrega la fila 27 (control de acceso con servo).
+    assert len(rows) == 27, (len(rows), numbers)
+    assert numbers == list(range(1, 28))
 
     ids = {cid: title for _number, title, cid in rows}
     assert "cpySiVSE9vr" in ids and "LCD" in ids["cpySiVSE9vr"]

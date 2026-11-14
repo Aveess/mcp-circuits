@@ -1695,3 +1695,174 @@ def keypad_lcd_sketch(
             "",
         ]
     )
+
+
+def access_control_sketch(
+    row_pins: tuple[int, ...] = (2, 3, 4, 5),
+    column_pins: tuple[int, ...] = (6, 7, 8, 9),
+    lcd_pins: tuple[str, ...] = ("A0", "A1", "A2", "A3", "A4", "A5"),
+    servo_pin: int = 10,
+    code: str = "1234",
+    open_angle: int = 90,
+    closed_angle: int = 0,
+    debounce_ms: int = 20,
+    hold_ms: int = 1500,
+) -> str:
+    """Control de acceso: teclado 4x4, LCD 16x2 y servo como cerrojo.
+
+    Primer circuito que integra tres bloques verificados por separado:
+    entrada matricial (teclado), salida de texto (LCD) y actuador (servo).
+    El teclado ocupa D2..D9 y el LCD los analogicos A0..A5, que funcionan
+    como digitales (verificado en vivo); el servo va libre a la derecha de
+    la placa (``"free_parts"``) porque montado en ella su cuerpo tapa los
+    taps del riel y su senal rodea el Uno.
+
+    El oraculo imprime ``TEST:TECLA=<tecla>`` por pulsacion aceptada,
+    ``TEST:CLAVE=OK``/``FALLA`` al completar cuatro, ``TEST:SERVO=<angulo>``
+    con la posicion del cerrojo y ``TEST:PANTALLA=<texto>`` con lo que
+    quedo escrito en la segunda linea del display.
+    """
+    if len(row_pins) != 4 or len(column_pins) != 4:
+        raise ValueError("el teclado 4x4 necesita 4 filas y 4 columnas")
+    for pin in (*row_pins, *column_pins):
+        _validate_pin(pin)
+    if len(set((*row_pins, *column_pins))) != 8:
+        raise ValueError(f"los ocho pines del teclado deben ser distintos: {row_pins}, {column_pins}")
+    if len(lcd_pins) != 6:
+        raise ValueError(f"el LCD en 4 bits necesita 6 pines: {lcd_pins!r}")
+    for pin in lcd_pins:
+        if pin not in _ANALOG_PINS:
+            raise ValueError(f"lcd_pins debe ser A0..A5: {lcd_pins!r}")
+    if len(set(lcd_pins)) != 6:
+        raise ValueError(f"lcd_pins repetidos: {lcd_pins!r}")
+    _validate_pin(servo_pin)
+    if servo_pin in (*row_pins, *column_pins):
+        raise ValueError(f"servo_pin repite un pin del teclado: {servo_pin!r}")
+    if not isinstance(code, str) or len(code) != 4:
+        raise ValueError(f"code debe ser una cadena de 4 teclas: {code!r}")
+    validas = set("".join(_KEYPAD_LABELS))
+    if any(key not in validas for key in code):
+        raise ValueError(f"code solo admite teclas del teclado 4x4: {code!r}")
+    for name, angle in (("open_angle", open_angle), ("closed_angle", closed_angle)):
+        if not isinstance(angle, int) or isinstance(angle, bool) or not 0 <= angle <= 180:
+            raise ValueError(f"{name} debe ser un entero 0..180: {angle!r}")
+    if open_angle == closed_angle:
+        raise ValueError(f"open_angle y closed_angle deben diferir: {open_angle!r}")
+    _validate_ms("debounce_ms", debounce_ms)
+    if not 5 <= debounce_ms <= 200:
+        raise ValueError(f"debounce_ms debe estar en 5..200: {debounce_ms!r}")
+    _validate_ms("hold_ms", hold_ms)
+    if not 200 <= hold_ms <= 5000:
+        raise ValueError(f"hold_ms debe estar en 200..5000: {hold_ms!r}")
+
+    filas = ", ".join(str(pin) for pin in row_pins)
+    columnas = ", ".join(str(pin) for pin in column_pins)
+    tabla = ",\n  ".join(
+        "{" + ", ".join(f"'{key}'" for key in fila) + "}" for fila in _KEYPAD_LABELS
+    )
+    clave = ", ".join(f"'{key}'" for key in code)
+    lcd = ", ".join(lcd_pins)
+    return "\n".join(
+        [
+            "// Control de acceso: teclado 4x4, LCD 16x2 y servo como cerrojo.",
+            f"// Clave: {code}. Abierto en {open_angle} grados, cerrado en {closed_angle}.",
+            "#include <LiquidCrystal.h>",
+            "#include <Servo.h>",
+            "",
+            f"const byte FILAS[4] = {{{filas}}};",
+            f"const byte COLS[4] = {{{columnas}}};",
+            "const char TECLAS[4][4] = {",
+            f"  {tabla}",
+            "};",
+            f"const char CLAVE[4] = {{{clave}}};",
+            f"const byte PIN_SERVO = {servo_pin};",
+            f"const byte ABIERTO = {open_angle};",
+            f"const byte CERRADO = {closed_angle};",
+            "",
+            f"LiquidCrystal lcd({lcd});",
+            "Servo cerrojo;",
+            "byte digitos = 0;",
+            "byte aciertos = 0;",
+            "",
+            "char leerTecla() {",
+            "  for (byte f = 0; f < 4; f++) {",
+            "    digitalWrite(FILAS[f], LOW);",
+            "    delay(2);",
+            "    for (byte c = 0; c < 4; c++) {",
+            "      if (digitalRead(COLS[c]) == LOW) {",
+            f"        delay({debounce_ms});",
+            "        if (digitalRead(COLS[c]) == LOW) {",
+            "          // Una pulsacion mantenida vale una sola tecla.",
+            "          while (digitalRead(COLS[c]) == LOW) delay(5);",
+            "          digitalWrite(FILAS[f], HIGH);",
+            "          return TECLAS[f][c];",
+            "        }",
+            "      }",
+            "    }",
+            "    digitalWrite(FILAS[f], HIGH);",
+            "  }",
+            "  return 0;",
+            "}",
+            "",
+            "void linea(byte fila, const char* texto) {",
+            "  lcd.setCursor(0, fila);",
+            "  lcd.print(texto);",
+            "  byte largo = 0;",
+            "  while (texto[largo] != 0) largo++;",
+            "  // Rellena hasta 16 para borrar los restos del texto anterior.",
+            "  for (byte i = largo; i < 16; i++) lcd.print(' ');",
+            "}",
+            "",
+            "void setup() {",
+            "  Serial.begin(9600);",
+            "  for (byte i = 0; i < 4; i++) {",
+            "    pinMode(FILAS[i], OUTPUT);",
+            "    digitalWrite(FILAS[i], HIGH);",
+            "    pinMode(COLS[i], INPUT_PULLUP);",
+            "  }",
+            "  cerrojo.attach(PIN_SERVO);",
+            "  cerrojo.write(CERRADO);",
+            "  lcd.begin(16, 2);",
+            '  linea(0, "Clave:");',
+            '  linea(1, "Cerrado");',
+            '  Serial.println("TEST:KP=LISTO");',
+            '  Serial.println("TEST:CLAVE=ESPERANDO");',
+            '  Serial.print("TEST:SERVO=");',
+            "  Serial.println(CERRADO);",
+            "}",
+            "",
+            "void loop() {",
+            "  char tecla = leerTecla();",
+            "  if (tecla == 0) return;",
+            '  Serial.print("TEST:TECLA=");',
+            "  Serial.println(tecla);",
+            "  if (digitos < 4) {",
+            "    if (tecla == CLAVE[digitos]) aciertos++;",
+            "    digitos++;",
+            "    lcd.setCursor(0, 1);",
+            "    for (byte i = 0; i < digitos; i++) lcd.print('*');",
+            "    for (byte i = digitos; i < 16; i++) lcd.print(' ');",
+            "  }",
+            "  if (digitos == 4) {",
+            "    bool abierta = (aciertos == 4);",
+            "    cerrojo.write(abierta ? ABIERTO : CERRADO);",
+            '    linea(1, abierta ? "ABIERTO" : "DENEGADO");',
+            '    Serial.print("TEST:CLAVE=");',
+            '    Serial.println(abierta ? "OK" : "FALLA");',
+            '    Serial.print("TEST:SERVO=");',
+            "    Serial.println(abierta ? ABIERTO : CERRADO);",
+            '    Serial.print("TEST:PANTALLA=");',
+            '    Serial.println(abierta ? "ABIERTO" : "DENEGADO");',
+            f"    delay({hold_ms});",
+            "    cerrojo.write(CERRADO);",
+            '    linea(0, "Clave:");',
+            '    linea(1, "Cerrado");',
+            '    Serial.print("TEST:SERVO=");',
+            "    Serial.println(CERRADO);",
+            "    digitos = 0;",
+            "    aciertos = 0;",
+            "  }",
+            "}",
+            "",
+        ]
+    )
