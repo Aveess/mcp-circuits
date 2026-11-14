@@ -512,11 +512,16 @@ def _anchor_columns(result):
 def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
     result = plan_layout(_fixture("buzzer-activo"))
 
-    assert result["placements"]["buzzer1"] == {"at": "1e", "pin": "positive", "angle": 0}
-    buzzer_columns = set(range(1, 1 + 6))
+    buzzer = result["placements"]["buzzer1"]
+    assert buzzer == {"at": "24e", "pin": "positive", "angle": 0}
+    buzzer_column = int(buzzer["at"][:-1])
+    assert buzzer_column >= 24
+    buzzer_columns = set(range(buzzer_column, buzzer_column + 6))
+    assert result["placements"]["btn1"] == {"at": "1f", "pin": "1", "angle": 0}
     button_column = int(result["placements"]["btn1"]["at"][:-1])
     assert button_column not in buzzer_columns
-    assert result["unplaced"] == []
+    _anchor_columns(result)
+    assert buzzer_columns.isdisjoint({button_column})
 
     # Same fixture plus an LED block: the buzzer block must not land on it.
     fixture = _fixture("buzzer-activo")
@@ -529,25 +534,41 @@ def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
     led_column = int(with_led["placements"]["led1"]["at"][:-1])
     led_block = set(range(led_column - 4, led_column + 2))
     buzzer_column = int(with_led["placements"]["buzzer1"]["at"][:-1])
-    assert buzzer_column not in led_block
     assert set(range(buzzer_column, buzzer_column + 6)).isdisjoint(led_block)
+
+
+def test_buzzer_fixture_places_button_before_the_piezo_disc():
+    # Large-body parts go last: the button keeps the first free column
+    # and the piezo disc anchors on the right edge.
+    result = plan_layout(_fixture("buzzer-activo"))
+
+    button_column = int(result["placements"]["btn1"]["at"][:-1])
+    buzzer_column = int(result["placements"]["buzzer1"]["at"][:-1])
+    assert button_column < buzzer_column
+    assert button_column not in range(buzzer_column, buzzer_column + 6)
+    assert set(result["placements"]) == {"btn1", "buzzer1"}
 
 
 def test_ldr_real_fixture_places_divider_resistor_three_columns_right_on_row_e():
     result = plan_layout(_fixture("ldr-divisor"))
 
-    assert result["placements"]["ldr1"] == {"at": "7e", "pin": "1", "angle": 0}
+    ldr = result["placements"]["ldr1"]
     # r2 es la resistencia del divisor (comparte net con ldr1.2); el
     # orden de refs de resistencia sigue el orden fisico en inspect.
-    assert result["placements"]["r2"] == {"at": "10e", "pin": "1", "angle": 90}
-    ldr_column = int(result["placements"]["ldr1"]["at"][:-1])
-    divider_column = int(result["placements"]["r2"]["at"][:-1])
+    divider = result["placements"]["r2"]
+    assert ldr == {"at": "22e", "pin": "1", "angle": 0}
+    ldr_column = int(ldr["at"][:-1])
+    assert ldr_column >= 22
+    assert divider == {"at": "25e", "pin": "1", "angle": 90}
+    divider_column = int(divider["at"][:-1])
     assert divider_column - ldr_column == 3
-    # divider pin 2 lands 4 columns after pin 1, both inside the block.
+    # Divider pin 2 lands 4 columns after pin 1; the LDR keeps c and c+1.
     assert set(range(ldr_column, ldr_column + 2)).isdisjoint(
         range(divider_column, divider_column + 5)
     )
     _anchor_columns(result)
+    led_block = set(range(1, 7))
+    assert led_block.isdisjoint(range(ldr_column, ldr_column + 8))
 
 
 def test_parking_real_fixture_places_rgb_first_servo_and_ultrasonic_without_overlap():
@@ -575,9 +596,28 @@ def test_ldr_without_divider_resistor_is_placed_alone():
     result = plan_layout(fixture)
 
     assert result == {
-        "placements": {"ldr1": {"at": "1e", "pin": "1", "angle": 0}},
+        "placements": {"ldr1": {"at": "22e", "pin": "1", "angle": 0}},
         "unplaced": [],
     }
+
+
+def test_piezo_does_not_rewind_when_cursor_is_already_past_its_minimum():
+    # Four LED blocks fill columns 1-24, leaving the cursor at 25.
+    components = [{"ref": "uno", "type": "arduino-uno"}]
+    nets = []
+    for i in range(1, 5):
+        components.append({"ref": f"led{i}", "type": "led"})
+        components.append({"ref": f"r{i}", "type": "resistor"})
+        nets.append([f"r{i}.2", f"led{i}.anode"])
+    components.append({"ref": "buzzer1", "type": "buzzer"})
+    fixture = {"components": components, "nets": nets}
+
+    result = plan_layout(fixture)
+
+    assert result["placements"]["buzzer1"] == {"at": "25e", "pin": "positive", "angle": 0}
+    assert result["unplaced"] == []
+    buzzer_columns = set(range(25, 31))
+    assert buzzer_columns.isdisjoint(range(1, 25))
 
 
 def test_rgb_backfills_first_free_window_when_cursor_already_passed():
