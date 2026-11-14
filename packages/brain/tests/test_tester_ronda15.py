@@ -104,6 +104,7 @@ RAW_TYPE = {
     "decade-counter": "Johnson Decade Counter [74HC4017]",
     "relay-spdt": "Relay SPDT",
     "light-bulb": "Light bulb",
+    "pir-sensor": "PIR Sensor",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -207,6 +208,8 @@ INSPECT_PIN = {
         "COM2": "Terminal 1", "R2": "Terminal 7",
     },
     "light-bulb": {"1": "Terminal 1", "2": "Terminal 2"},
+    # El guardado del PIR usa Signal/Power/Ground (vivo en dgFz6r0k1xV).
+    "pir-sensor": {"out": "Signal", "vcc": "Power", "gnd": "Ground"},
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}
@@ -932,9 +935,9 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    # La fase 30 agrega la fila 23 (faro con rele).
-    assert len(rows) == 23, rows
-    assert [int(number) for number in rows] == list(range(1, 24))
+    # La fase 32 agrega la fila 24 (alarma con PIR).
+    assert len(rows) == 24, rows
+    assert [int(number) for number in rows] == list(range(1, 25))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

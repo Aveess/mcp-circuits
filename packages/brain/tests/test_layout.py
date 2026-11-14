@@ -441,8 +441,8 @@ def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
     from tinkercad_brain.fase0.fixtures import load_fixtures
 
     circuits = load_fixtures(REAL_FIXTURES)
-    # Fase 30 suma el faro con rele: 23 fixtures.
-    assert len(circuits) == 23
+    # Fase 32 suma la alarma con PIR: 24 fixtures.
+    assert len(circuits) == 24
     fixture = next(c for c in circuits if c["id"] == "motor-l293d-bateria")
 
     result = plan_layout(fixture)

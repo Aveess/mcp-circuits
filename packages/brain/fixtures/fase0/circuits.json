@@ -1740,5 +1740,74 @@
     ],
     "tinkercad_id": "aF67dwSGoqC",
     "wiring": "rails"
+  },
+  {
+    "id": "alarma-pir",
+    "title": "Alarma de movimiento con PIR, buzzer y LED",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "pir1",
+        "type": "pir-sensor"
+      },
+      {
+        "ref": "buzzer1",
+        "type": "buzzer"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "pir1.vcc"
+      ],
+      [
+        "pir1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "uno.D2",
+        "pir1.out"
+      ],
+      [
+        "uno.D3",
+        "buzzer1.positive"
+      ],
+      [
+        "buzzer1.negative",
+        "uno.GND1"
+      ],
+      [
+        "uno.D4",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "tone",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "tinkercad_id": "dgFz6r0k1xV"
   }
 ]

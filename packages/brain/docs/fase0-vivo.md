@@ -543,3 +543,36 @@ puente ya sabe rutear por carriles, pero solo si el extremo es un riel o
 un pin del Uno. Y la decisión de usar riel es del circuito, no de la net:
 una net de 4 extremos sigue siendo un mazo corto desde el pin; varias
 nets de 5V son las que se ven mal.
+
+## Fase 32: alarma de movimiento con PIR (2026-11-14)
+
+Primer sensor **sin valor fijo**: el PIR no mide una magnitud, entrega un
+nivel cuando algo se mueve dentro de su cono. Eso rompe el supuesto del
+runner (arrancar la simulación y leer el serial), porque el estímulo no lo
+puede dar el sketch.
+
+- Circuito: `alarma-pir` (`dgFz6r0k1xV`), 100% de fidelidad, con rieles
+  (tres nets de GND y una de 5V).
+- El PIR va libre (`x=560, y=-230`); buzzer en la columna 24 (disco
+  grande), resistencia + LED en 1g/5i.
+- Sketch: `pinMode` del PIR, `tone`/`noTone` en el buzzer y LED en D4. No
+  imprime en cada vuelta: **solo cuando el estado cambia**, además del
+  estado inicial. El serial queda como bitácora, no como muro de ceros.
+- Oráculo del runner (5 s, reposo): `TEST:PIR=LISTO` + `TEST:MOV=0`.
+- Oráculo con estímulo (`scripts/pir_stimulus.py`): al seleccionar el PIR
+  aparece su cono de detección con un punto arrastrable; al arrastrarlo
+  dentro del cono el serial pasa a `TEST:MOV=1`, y al soltarlo vuelve a
+  `TEST:MOV=0`. Secuencia completa verificada: reposo → movimiento →
+  reposo.
+- Verificación visual: el LED de D4 pasa de brillo 137 a 152 y su cuerpo
+  se ve saturado en la captura del momento de detección.
+- Alias del guardado: `Signal`/`Power`/`Ground` (inspect devuelve
+  `out`/`vcc`/`gnd`). Sin alias la conectividad se cae.
+
+Lección: para un sensor de evento el oráculo no es "leer un valor" sino
+"provocar el evento y leer la transición". El paso de interacción vive en
+un script propio (`scripts/pir_stimulus.py`) y no en el runner: el runner
+sigue siendo ciego a la interacción, y por eso el reporte guarda el
+reposo mientras la evidencia del movimiento queda en una corrida aparte,
+con su screenshot. Prometer en el reporte algo que el runner no puede
+observar sería mentir con formato.

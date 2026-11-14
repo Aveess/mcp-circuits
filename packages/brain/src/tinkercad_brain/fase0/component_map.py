@@ -44,6 +44,7 @@ TYPE_MAP: dict[str, str] = {
     "Johnson Decade Counter [74HC4017]": "decade-counter",  # Verificado en vivo (did 129343, Q0..Q9, CP0, CP1n, MR).
     "Relay SPDT": "relay-spdt",  # Verificado en vivo (did 122167, 2 polos: COM1/R1 y COM2/R2).
     "Light bulb": "light-bulb",  # Verificado en vivo (did 116693, dos terminales).
+    "PIR Sensor": "pir-sensor",  # Verificado en vivo (did 234203, out/vcc/gnd, cono de deteccion).
     "Decade Counter": "decade-counter",  # Alias del buscador.
 }
 

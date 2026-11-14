@@ -77,6 +77,7 @@ _SKETCH_BY_FIXTURE = {
     "contador-binario": "binary_counter_sketch",
     "carrusel-4017": "decade_counter_sketch",
     "faro-rele-ldr": "faro_ldr_relay_sketch",
+    "alarma-pir": "pir_alarm_sketch",
 }
 
 

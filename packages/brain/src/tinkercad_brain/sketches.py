@@ -1355,3 +1355,74 @@ def faro_ldr_relay_sketch(
             "",
         ]
     )
+
+
+def pir_alarm_sketch(
+    pir_pin: int = 2,
+    buzzer_pin: int = 3,
+    led_pin: int = 4,
+    tone_hz: int = 1000,
+    poll_ms: int = 100,
+) -> str:
+    """Alarma de movimiento: PIR en D2, buzzer en D3 y LED en D4.
+
+    El PIR entrega un nivel (alto con movimiento). El sketch no imprime en
+    cada vuelta: solo cuando el estado **cambia**, ademas del estado inicial.
+    Asi el oraculo es legible (``TEST:MOV=1`` / ``TEST:MOV=0``) y la ventana
+    de 5 s del runner no se llena de ceros. El estimulo (mover algo frente al
+    sensor) lo da el simulador, no el sketch.
+    """
+    _validate_pin(pir_pin)
+    _validate_pin(buzzer_pin)
+    _validate_pin(led_pin)
+    if len({pir_pin, buzzer_pin, led_pin}) != 3:
+        raise ValueError(
+            f"los tres pines deben ser distintos: {pir_pin}, {buzzer_pin}, {led_pin}"
+        )
+    if not isinstance(tone_hz, int) or isinstance(tone_hz, bool) or not 100 <= tone_hz <= 5000:
+        raise ValueError(f"tone_hz debe ser un entero 100..5000: {tone_hz!r}")
+    _validate_ms("poll_ms", poll_ms)
+    if poll_ms < 20:
+        raise ValueError(f"poll_ms debe ser >= 20: {poll_ms!r}")
+
+    return "\n".join(
+        [
+            "// Alarma: PIR en D2, buzzer en D3 y LED en D4.",
+            "// Imprime solo los cambios de estado, no cada vuelta.",
+            f"const byte PIR = {pir_pin};",
+            f"const byte BUZZER = {buzzer_pin};",
+            f"const byte LED = {led_pin};",
+            "byte estado = 0;",
+            "",
+            "void avisar(byte movimiento) {",
+            "  digitalWrite(LED, movimiento ? HIGH : LOW);",
+            f"  if (movimiento) tone(BUZZER, {tone_hz});",
+            "  else noTone(BUZZER);",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(PIR, INPUT);",
+            "  pinMode(BUZZER, OUTPUT);",
+            "  pinMode(LED, OUTPUT);",
+            "  Serial.begin(9600);",
+            "  delay(100);",
+            '  Serial.println("TEST:PIR=LISTO");',
+            "  estado = digitalRead(PIR) ? 1 : 0;",
+            "  avisar(estado);",
+            '  Serial.print("TEST:MOV=");',
+            "  Serial.println(estado);",
+            "}",
+            "",
+            "void loop() {",
+            "  byte movimiento = digitalRead(PIR) ? 1 : 0;",
+            "  if (movimiento != estado) {",
+            "    estado = movimiento;",
+            "    avisar(movimiento);",
+            '    Serial.print("TEST:MOV=");',
+            "    Serial.println(movimiento);",
+            "  }",
+            f"  delay({poll_ms});",
+            "}",
+            "",
+        ]
+    )

@@ -32,6 +32,7 @@ píxel del LED.
 | 21 | Contador binario 4 bits 74HC93 con LEDs | fCB0eO8cBbn | 100% | `TEST:CONTADOR=1..15,0` + `FIN` (secuencia de 16 pulsos) |
 | 22 | Carrusel de 4 LEDs con 74HC4017 | ij6ypc8wB5x | 100% | `TEST:4017=1,2,3,0` ciclando + `LISTO` (Q4 -> MR hace la vuelta en 4 pasos) |
 | 23 | Faro automatico con rele SPDT, NPN y LDR (con rieles) | aF67dwSGoqC | 100% | `TEST:LUZ=6` + `TEST:RELE=ON` + `TEST:FOCO=1` y tras apagar `RELE=OFF` + `FOCO=0` |
+| 24 | Alarma de movimiento con PIR, buzzer y LED | dgFz6r0k1xV | 100% | `TEST:PIR=LISTO` + `TEST:MOV=0`; con estimulo: `MOV=1` (LED encendido, buzer sonando) y `MOV=0` al soltar |
 
 ## Qué agrega cada nivel
 
@@ -62,6 +63,12 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Nivel 8 (24):** sensado de movimiento. El PIR no tiene valor fijo:
+  el runner solo puede leer el reposo (`MOV=0`), asi que el oraculo de
+  movimiento lo produce un paso de interaccion (`scripts/pir_stimulus.py`
+  arrastra el punto de deteccion dentro del cono del sensor). El sketch
+  imprime **solo los cambios** de estado, de modo que el serial se lee como
+  una bitacora: `LISTO`, `MOV=0`, `MOV=1`, `MOV=0`.
 - **Nivel 7 (23):** conmutacion de carga. El rele SPDT lo mueve un NPN con
   resistencia de base y diodo de recirculacion (un pin del Uno no puede con
   la bobina), el contacto COM1-R1 alimenta una bombilla y A1 lee el nodo del

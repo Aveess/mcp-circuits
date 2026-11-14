@@ -661,8 +661,8 @@ def test_r17_cada_fixture_tiene_id_alfanumerico_y_coincide_su_reporte(fixture):
 def test_r17_los_ids_presentes_son_unicos():
     ids = [c["tinkercad_id"] for c in _fixtures() if c.get("tinkercad_id")]
     assert len(ids) == len(set(ids)), ids
-    # Fase 30 suma el faro con rele: 23 fixtures.
-    assert len(_fixtures()) == 23
+    # Fase 32 suma la alarma con PIR: 24 fixtures.
+    assert len(_fixtures()) == 24
 
 
 @pytest.mark.parametrize(

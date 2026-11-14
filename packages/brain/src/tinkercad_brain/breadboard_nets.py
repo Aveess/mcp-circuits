@@ -273,6 +273,9 @@ _PIN_ALIASES_BY_TYPE = {
     },
     # Bombilla: dos terminales, el guardado los numera.
     "light-bulb": {"Terminal 1": "1", "Terminal 2": "2"},
+    # PIR (descubierto en vivo en 9mlXTR2qKBd): el guardado usa
+    # Signal/Power/Ground, inspect devuelve out/vcc/gnd.
+    "pir-sensor": {"Signal": "out", "Power": "vcc", "Ground": "gnd"},
     # 74HC4017 (descubierto en vivo en ij6ypc8wB5x): inspect devuelve
     # Q0..Q9/CP0/CP1n/MR, pero el guardado usa "Output 1".."Output 10"
     # (Q0 -> Output 1, Q4 -> Output 5), "Clock", "Clock Enable" y "Reset".

@@ -877,12 +877,13 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
         calls.append(tool)
         return "{}"
 
-    # Fixture sintetica con un tipo que el layout aun no coloca (PIR).
+    # Fixture sintetica con un tipo que el layout aun no coloca (teclado
+    # 4x4: existe en el drawer pero no tiene receta de layout todavia).
     unsupported = _fixture("blink-basico")
     unsupported["components"] = unsupported["components"] + [
-        {"ref": "pir1", "type": "pir-sensor"}
+        {"ref": "keypad1", "type": "keypad-4x4"}
     ]
-    unsupported["nets"] = [["uno.5V", "pir1.vcc"]]
+    unsupported["nets"] = [["uno.5V", "keypad1.vcc"]]
     with pytest.raises(BuildError):
         build_circuit(unsupported, None, fake_call_tool)
 
