@@ -39,6 +39,9 @@ LOGIN_URL = f"{BASE_URL}/login"
 JOIN_URL = f"{BASE_URL}/join"
 DASHBOARD_URL = f"{BASE_URL}/dashboard"
 CIRCUITS_DASHBOARD_URL = f"{BASE_URL}/dashboard?type=circuits"
+# The landing dashboard only shows a curated subset of designs (~20 of 24).
+# The "Designs -> View all" page lists every design in the account.
+DESIGNS_ALL_URL = f"{BASE_URL}/dashboard/designs/all"
 THINGS_CIRCUITS_URL = f"{BASE_URL}/things?type=circuits"
 NEW_CIRCUIT_URL = f"{BASE_URL}/things/new?type=circuits"
 

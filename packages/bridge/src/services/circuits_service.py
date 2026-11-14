@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import urllib.parse
 from typing import Any, Dict, List, Optional
@@ -12,6 +13,7 @@ from ..browser.selectors import DASHBOARD_SELECTORS, EDITOR_SELECTORS
 from ..config import (
     BASE_URL,
     CIRCUITS_DASHBOARD_URL,
+    DESIGNS_ALL_URL,
     NEW_CIRCUIT_URL,
     THINGS_CIRCUITS_URL,
     logger,
@@ -26,69 +28,20 @@ class CircuitsService:
 
     async def list_circuits(self) -> Dict[str, Any]:
         """List all circuit designs available in the user's Tinkercad account."""
-        page = await self.browser.navigate(CIRCUITS_DASHBOARD_URL)
-
-        # Ensure circuits tab is active
-        circuits_tab = await self.browser.find_first_matching(DASHBOARD_SELECTORS["circuits_tab"], timeout=3000, page=page)
-        if circuits_tab:
-            try:
-                await circuits_tab.click()
-                await page.wait_for_timeout(1500)
-            except Exception:
-                pass
-
-        # Give items a moment to render
+        # The landing dashboard (/dashboard?type=circuits) only renders a curated
+        # subset of designs, so designs that scrolled out of the showcase are
+        # invisible and callers reusing a circuit by title create duplicates.
+        # "Designs -> View all" (/dashboard/designs/all) lists every design, but
+        # it only paints the first page (24 cards); the rest never load because
+        # there is no working infinite scroll. The backing JSON API paginates
+        # correctly, so we query it with the browser session and fall back to
+        # DOM scraping only if the API is unreachable.
+        page = await self.browser.navigate(DESIGNS_ALL_URL)
         await page.wait_for_timeout(2000)
 
-        # Scrape circuit cards
-        circuits: List[Dict[str, Any]] = []
-
-        # Find design card elements or links
-        cards = await page.locator("a[href*='/things/']").all()
-        seen_ids = set()
-
-        for card in cards:
-            try:
-                href = await card.get_attribute("href") or ""
-                # Extract thing ID
-                # URLs look like /things/0abcdef-circuit-name or /things/0abcdef/editel
-                match = re.search(r"/things/([a-zA-Z0-9_\-]+)", href)
-                if not match:
-                    continue
-
-                thing_id = match.group(1)
-                if thing_id in seen_ids or thing_id in ("new", "duplicate", "export"):
-                    continue
-                seen_ids.add(thing_id)
-
-                title_text = ""
-                # Try finding title within card
-                title_elem = card.locator("h3, h4, .design-title, .card-title, [data-testid='design-title']").first
-                if await title_elem.count() > 0:
-                    title_text = (await title_elem.text_content() or "").strip()
-                if not title_text:
-                    title_text = (await card.text_content() or "").strip().split("\n")[0]
-                if not title_text:
-                    title_text = thing_id
-
-                # Thumbnail image if present
-                img_elem = card.locator("img").first
-                img_url = ""
-                if await img_elem.count() > 0:
-                    img_url = (await img_elem.get_attribute("src")) or ""
-
-                edit_url = f"{BASE_URL}/things/{thing_id}/editel"
-
-                circuits.append({
-                    "id": thing_id,
-                    "title": title_text,
-                    "url": f"{BASE_URL}/things/{thing_id}",
-                    "edit_url": edit_url,
-                    "thumbnail": img_url,
-                })
-            except Exception as e:
-                logger.debug(f"Error parsing card item: {e}")
-                continue
+        circuits = await self._list_designs_via_api(page)
+        if circuits is None:
+            circuits = await self._list_designs_via_dom(page)
 
         logger.info(f"Discovered {len(circuits)} circuit designs in account.")
         return {
@@ -96,6 +49,180 @@ class CircuitsService:
             "total_count": len(circuits),
             "circuits": circuits,
         }
+
+    _DESIGNS_API_RE = re.compile(
+        r"https://api-reader-prd\.tinkercad\.com/users/([^/]+)/designs\?"
+    )
+
+    async def _discover_designs_user_id(self, page) -> str:
+        """Read the account id from the designs API call the page already made."""
+        try:
+            return await page.evaluate(
+                """() => {
+                    const entries = performance.getEntriesByType('resource')
+                        .map(e => e.name)
+                        .filter(n => /api-reader-prd\\.tinkercad\\.com\\/users\\/[^/]+\\/designs/.test(n));
+                    if (!entries.length) return '';
+                    const m = entries[0].match(/\\/users\\/([^/]+)\\/designs/);
+                    return m ? m[1] : '';
+                }"""
+            ) or ""
+        except Exception as e:
+            logger.debug(f"Could not read designs user id from performance entries: {e}")
+            return ""
+
+    async def _list_designs_via_api(self, page) -> Optional[List[Dict[str, Any]]]:
+        """Fetch every design through the paginated designs API."""
+        user_id = await self._discover_designs_user_id(page)
+        if not user_id:
+            # Reload once with a response listener to capture the API call.
+            captured: Dict[str, str] = {}
+
+            def _on_response(response) -> None:
+                match = self._DESIGNS_API_RE.match(response.url)
+                if match and "user_id" not in captured:
+                    captured["user_id"] = match.group(1)
+
+            page.on("response", _on_response)
+            try:
+                await page.reload(wait_until="domcontentloaded")
+                for _ in range(40):
+                    if captured:
+                        break
+                    await page.wait_for_timeout(250)
+            except Exception as e:
+                logger.debug(f"Reload for designs API discovery failed: {e}")
+            finally:
+                try:
+                    page.remove_listener("response", _on_response)
+                except Exception:
+                    pass
+            user_id = captured.get("user_id", "")
+        if not user_id:
+            return None
+
+        try:
+            raw = await page.evaluate(
+                """async (userId) => {
+                    const out = [];
+                    for (let p = 0; p < 40; p++) {
+                        const url = `https://api-reader-prd.tinkercad.com/users/${userId}/designs` +
+                            `?page=${p}&pageSize=50&type=all&collection=designs`;
+                        const r = await fetch(url, {credentials: 'include'});
+                        if (!r.ok) return out.length ? out : null;
+                        const batch = await r.json();
+                        if (!Array.isArray(batch) || !batch.length) break;
+                        out.push(...batch);
+                        if (batch.length < 50) break;
+                    }
+                    return out;
+                }""",
+                user_id,
+            )
+        except Exception as e:
+            logger.debug(f"Designs API fetch failed: {e}")
+            return None
+        if not raw:
+            return None
+
+        circuits: List[Dict[str, Any]] = []
+        seen_ids = set()
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("deleted_time"):
+                continue
+            thing_id = str(entry.get("id") or "").strip()
+            if not thing_id or thing_id in seen_ids:
+                continue
+            seen_ids.add(thing_id)
+            title_text = (entry.get("description") or "").strip() or thing_id
+            img_url = ""
+            try:
+                thumb = json.loads(entry.get("thumbnail_json") or "{}")
+                img_url = (
+                    (thumb.get("detailThumb") or {}).get("url")
+                    or (thumb.get("galleryThumb") or {}).get("url")
+                    or ""
+                )
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+            circuits.append({
+                "id": thing_id,
+                "title": title_text,
+                "url": f"{BASE_URL}/things/{thing_id}",
+                "edit_url": f"{BASE_URL}/things/{thing_id}/editel",
+                "thumbnail": img_url,
+                "type": entry.get("asm_type") or "",
+            })
+        return circuits
+
+    async def _list_designs_via_dom(self, page) -> List[Dict[str, Any]]:
+        """Fallback: scrape the design cards rendered on the designs page."""
+        # The designs page lazy-loads the cards: without scrolling to the end,
+        # older designs never appear.
+        previous_count = -1
+        for _ in range(40):
+            visible = await page.locator("a[href*='/things/']").count()
+            if visible <= previous_count:
+                break
+            previous_count = visible
+            await page.mouse.wheel(0, 4000)
+            await page.wait_for_timeout(700)
+        try:
+            await page.evaluate("window.scrollTo(0, 0)")
+            await page.wait_for_timeout(300)
+        except Exception:
+            pass
+
+        # Cards render three anchors per design (thumbnail, "Tinker this" and the
+        # title), so collect the best non-UI text per design id.
+        ui_labels = {"tinker this", "edit", "duplicate", "delete", "share", "move to", "more"}
+        titles: Dict[str, str] = {}
+        edit_urls: Dict[str, str] = {}
+        thumbnails: Dict[str, str] = {}
+        order: List[str] = []
+
+        for card in await page.locator("a[href*='/things/']").all():
+            try:
+                href = await card.get_attribute("href") or ""
+                match = re.search(r"/things/([a-zA-Z0-9_\-]+)", href)
+                if not match:
+                    continue
+                thing_id = match.group(1).split("-")[0]
+                if thing_id in ("new", "duplicate", "export"):
+                    continue
+                if thing_id not in order:
+                    order.append(thing_id)
+                text = " ".join((await card.text_content() or "").split())
+                if text and text.lower() not in ui_labels and len(text) > len(titles.get(thing_id, "")):
+                    titles[thing_id] = text
+                if href.endswith("/editel") or "/editel?" in href:
+                    edit_urls[thing_id] = href
+                if thing_id not in thumbnails:
+                    img = card.locator("img, tk-turntable-image").first
+                    if await img.count() > 0:
+                        src = await img.get_attribute("src")
+                        if not src:
+                            style = await img.get_attribute("style") or ""
+                            style_match = re.search(r"url\([\"']?([^\"')]+)", style)
+                            src = style_match.group(1) if style_match else ""
+                        if src:
+                            thumbnails[thing_id] = src
+            except Exception as e:
+                logger.debug(f"Error parsing card item: {e}")
+                continue
+
+        circuits: List[Dict[str, Any]] = []
+        for thing_id in order:
+            circuits.append({
+                "id": thing_id,
+                "title": titles.get(thing_id) or thing_id,
+                "url": f"{BASE_URL}/things/{thing_id}",
+                "edit_url": edit_urls.get(thing_id) or f"{BASE_URL}/things/{thing_id}/editel",
+                "thumbnail": thumbnails.get(thing_id, ""),
+            })
+        return circuits
 
     def _validate_circuit_target(self, circuit_id_or_url: str) -> str:
         """Validate and construct safe Tinkercad editor URL, guarding against SSRF and open redirects."""
