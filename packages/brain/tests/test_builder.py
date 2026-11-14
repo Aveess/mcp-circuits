@@ -868,7 +868,13 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
         calls.append(tool)
         return "{}"
 
+    # Fixture sintetica con un tipo que el layout aun no coloca (PIR).
+    unsupported = _fixture("blink-basico")
+    unsupported["components"] = unsupported["components"] + [
+        {"ref": "pir1", "type": "pir-sensor"}
+    ]
+    unsupported["nets"] = [["uno.5V", "pir1.vcc"]]
     with pytest.raises(BuildError):
-        build_circuit(_fixture("buzzer-activo"), None, fake_call_tool)
+        build_circuit(unsupported, None, fake_call_tool)
 
     assert calls == []

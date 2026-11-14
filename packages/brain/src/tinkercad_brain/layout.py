@@ -41,10 +41,12 @@ RGB_RESISTOR_LAYOUT = {"red": (-4, "g"), "green": (-1, "h"), "blue": (-2, "j")}
 # (B+3): 8 columns of cursor advance.
 RGB_WIDTH = 8
 # Piezo/buzzer (fixture slug "buzzer", did 114067), live-verified:
-# anchoring "+" at <c>e with angle 0 puts "-" exactly at <c+5>e.
+# anchoring its positive leg at <c>e with angle 0 puts the negative leg
+# exactly at <c+5>e. The placement pin is the FIXTURE pin ("positive");
+# builder maps it to the real terminal "+".
 # Footprint 6 columns (5 of separation + 1 of clearance).
 PIEZO_TYPE = "buzzer"
-PIEZO_ANCHOR_PIN = "+"
+PIEZO_ANCHOR_PIN = "positive"
 PIEZO_ROW = "e"
 PIEZO_WIDTH = 6
 # Photoresistor/LDR (fixture slug "photoresistor", did 116691),

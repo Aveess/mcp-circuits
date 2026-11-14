@@ -512,7 +512,7 @@ def _anchor_columns(result):
 def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
     result = plan_layout(_fixture("buzzer-activo"))
 
-    assert result["placements"]["buzzer1"] == {"at": "1e", "pin": "+", "angle": 0}
+    assert result["placements"]["buzzer1"] == {"at": "1e", "pin": "positive", "angle": 0}
     buzzer_columns = set(range(1, 1 + 6))
     button_column = int(result["placements"]["btn1"]["at"][:-1])
     assert button_column not in buzzer_columns
