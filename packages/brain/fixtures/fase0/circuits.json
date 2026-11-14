@@ -944,5 +944,115 @@
       "print",
       "Serial"
     ]
+  },
+  {
+    "id": "siete-segmentos",
+    "title": "Contador 0-9 en display 7 segmentos con 7 resistencias",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      },
+      {
+        "ref": "r5",
+        "type": "resistor"
+      },
+      {
+        "ref": "r6",
+        "type": "resistor"
+      },
+      {
+        "ref": "r7",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "seg.a"
+      ],
+      [
+        "uno.D3",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "seg.b"
+      ],
+      [
+        "uno.D4",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "seg.c"
+      ],
+      [
+        "uno.D5",
+        "r4.1"
+      ],
+      [
+        "r4.2",
+        "seg.d"
+      ],
+      [
+        "uno.D6",
+        "r5.1"
+      ],
+      [
+        "r5.2",
+        "seg.e"
+      ],
+      [
+        "uno.D7",
+        "r6.1"
+      ],
+      [
+        "r6.2",
+        "seg.f"
+      ],
+      [
+        "uno.D8",
+        "r7.1"
+      ],
+      [
+        "r7.2",
+        "seg.g"
+      ],
+      [
+        "seg.com1",
+        "uno.5V"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "Serial",
+      "delay"
+    ]
   }
 ]

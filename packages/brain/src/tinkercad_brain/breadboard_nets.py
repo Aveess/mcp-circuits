@@ -164,6 +164,16 @@ _PIN_ALIASES_BY_TYPE = {
         "LED Anode": "LED+",
         "LED Cathode": "LED-",
     },
+    # Display 7 segmentos (did 129710): inspect devuelve a..g, dp, com1,
+    # com2 y el cableado guardado usa las etiquetas del DOM (A..G, DP,
+    # Common). Se mapean ambas al nombre de la fixture.
+    "seven-segment": {
+        "A": "a", "B": "b", "C": "c", "D": "d", "E": "e", "F": "f", "G": "g",
+        "DP": "dp",
+        "Common": "com1",
+        "Common 1": "com1",
+        "Common 2": "com2",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

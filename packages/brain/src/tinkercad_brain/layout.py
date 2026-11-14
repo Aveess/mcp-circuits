@@ -228,6 +228,11 @@ def _ldr_divider_resistors(components, nets, reserved):
     return mapping
 
 
+SEVEN_SEG_TYPE = "seven-segment"
+FREE_SEVEN_SEG_X = 870
+FREE_SEVEN_SEG_Y = -200
+FREE_SEVEN_SEG_STEP_Y = 200
+
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
     for start in range(1, MAX_COLUMN - width + 2):
@@ -320,6 +325,21 @@ def plan_layout(fixture: dict) -> dict:
         }
         lcd_count += 1
 
+    # The 7-segment display is also a free module: its 10 terminals need
+    # no board space and its body would hide half the board.
+    seven_seg_count = 0
+    for component in components:
+        if component["type"] != SEVEN_SEG_TYPE:
+            continue
+        placements[component["ref"]] = {
+            "free": {
+                "x": FREE_SEVEN_SEG_X,
+                "y": FREE_SEVEN_SEG_Y - seven_seg_count * FREE_SEVEN_SEG_STEP_Y,
+                "angle": 0,
+            }
+        }
+        seven_seg_count += 1
+
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
     units = []
@@ -354,19 +374,30 @@ def plan_layout(fixture: dict) -> dict:
         return start
 
     next_column = 1
+    next_column_lower = 1
 
     for _, led_ref, resistor_ref in units:
+        used_lower = False
         if next_column > LAST_BLOCK_START:
-            if resistor_ref:
-                unplaced.append(resistor_ref)
-            if led_ref:
-                unplaced.append(led_ref)
-            continue
-        column = next_column
-        next_column += BLOCK_WIDTH
+            # Standalone resistors (no LED) can spill to the lower half of
+            # the board: the 7-segment needs seven of them and only four
+            # blocks fit above the gap. LED blocks stay above the gap.
+            if led_ref or next_column_lower > LAST_BLOCK_START:
+                if resistor_ref:
+                    unplaced.append(resistor_ref)
+                if led_ref:
+                    unplaced.append(led_ref)
+                continue
+            column = next_column_lower
+            next_column_lower += BLOCK_WIDTH
+            used_lower = True
+        else:
+            column = next_column
+            next_column += BLOCK_WIDTH
         occupied_columns.update(range(column, column + BLOCK_WIDTH))
         if resistor_ref:
-            placements[resistor_ref] = {"at": f"{column}g", "pin": "1", "angle": 90}
+            row = "e" if used_lower else "g"
+            placements[resistor_ref] = {"at": f"{column}{row}", "pin": "1", "angle": 90}
         if led_ref:
             placements[led_ref] = {"at": f"{column + 4}i", "pin": "anode", "angle": 180}
 

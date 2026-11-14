@@ -762,3 +762,79 @@ def _scan_pair(a: str, b: str, pin_by_resistor: dict, leds_by_resistor: dict) ->
         pin_by_resistor[ref_b] = int(match.group(1))
     elif pin_a == "2" and pin_b == "anode":
         leds_by_resistor.setdefault(ref_a, set()).add(ref_b)
+
+
+# Patrones por digito, orden de segmentos a b c d e f g.
+# Display de catodo comun: HIGH enciende el segmento.
+SEVEN_SEG_DIGITS: tuple[tuple[int, ...], ...] = (
+    (1, 1, 1, 1, 1, 1, 0),  # 0
+    (0, 1, 1, 0, 0, 0, 0),  # 1
+    (1, 1, 0, 1, 1, 0, 1),  # 2
+    (1, 1, 1, 1, 0, 0, 1),  # 3
+    (0, 1, 1, 0, 0, 1, 1),  # 4
+    (1, 0, 1, 1, 0, 1, 1),  # 5
+    (1, 0, 1, 1, 1, 1, 1),  # 6
+    (1, 1, 1, 0, 0, 0, 0),  # 7
+    (1, 1, 1, 1, 1, 1, 1),  # 8
+    (1, 1, 1, 1, 0, 1, 1),  # 9
+)
+
+
+def seven_seg_sketch(
+    a: int = 2,
+    b: int = 3,
+    c: int = 4,
+    d: int = 5,
+    e: int = 6,
+    f: int = 7,
+    g: int = 8,
+    hold_ms: int = 1000,
+) -> str:
+    """Contador 0-9 en un display 7 segmentos de catodo comun."""
+    pins = (a, b, c, d, e, f, g)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(f"pines repetidos en 7 segmentos: {pins}")
+    _validate_ms("hold_ms", hold_ms)
+
+    rows = []
+    for digit, pattern in enumerate(SEVEN_SEG_DIGITS):
+        values = ", ".join(str(bit) for bit in pattern)
+        rows.append(f"  {{{values}}},  // {digit}")
+    table = "\n".join(rows)
+    return "\n".join(
+        [
+            "// Contador 0-9 en display 7 segmentos de anodo comun (segmento en LOW).",
+            "// Cada segmento pasa por su resistencia de 220 ohmios y el comun va a 5V.",
+            f"const byte PINES[7] = {{{a}, {b}, {c}, {d}, {e}, {f}, {g}}};",
+            "const byte DIGITOS[10][7] = {",
+            table,
+            "};",
+            "",
+            "void mostrar(byte digito) {",
+            "  for (byte i = 0; i < 7; i++) {",
+            "    digitalWrite(PINES[i], !DIGITOS[digito][i]);",
+            "  }",
+            "}",
+            "",
+            "void setup() {",
+            "  for (byte i = 0; i < 7; i++) {",
+            "    pinMode(PINES[i], OUTPUT);",
+            "  }",
+            "  Serial.begin(9600);",
+            '  Serial.println("TEST:7SEG=LISTO");',
+            "  mostrar(0);",
+            "}",
+            "",
+            "void loop() {",
+            "  for (byte digito = 0; digito < 10; digito++) {",
+            "    mostrar(digito);",
+            '    Serial.print("TEST:DIGITO=");',
+            "    Serial.println(digito);",
+            f"    delay({hold_ms});",
+            "  }",
+            "}",
+            "",
+        ]
+    )

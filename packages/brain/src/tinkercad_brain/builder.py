@@ -47,6 +47,8 @@ DID_BY_TYPE: dict[str, int] = {
     "photoresistor": 116691,
     # LCD 16x2 verificado en vivo (circuito ib98EAPoqPP, modo 4 bits).
     "lcd-16x2": 113878,
+    # Display 7 segmentos (uno digito, catodo comun) verificado en vivo.
+    "seven-segment": 129710,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -161,6 +163,14 @@ _LCD_REAL_PINS: dict[str, str] = {
 }
 _LCD_PIN_OFFSETS: dict[str, int] = {
     pin: index for index, pin in enumerate(_LCD_REAL_PINS)
+}
+
+# Display 7 segmentos (did 129710, un digito, catodo comun). Igual que el
+# LCD, va libre fuera de la placa: 10 terminales. Los nombres reales
+# coinciden con los de la fixture (a..g, dp, com1, com2).
+_SEVEN_SEG_REAL_PINS: dict[str, str] = {
+    "a": "a", "b": "b", "c": "c", "d": "d", "e": "e", "f": "f", "g": "g",
+    "dp": "dp", "com1": "com1", "com2": "com2",
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
@@ -288,6 +298,13 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
         # Modulo libre: el cable termina en el terminal real del display,
         # no en un hueco. Solo se valida el pin (y su nombre real).
         terminal = _LCD_REAL_PINS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
+    if ctype == "seven-segment" and "free" in placement:
+        terminal = _SEVEN_SEG_REAL_PINS.get(pin)
         if terminal is None:
             raise BuildError(
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"

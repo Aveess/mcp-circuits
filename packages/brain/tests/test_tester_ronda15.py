@@ -93,6 +93,7 @@ RAW_TYPE = {
     "l293d": "H-bridge Motor Driver [L293D]",
     "battery-9v": "9V Battery",
     "lcd-16x2": "LCD 16 x 2",
+    "seven-segment": "7 Segment Display",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -132,6 +133,11 @@ INSPECT_PIN = {
     },
     "battery-9v": {"positive": "Positive", "negative": "Negative"},
     "lcd-16x2": {pin: pin for pin in LCD_TERMINALS},
+    # El cableado guardado usa las etiquetas del DOM: A..G, DP, Common.
+    "seven-segment": {
+        "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F", "g": "G",
+        "dp": "DP", "com1": "Common", "com2": "Common",
+    },
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}

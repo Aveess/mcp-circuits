@@ -23,6 +23,7 @@ píxel del LED.
 | 13 | LCD 16x2 en modo 4 bits (contador) | cpySiVSE9vr | 100% | `TEST:LCD=LISTO` + `TEST:SEG=N` (mismo valor que muestra la pantalla) |
 | 14 | Termómetro TMP36 en LCD 16x2 | 9hZJgbsYOC5 | 100% | `TEST:TEMP=24.78` (mismo valor que muestra la pantalla) |
 | 15 | Medidor de distancia con LCD y alarma | blN5d8qCr2z | 100% | `TEST:DIST=110.1` + `TEST:ALARMA=ON` (mismo valor en pantalla) |
+| 16 | Contador 0-9 en display 7 segmentos | gfgLntRuWJv | 100% | `TEST:DIGITO=0..9` y el display muestra el mismo dígito |
 
 ## Qué agrega cada nivel
 

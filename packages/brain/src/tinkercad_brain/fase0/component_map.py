@@ -27,6 +27,7 @@ TYPE_MAP: dict[str, str] = {
     "H-bridge Motor Driver [L293D]": "l293d",  # Verificado: nombre real ezhil (inspect_circuit).
     "9V Battery": "battery-9v",  # Verificado: nombre real ezhil (inspect_circuit).
     "LCD 16 x 2": "lcd-16x2",  # Verificado: type real ezhil (did 113878, circuito ib98EAPoqPP).
+    "7 Segment Display": "seven-segment",  # Verificado en vivo (did 129710, pines a..g, dp, com1, com2).
 }
 
 

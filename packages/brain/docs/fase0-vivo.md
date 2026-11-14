@@ -201,3 +201,28 @@ Dos defectos visuales que la conectividad al 100% no veia:
    transductor derecho del HC-SR04. Regla: si el piezo esta presente, el
    sensor arranca en la columna 10 y el piezo conserva el extremo derecho
    (24e).
+
+## Fase 23: display 7 segmentos (2026-11-14)
+
+Contador 0-9 en un display de un dígito (`gfgLntRuWJv`, 100%). El display
+(did 129710) es una parte libre como el LCD (`x=870`, `y=-200`), así que no
+ocupa columnas ni tapa la placa; sus 10 terminales se cablean directo
+(`seg.a`, `seg.com1`...).
+
+Hallazgos en vivo:
+
+- **Siete resistencias en una placa de 30 columnas**: cada bloque de
+  resistencia ocupa 6 columnas y solo caben 4 arriba del canal. Ahora las
+  resistencias sueltas (sin LED) desbordan a la mitad inferior en la fila `e`
+  y caben 4 + 3 sin archivar ninguna.
+- **El display es de ánodo común en el simulador**: con el común a GND y los
+  segmentos en HIGH no se enciende nada. Con el común a 5V y el segmento en
+  LOW se enciende; el sketch invierte la tabla (`!DIGITOS[d][i]`).
+- **Nombres de pin**: `inspect` devuelve `a..g, dp, com1, com2`, pero el
+  cableado guardado etiqueta `A..G, DP, Common`. Sin alias en
+  `breadboard_nets`, la conectividad se queda en 73.3%.
+- **La reparación de cables no sirve con partes libres**: reenvía solo
+  `wires` y, tras el borrado limpio, los terminales de la parte libre ya no
+  existen. En circuitos con partes libres se reconstruye completo.
+- Verificación visual: el "0" y el "3" del contador se comprobaron en captura,
+  lo que cubre los siete segmentos.

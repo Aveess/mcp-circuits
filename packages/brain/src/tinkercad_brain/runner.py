@@ -192,6 +192,14 @@ def run_build(
 
     model_call = fixture_to_model_call(fixture)
     model_call["clear_existing"] = reused
+    # La reparacion reenvia solo los cables: no puede reconstruir una parte
+    # libre (LCD, 7 segmentos), porque clear_existing borro el dispositivo y
+    # sin `parts` los terminales no resuelven. En esos casos se reconstruye
+    # completo en vez de reparar.
+    has_free_parts = any(
+        isinstance(part, dict) and "free" in part
+        for part in model_call.get("parts", [])
+    )
     build_record = _run("tinkercad_build_circuit_model", model_call)
     build_ok = _build_persisted(build_record.output)
     build_success_false = _success_false(build_record.output)
@@ -231,6 +239,7 @@ def run_build(
     repair_ok = True
     if (
         repair
+        and not has_free_parts
         and fidelity.get("score", 0.0) < 0.99
         and not fidelity.get("shorts")
         and not build_success_false

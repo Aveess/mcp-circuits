@@ -63,6 +63,7 @@ _SKETCH_BY_FIXTURE = {
     "lcd-contador": "lcd_counter_sketch",
     "lcd-temperatura": "lcd_temp_sketch",
     "lcd-distancia": "lcd_distance_sketch",
+    "siete-segmentos": "seven_seg_sketch",
 }
 
 
