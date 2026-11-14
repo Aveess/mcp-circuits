@@ -35,15 +35,20 @@ puente en producción.
 4. El puente coloca directo en `circuit_editor.data` con insert-wires,
    espera la persistencia ShareJS (`numberPending == 0`) y rutea los
    cables del Uno en ángulo recto con carriles propios, repartidos en dos
-   bandas (arriba/abajo de la placa) que crecen por separado. Devuelve el
-   nombre real que el editor dejó en cada parte (`placed[ref].name`):
-   Tinkercad deduplica (`r2` → `r21`) y el nombre no sirve como identidad.
-5. Tras recargar, `inspect_circuit` + `breadboard_nets.derive_nets`
+   bandas (arriba/abajo de la placa) que crecen por separado, con 130
+   unidades de holgura sobre el cuerpo de la placa. Devuelve el nombre real
+   que el editor dejó en cada parte (`placed[ref].name`): Tinkercad
+   deduplica (`r2` → `r21`) y el nombre no sirve como identidad. También
+   devuelve la polilínea de cada cable ruteado.
+5. `builder.route_band_violations` revisa esas polilíneas: un tramo
+   horizontal no puede caer sobre el cuerpo de una placa (un vertical sí:
+   así se entra a un hueco). Si hay alguno, el build no da `OK`.
+6. Tras recargar, `inspect_circuit` + `breadboard_nets.derive_nets`
    reconstruyen el circuito real y `metrics.compare_connectivity`
    lo compara por equivalencia eléctrica (tierras del Uno unificadas,
    alias de pines por tipo, cortos detectados). Las refs salen del mapa
    `nombre → ref` que devolvió el build, no de la posición de creación.
-6. El comportamiento se verifica en simulación con el **oráculo
+7. El comportamiento se verifica en simulación con el **oráculo
    serial instrumentado**: los sketches generan trazas `TEST:...`
    (`TEST:ON/OFF`, `TEST:ANGLE=`, `TEST:TEMP=`, `TEST:DIST=`) que el
    verificador evalúa. (La lectura de LED por píxel existe pero no

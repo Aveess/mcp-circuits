@@ -6,7 +6,7 @@
 - Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 9,
+  "total_lines": 22,
   "lines": [
     "TEST:LCD=LISTO",
     "TEST:DIST=110.3",
@@ -16,22 +16,38 @@
     "TEST:DIST=110.3",
     "TEST:ALARMA=ON",
     "TEST:DIST=110.1",
-    "TEST"
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.3",
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.1",
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.2",
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.3",
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.1",
+    "TEST:ALARMA=ON",
+    "TEST:DIST=110.1",
+    "TEST:ALARMA=ON",
+    "TEST:DIST="
   ],
-  "raw_output": "TEST:LCD=LISTO\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST",
-  "message": "Retrieved 9 lines from Serial Monitor."
+  "raw_output": "TEST:LCD=LISTO\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=110.2\nTEST:ALARMA=ON\nTEST:DIST=110.3\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=110.1\nTEST:ALARMA=ON\nTEST:DIST=",
+  "message": "Retrieved 22 lines from Serial Monitor."
 }
+
+## Ruteo
+- Sin tramos sobre el cuerpo de una placa (19 de 19 cables ruteados medidos).
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 6.6 | 6.6 |
-| tinkercad_inspect_circuit | 1 | 0.5 | 0.5 |
-| tinkercad_open_circuit | 2 | 12.5 | 15.9 |
-| tinkercad_read_serial_monitor | 1 | 2.0 | 2.0 |
-| tinkercad_set_code | 1 | 16.9 | 16.9 |
-| tinkercad_start_simulation | 1 | 6.0 | 6.0 |
-| tinkercad_stop_simulation | 1 | 1.6 | 1.6 |
+| tinkercad_build_circuit_model | 1 | 5.6 | 5.6 |
+| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
+| tinkercad_open_circuit | 2 | 9.5 | 11.4 |
+| tinkercad_read_serial_monitor | 1 | 1.7 | 1.7 |
+| tinkercad_set_code | 1 | 18.3 | 18.3 |
+| tinkercad_start_simulation | 1 | 5.7 | 5.7 |
+| tinkercad_stop_simulation | 1 | 1.5 | 1.5 |
 
 ## Fallos
 Sin fallos.

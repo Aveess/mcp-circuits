@@ -374,6 +374,15 @@ _UPPER_ROWS = frozenset("fghij")
 _BOARD_FIRST_COLUMN_X = 725
 _BOARD_COLUMN_PITCH = 10
 _MAX_RAIL_COLUMN = 30
+# Cuerpo de la protoboard en unidades del lienzo: columnas 1..30 (725..1015
+# alrededor del origen) y filas j..a + rieles (-110..+110). Lo de afuera es
+# aire. El puente arranca sus bandas de carriles en ±130 (fase 40).
+_BOARD_HALF_X = 160
+_BOARD_HALF_Y = 110
+# Aire visible minimo entre un tramo horizontal y el cuerpo de la placa. Con
+# menos, el cable se ve pegado al borde aunque no lo pise (era el caso de
+# los carriles en ±115).
+_ROUTE_MIN_AIR = 15
 
 
 def _net_kind(endpoints):
@@ -968,6 +977,49 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     if boards:
         call["boards"] = boards
     return call
+
+
+def route_band_violations(routes, boards=None) -> list[dict]:
+    """Cables cuyo tramo horizontal pasa sobre el cuerpo de una placa.
+
+    El puente devuelve en ``route_debug[*].points`` la polilínea de cada
+    cable ruteado. Un tramo **vertical** puede cruzar la placa: así entra a
+    un hueco y es lo normal. Un tramo **horizontal** no: si su ``y`` cae
+    dentro del cuerpo (±110 del origen de la placa) y su ``x`` pisa el
+    ancho (±160), el cable se ve pegado o encima de la protoboard.
+
+    Es la regla 3 de ``docs/organizacion-cables.md`` medida, no mirada: con
+    los carriles viejos en ±115 el cable pasaba a 5 unidades del borde y no
+    había forma de detectarlo sin abrir el navegador (fase 40).
+    """
+    boards = boards or [{"x": 870, "y": 0}]
+    violations = []
+    for route in routes or []:
+        if not isinstance(route, dict) or not route.get("routed"):
+            continue
+        points = route.get("points") or []
+        for first, second in zip(points, points[1:]):
+            try:
+                (x1, y1), (x2, y2) = first, second
+                x1, y1, x2, y2 = float(x1), float(y1), float(x2), float(y2)
+            except (TypeError, ValueError):
+                continue
+            if abs(y1 - y2) > 0.5:
+                continue  # vertical: entra a un hueco, es legítimo
+            for board in boards:
+                bx = float(board.get("x", 870))
+                by = float(board.get("y", 0))
+                if abs(y1 - by) >= _BOARD_HALF_Y + _ROUTE_MIN_AIR:
+                    continue
+                if min(x1, x2) > bx + _BOARD_HALF_X or max(x1, x2) < bx - _BOARD_HALF_X:
+                    continue
+                violations.append({
+                    "wire": route.get("wire"),
+                    "y": y1,
+                    "board": {"x": bx, "y": by},
+                })
+                break
+    return violations
 
 
 def build_circuit(fixture, code, call_tool) -> dict:

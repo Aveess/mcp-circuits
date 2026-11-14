@@ -72,6 +72,13 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Fase 40 (sin circuito nuevo):** la regla "ningún cable sobre el cuerpo de
+  una placa" pasó de mirarse en la captura a medirse. Los carriles subieron de
+  ±115 a ±130 (el cuerpo llega a ±110 y quedaban 5 unidades de aire) y el
+  puente devuelve la polilínea de cada cable; `route_band_violations` la
+  revisa y el build falla si un tramo horizontal pasa sobre una placa. Encontró
+  un defecto real en `lcd-distancia` (cable del piezo en y=106) que no era el
+  anotado en la fase 39. Los reportes dicen cuántos cables se midieron.
 - **Fase 39 (28, corregido):** el display de 7 segmentos de ánodo común
   estallaba en el simulador: común a 5V y segmentos directos a los pines del
   Uno, sin resistencia serie. El conteo seguía funcionando, así que el

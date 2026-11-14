@@ -270,6 +270,8 @@ def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DI
         fidelity if isinstance(fidelity, dict) else {},
         sim_summary,
         _records_as_dicts(result.get("records")),
+        route_violations=result.get("route_violations"),
+        routes=result.get("routes"),
     )
     # La misma documentacion que viaja dentro del circuito, para poder
     # leerla desde el repo sin abrir Tinkercad.
@@ -323,6 +325,12 @@ def main(argv=None) -> int:
     score_text = f"{float(score) * 100:.1f}%" if score is not None else "sin medir"
     print(f"URL: {result.get('url') or ''}")
     print(f"Score: {score_text}")
+    violations = result.get("route_violations") or []
+    routes = result.get("routes") or {}
+    print(
+        f"Ruteo: {len(violations)} tramo(s) sobre una placa "
+        f"({routes.get('measured', 0)} de {routes.get('routed', 0)} cables medidos)"
+    )
     print(f"OK: {bool(result.get('ok'))}")
     print(f"Reporte: {report_path}")
     return 0 if result.get("ok") else 1

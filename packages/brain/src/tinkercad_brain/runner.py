@@ -13,7 +13,7 @@ import json
 import re
 
 from tinkercad_brain.breadboard_nets import derive_nets
-from tinkercad_brain.builder import fixture_to_model_call
+from tinkercad_brain.builder import fixture_to_model_call, route_band_violations
 from tinkercad_brain.fase0.metrics import compare_connectivity
 from tinkercad_brain.fase0.normalize import normalize_circuit
 from tinkercad_brain.fase0.probe import ProbeStep, run_steps
@@ -229,6 +229,8 @@ def run_build(
                 "repair_attempted": False,
                 "fidelity_before_repair": None,
                 "reused": False,
+                "route_violations": [],
+                "routes": {"routed": 0, "measured": 0},
             }
 
     model_call = fixture_to_model_call(fixture)
@@ -250,6 +252,17 @@ def run_build(
     # suponer que el nombre es la ref (fase 39).
     refs_by_name = _refs_by_name(build_record.output)
     name_by_ref = {ref: name for name, ref in refs_by_name.items()}
+    # Regla 3 de organizacion-cables medida: ningun tramo horizontal sobre el
+    # cuerpo de una placa. El puente devuelve la polilinea de cada cable.
+    routes = _parse_json_dict(build_record.output).get("route_debug") or []
+    route_violations = route_band_violations(routes, model_call.get("boards"))
+    # Cuantos cables se midieron de verdad: sin esto un "0 cruces" podria
+    # significar que no llego ninguna polilinea.
+    routes_routed = sum(1 for r in routes if isinstance(r, dict) and r.get("routed"))
+    routes_measured = sum(
+        1 for r in routes
+        if isinstance(r, dict) and r.get("routed") and r.get("points")
+    )
 
     preset_reported_failure = False
     for preset in presets or []:
@@ -325,6 +338,7 @@ def run_build(
         and build_ok
         and repair_ok
         and not preset_reported_failure
+        and not route_violations
     )
     return {
         "circuit_id": circuit_id,
@@ -336,4 +350,6 @@ def run_build(
         "repair_attempted": repair_attempted,
         "fidelity_before_repair": fidelity_before_repair,
         "reused": reused,
+        "route_violations": route_violations,
+        "routes": {"routed": routes_routed, "measured": routes_measured},
     }

@@ -144,6 +144,46 @@ def test_happy_path_ok_true_full_order_and_serial():
     assert all(r.ok for r in result["records"])
 
 
+def test_un_tramo_horizontal_sobre_la_placa_tumba_el_ok():
+    """100% de fidelidad no alcanza si un cable se ve pegado a la placa.
+
+    La fidelidad compara conexiones, no geometria: el cable puede estar
+    perfectamente conectado y pasar por encima del cuerpo (fase 40).
+    """
+    fixture = _fixture()
+    pegado = json.dumps({
+        "success": True,
+        "persisted": True,
+        "route_debug": [{
+            "wire": "uno.D13 -> 5e",
+            "routed": True,
+            "reason": "ok",
+            "points": [[200, 0], [200, 115], [765, 115], [765, 15]],
+        }],
+    })
+    call_tool = _fake_call_tool(build_output=pegado)
+    result = run_build(fixture, CODE, call_tool, "Con cable pegado")
+    assert result["fidelity"]["score"] == 1.0
+    assert result["route_violations"] == [
+        {"wire": "uno.D13 -> 5e", "y": 115.0, "board": {"x": 870.0, "y": 0.0}}
+    ]
+    assert result["ok"] is False
+
+    limpio = json.dumps({
+        "success": True,
+        "persisted": True,
+        "route_debug": [{
+            "wire": "uno.D13 -> 5e",
+            "routed": True,
+            "reason": "ok",
+            "points": [[200, 0], [200, 130], [765, 130], [765, 15]],
+        }],
+    })
+    result = run_build(fixture, CODE, _fake_call_tool(build_output=limpio), "Con cable limpio")
+    assert result["route_violations"] == []
+    assert result["ok"] is True
+
+
 def test_no_code_skips_set_code():
     fixture = _fixture()
     call_tool = _fake_call_tool()

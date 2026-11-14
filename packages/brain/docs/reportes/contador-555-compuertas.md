@@ -6,7 +6,7 @@
 - Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 13,
+  "total_lines": 41,
   "lines": [
     "TEST:COMPUERTAS=LISTO",
     "TEST:DIGITO=0",
@@ -20,23 +20,54 @@
     "TEST:DIGITO=0",
     "TEST:DIGITO=1",
     "TEST:DIGITO=2",
-    "TEST:DIGITO=3"
+    "TEST:DIGITO=3",
+    "TEST:DIGITO=4",
+    "TEST:DIGITO=5",
+    "TEST:DIGITO=6",
+    "TEST:DIGITO=7",
+    "TEST:DIGITO=0",
+    "TEST:DIGITO=1",
+    "TEST:DIGITO=2",
+    "TEST:DIGITO=3",
+    "TEST:DIGITO=4",
+    "TEST:DIGITO=5",
+    "TEST:DIGITO=6",
+    "TEST:DIGITO=7",
+    "TEST:DIGITO=0",
+    "TEST:DIGITO=1",
+    "TEST:DIGITO=2",
+    "TEST:DIGITO=3",
+    "TEST:DIGITO=4",
+    "TEST:DIGITO=5",
+    "TEST:DIGITO=6",
+    "TEST:DIGITO=7",
+    "TEST:DIGITO=0",
+    "TEST:DIGITO=1",
+    "TEST:DIGITO=2",
+    "TEST:DIGITO=3",
+    "TEST:DIGITO=4",
+    "TEST:DIGITO=5",
+    "TEST:DIGITO=6",
+    "TEST:DIGITO=7"
   ],
-  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3",
-  "message": "Retrieved 13 lines from Serial Monitor."
+  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7",
+  "message": "Retrieved 41 lines from Serial Monitor."
 }
+
+## Ruteo
+- Sin tramos sobre el cuerpo de una placa (31 de 31 cables ruteados medidos).
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 10.5 | 10.5 |
-| tinkercad_inspect_circuit | 1 | 0.2 | 0.2 |
-| tinkercad_open_circuit | 2 | 15.2 | 18.0 |
-| tinkercad_read_serial_monitor | 1 | 2.6 | 2.6 |
-| tinkercad_set_code | 1 | 19.7 | 19.7 |
-| tinkercad_set_component_property_model | 9 | 1.0 | 2.0 |
-| tinkercad_start_simulation | 1 | 29.9 | 29.9 |
-| tinkercad_stop_simulation | 1 | 2.8 | 2.8 |
+| tinkercad_build_circuit_model | 1 | 7.3 | 7.3 |
+| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
+| tinkercad_open_circuit | 2 | 12.1 | 13.6 |
+| tinkercad_read_serial_monitor | 1 | 2.7 | 2.7 |
+| tinkercad_set_code | 1 | 15.5 | 15.5 |
+| tinkercad_set_component_property_model | 9 | 1.2 | 1.9 |
+| tinkercad_start_simulation | 1 | 28.9 | 28.9 |
+| tinkercad_stop_simulation | 1 | 2.5 | 2.5 |
 
 ## Fallos
 Sin fallos.

@@ -10,7 +10,13 @@ def _seconds(value) -> str:
 
 
 def render_build_report(
-    title: str, circuit_url: str, fidelity: dict, sim_summary: str, records: list[dict]
+    title: str,
+    circuit_url: str,
+    fidelity: dict,
+    sim_summary: str,
+    records: list[dict],
+    route_violations: list[dict] | None = None,
+    routes: dict | None = None,
 ) -> str:
     report = build_report(records)
 
@@ -37,6 +43,23 @@ def render_build_report(
     if detail_parts:
         lines.append("- " + " / ".join(detail_parts))
     lines.append(f"- Simulación: {sim_summary}")
+    lines.append("")
+    if route_violations is not None:
+        lines.append("## Ruteo")
+        if route_violations:
+            for violation in route_violations:
+                lines.append(
+                    f"- {violation['wire']}: tramo horizontal en y="
+                    f"{violation['y']:.0f} sobre la placa en x="
+                    f"{violation['board']['x']:.0f}"
+                )
+        else:
+            measured = (routes or {}).get("measured", 0)
+            routed = (routes or {}).get("routed", 0)
+            lines.append(
+                f"- Sin tramos sobre el cuerpo de una placa "
+                f"({measured} de {routed} cables ruteados medidos)."
+            )
     lines.append("")
     lines.append("## Herramientas")
     if not records:

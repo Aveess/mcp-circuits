@@ -106,3 +106,33 @@ def test_failures_listed_in_record_order():
     assert "- a_tool: second failure" in doc
     assert doc.index("- b_tool: first failure") < doc.index("- a_tool: second failure")
     assert "Sin fallos." not in doc
+
+
+def test_sin_ruteo_pedido_no_aparece_la_seccion():
+    """Un reporte viejo (sin polilineas) no inventa una seccion de ruteo."""
+    doc = render_build_report("Build viejo", "https://example/c5", {}, "ok", [])
+    assert "## Ruteo" not in doc
+
+
+def test_ruteo_limpio_dice_cuantos_cables_se_midieron():
+    doc = render_build_report(
+        "Build limpio", "https://example/c6", {}, "ok", [],
+        route_violations=[],
+        routes={"routed": 31, "measured": 31},
+    )
+    assert "## Ruteo" in doc
+    assert "Sin tramos sobre el cuerpo de una placa (31 de 31 cables ruteados medidos)." in doc
+
+
+def test_ruteo_con_cruce_nombra_el_cable_y_la_placa():
+    doc = render_build_report(
+        "Build con cruce", "https://example/c7", {}, "ok", [],
+        route_violations=[{
+            "wire": "uno.GND1 -> buzzer1.-",
+            "y": 106.0,
+            "board": {"x": 870.0, "y": 0.0},
+        }],
+        routes={"routed": 19, "measured": 19},
+    )
+    assert "## Ruteo" in doc
+    assert "- uno.GND1 -> buzzer1.-: tramo horizontal en y=106 sobre la placa en x=870" in doc

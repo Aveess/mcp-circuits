@@ -965,3 +965,71 @@ mostrando el dígito sin explotar.
 Lección: **un actuador que explota sigue contando**. El oráculo funcional no
 reemplaza la validez eléctrica; el lint tiene que estar en el camino de
 construcción, no en la lista de deseos.
+
+## Fase 40: el cable ya no roza la placa, y se mide (2026-11-14)
+
+La fase 39 cerró con una deuda escrita a mano: "el cable de 5V/GND al display
+cruza la placa 1 por el carril superior". Mirando la captura no había forma de
+decidir si cruzaba o solo pasaba cerca. Se resolvió de la única manera que
+sirve: midiendo.
+
+### 40a · La holgura que faltaba
+
+Los carriles arrancaban en `BASE_Y ± 115`. El cuerpo de la protoboard llega a
+±110 (filas j..a = -55..+55, rieles -95..+95, plástico hasta ~110). Eran cinco
+unidades de aire: en pantalla, un cable apoyado en el borde. Ahora la banda
+arranca en **±130**.
+
+### 40b · La parte libre también es un obstáculo
+
+Un cable hacia/desde una parte libre sale por el carril de su banda. Si la
+parte vive **dentro** de la banda (o casi sobre el borde), el carril se corre
+30 más allá de la parte —pero nunca hacia la placa—. Las dos ramas hacen falta:
+
+- Integrados y display en `y=-230`: quedan fuera de la banda, así que el
+  corredor es la banda (cae limpio entre la placa y ellos). Correrlo "30 más
+  allá de la parte" los mandaba a -260, cinco unidades encima de los cuerpos
+  de los chips: peor que el problema.
+- El piezo de `lcd-distancia` en `y=76`: correrlo 30 más allá lo metía en la
+  placa (`+106 < 110`). Ahí el carril baja a la banda (+130) y sube al pin
+  desde afuera.
+
+La primera versión de esta regla tenía solo la segunda rama y el primer build
+en vivo lo cantó: `uno.GND1 -> buzzer1.-` en `y=106` sobre la placa.
+
+### 40c · La regla 3 ahora se mide
+
+El puente devuelve en `route_debug[*].points` la polilínea completa de cada
+cable ruteado (extremo → quiebres → extremo). `builder.route_band_violations`
+la recorre: un tramo **vertical** puede cruzar la placa (así se entra a un
+hueco, es lo normal); un tramo **horizontal** no puede caer dentro de
+±125 del origen de una placa si su `x` pisa el ancho (±160).
+
+El resultado entra en el `ok` del build y en el reporte:
+
+```
+Ruteo: 0 tramo(s) sobre una placa (31 de 31 cables medidos)
+```
+
+El contador importa: un "0 cruces" sin saber cuántos cables se midieron no es
+evidencia, podría ser que no llegó ninguna polilínea.
+
+### 40d · Lo que encontró
+
+El lint cazó un defecto que nadie había visto y que no era el documentado:
+`uno.GND1 -> buzzer1.-` pasaba por encima de la placa en `lcd-distancia`
+(el cable del piezo), por la regla del corredor mal escrita. `lcd-distancia`
+quedó en **OK: False** con 100% de fidelidad hasta corregirlo. Después:
+
+| circuito | fidelidad | ruteo |
+|---|---|---|
+| contador-555-compuertas | 100% | 0 cruces (31/31 medidos) |
+| lcd-distancia | 100% | 0 cruces (19/19) |
+| control-acceso | 100% | 0 cruces (25/25) |
+| siete-segmentos | 100% | 0 cruces (15/15) |
+| lcd-contador | 100% | 0 cruces (13/13) |
+| lcd-temperatura | 100% | 0 cruces (16/16) |
+| clave-lcd | 100% | 0 cruces (22/22) |
+
+Lección: **una deuda anotada a ojo se cierra midiendo, no mirando mejor**. Y
+el instrumento encontró otra cosa distinta a la deuda anotada.
