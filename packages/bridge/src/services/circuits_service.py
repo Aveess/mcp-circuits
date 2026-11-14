@@ -480,6 +480,121 @@ class CircuitsService:
         except Exception as e:
             return {"success": False, "message": f"Failed to rename circuit: {e}"}
 
+    async def delete_circuit(
+        self,
+        circuit_id_or_url: Optional[str] = None,
+        circuit_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Delete one or more circuit designs (moves them to the recycle bin)."""
+        raw_ids = kwargs.get("circuit_ids") or []
+        targets: List[str] = []
+        for value in [circuit_id_or_url, circuit_id, *raw_ids]:
+            if not value:
+                continue
+            match = re.search(r"/things/([a-zA-Z0-9_\-]+)", str(value))
+            clean = match.group(1).split("-")[0] if match else str(value).strip("/")
+            if not re.match(r"^[a-zA-Z0-9_\-]+$", clean):
+                return {
+                    "success": False,
+                    "message": f"Invalid circuit identifier '{value}'.",
+                }
+            if clean not in targets:
+                targets.append(clean)
+        if not targets:
+            return {"success": False, "message": "A circuit id is required."}
+
+        # A tinkercad.com page is needed so the session cookies apply to the API host.
+        await self.browser.navigate(DESIGNS_ALL_URL)
+        page = await self.browser.get_page()
+
+        try:
+            result = await page.evaluate(
+                """async (ids) => {
+                    const token = (document.cookie.split('; ')
+                        .find(c => c.startsWith('csrf-token=')) || '').split('=').slice(1).join('=');
+                    const r = await fetch(
+                        'https://api-reader-prd.tinkercad.com/things/deletemultiplejson',
+                        {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'x-csrf-token': token,
+                                'Referer': 'https://www.tinkercad.com/',
+                            },
+                            body: JSON.stringify(ids),
+                        }
+                    );
+                    let body = null;
+                    try { body = await r.json(); } catch (e) { body = await r.text(); }
+                    return {status: r.status, ok: r.ok, body};
+                }""",
+                targets,
+            )
+        except Exception as e:
+            return {"success": False, "message": f"Delete request failed: {e}"}
+
+        if result.get("status") == 403:
+            # The CSRF cookie rotates; a fresh page load + token usually clears it.
+            try:
+                await page.reload(wait_until="domcontentloaded")
+                await page.wait_for_timeout(1500)
+                result = await page.evaluate(
+                    """async (ids) => {
+                        const token = (document.cookie.split('; ')
+                            .find(c => c.startsWith('csrf-token=')) || '').split('=').slice(1).join('=');
+                        const r = await fetch(
+                            'https://api-reader-prd.tinkercad.com/things/deletemultiplejson',
+                            {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'x-csrf-token': token,
+                                    'Referer': 'https://www.tinkercad.com/',
+                                },
+                                body: JSON.stringify(ids),
+                            }
+                        );
+                        let body = null;
+                        try { body = await r.json(); } catch (e) { body = await r.text(); }
+                        return {status: r.status, ok: r.ok, body};
+                    }""",
+                    targets,
+                )
+            except Exception as e:
+                logger.debug(f"Delete retry failed: {e}")
+
+        if not result.get("ok"):
+            return {
+                "success": False,
+                "deleted": [],
+                "message": f"Tinkercad rejected the delete request (HTTP {result.get('status')}).",
+            }
+
+        # Confirm against the listing API: deleted designs must disappear.
+        remaining = None
+        try:
+            listing = await self._list_designs_via_api(page)
+            if listing is not None:
+                remaining = {c["id"] for c in listing}
+        except Exception:
+            pass
+
+        deleted = [cid for cid in targets if remaining is None or cid not in remaining]
+        not_deleted = [cid for cid in targets if cid not in deleted]
+        return {
+            "success": bool(deleted) and not not_deleted,
+            "deleted": deleted,
+            "not_deleted": not_deleted,
+            "message": (
+                f"Deleted {len(deleted)} design(s)."
+                if not not_deleted
+                else f"Deleted {len(deleted)} design(s); still present: {', '.join(not_deleted)}."
+            ),
+        }
+
     async def _inspect_circuit_svg_fallback(self, page: Any) -> Dict[str, Any]:
         """Fast fallback inspecting SVG DOM elements when internal circuit_editor data model is not settling."""
         try:

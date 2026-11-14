@@ -240,6 +240,31 @@ async def tinkercad_rename_circuit(
 
 
 @server.tool()
+async def tinkercad_delete_circuit(
+    circuit_id_or_url: Optional[str] = None,
+    circuit_id: Optional[str] = None,
+) -> str:
+    """Delete a circuit design from the account (moves it to the recycle bin).
+
+    Args:
+        circuit_id_or_url: Circuit id, /things/<id> URL or edit URL
+        circuit_id: Alias for circuit_id_or_url
+    """
+    if not (circuit_id_or_url or circuit_id):
+        return json.dumps({
+            "success": False,
+            "message": "Either circuit_id_or_url or circuit_id must be provided.",
+        }, indent=2)
+    try:
+        res = await circuits_service.delete_circuit(
+            circuit_id_or_url=circuit_id_or_url, circuit_id=circuit_id
+        )
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        return _format_error("tinkercad_delete_circuit", e)
+
+
+@server.tool()
 async def tinkercad_switch_workspace_view(view: str) -> str:
     """Switch the editor view using the workspace switcher ('circuits', 'schematic', or 'components').
 
