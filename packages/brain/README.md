@@ -10,7 +10,7 @@ mano: esa es la regla de diseño número uno.
 
 | Pieza | Repo | Qué hace |
 |---|---|---|
-| El puente (las manos) | `Aveess/tinkercad-mcp-bridge` (privado) | Servidor MCP en Python/Playwright con 48 tools. Fork de ezhil-kumaran saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
+| El puente (las manos) | `Aveess/tinkercad-mcp-bridge` (privado) | Servidor MCP en Python/Playwright con 49 tools. Fork de ezhil-kumaran saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
 | El cerebro (este repo) | `Aveess/tinkercad-brain` (privado) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
 
 Las dos capas hablan **MCP sobre stdio**. El cerebro nunca importa al
@@ -20,8 +20,10 @@ puente en producción.
 
 1. Se describe el circuito como fixture/spec (componentes, nets, código).
 2. `layout.plan_layout` asigna huecos de protoboard por bloques
-   (LED+resistencia de 6 en 6, 3 pines en fila c, HC-SR04 en fila d,
-   botón cruzando el gap).
+   (LED+resistencia de 6 en 6, 3 pines en fila c, HC-SR04 en fila d desde
+   la columna 18, botón cruzando el gap, piezo y LDR en una segunda pasada
+   al extremo derecho porque su cuerpo es un disco grande que tapa
+   vecinos).
 3. `builder.fixture_to_model_call` lo traduce a la llamada del puente:
    partes con DID real, wires `{from, to, color}` ordenados
    alimentación → tierra → señales (negro/rojo/paleta).
@@ -42,9 +44,11 @@ puente en producción.
 
 ## Circuitos ya construidos y verificados
 
-Ver `docs/benchmark.md` (8 circuitos: blink, semáforo, botón, servo,
-TMP36, ultrasónico, blink organizado) y los reportes individuales en
-`docs/reportes/`.
+Ver `docs/benchmark.md` (12 circuitos en cuatro niveles, todos al 100% de
+fidelidad: blink, semáforo, botón, servo, TMP36, ultrasónico, RGB, motor con
+transistor, motor con L293D y batería, buzzer con botón, LDR en luz nocturna
+y una barrera de parking con sensor + servo + RGB) y los reportes
+individuales en `docs/reportes/`.
 
 ## Puesta en marcha
 

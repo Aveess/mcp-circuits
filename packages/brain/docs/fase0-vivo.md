@@ -112,3 +112,34 @@ bateria y el motor salian diagonales. Correcciones:
   en angulo recto (foto l293d_reuse.png).
 - 11 duplicados/exploraciones renombrados a "BORRAR - ..." (el puente no
   tiene borrado; quedan agrupados para borrar desde el dashboard).
+
+## Nivel 2 y 3 de circuitos (2026-11-13)
+
+Se sumaron tres circuitos que suben la complejidad y dos componentes con
+geometria no trivial, todos verificados en vivo al 100%:
+
+- **Buzzer activo con boton** (93Dj8w6iEv1): Piezo did 114067; su "-" cae 5
+  columnas a la derecha del "+" (ancla). Su cuerpo es un disco grande que
+  tapaba el boton: ahora se coloca en segunda pasada desde la columna 24.
+- **LDR divisor en luz nocturna** (lo9VkvBdWmT): Photoresistor (LDR) did
+  116691; "terminal-2" cae 1 columna a la derecha de "terminal-1". La
+  resistencia del divisor se coloca 3 columnas a la derecha del ancla y el
+  LDR tambien va al extremo derecho (columna 22) por el disco.
+- **Barrera de parking** (2xxjwQBZuOH): HC-SR04 + servo + RGB. El RGB se
+  coloca primero y el layout lo reubica en la primera ventana libre de 8
+  columnas si el cursor ya paso, asi el fixture no depende del orden.
+
+Lecciones:
+1. Los refs derivados por `derive_nets` DEBEN ser identicos a los de
+   `normalize_circuit` (photoresistor1, no ldr1): `compare_connectivity`
+   alinea por tipo+orden y un prefijo distinto deja los endpoints opacos
+   (la conectividad cayo a 0.66 sin que el cableado estuviera mal).
+2. El ref de una resistencia sigue el orden fisico en `inspect`, no el
+   orden de la fixture: en `ldr-divisor` la resistencia del divisor es r2.
+3. En el simulador el LDR arranca a oscuras (analogRead = 6) y el
+   ultrasonico mide ~112 cm segun los objetos de la escena. Los sketches se
+   eligen para que el circuito arranque en un estado observable (luz
+   nocturna encendida, barrera abierta) sin mentir sobre la logica.
+4. Un disco grande (piezo, LDR, HC-SR04) siempre al extremo derecho y en la
+   ultima pasada del planner: tapar un LED o un boton se ve como un
+   circuito roto aunque la conectividad sea 1.0.

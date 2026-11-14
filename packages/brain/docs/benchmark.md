@@ -1,46 +1,49 @@
 # Benchmark — circuitos construidos y verificados en Tinkercad
 
-Generado desde los registros locales de corridas en vivo (~/jarvis_data/logs/tinkercad-fase0/live*.json).
+Última pasada: 2026-11-13, todos reconstruidos con el runner (reutiliza el
+circuito por título y construye con reemplazo limpio). Fidelidad = score de
+`compare_connectivity` (componentes + equivalencia eléctrica). El oráculo de
+comportamiento es siempre el serial instrumentado en simulación, nunca el
+píxel del LED.
 
-| Circuito | ID Tinkercad | Fidelidad (conectividad) | Oraculo de comportamiento |
-|---|---|---|---|
-| Blink sin protoboard | j7EqK1vq0nj | 1.0 (clasica, nets exactas) | READY |
-| Blink en protoboard | aBcCq6HfA2P | 1.0 | TEST:ON/OFF alternando |
-| Semaforo 3 LEDs | dlhJ966IRvA | 1.0 | READY |
-| Boton pull-up + LED | bWmMIRN5dwi | 0.8 (nombres de pin del boton) | READY |
-| Servo + potenciometro | 9Rpc2a0C6te | 1.0 | TEST:ANGLE=180 |
-| TMP36 + LED | 3Dh7FcuvaEQ | 1.0 | TEST:TEMP=24.78 |
-| Ultrasonico HC-SR04 + LED | 0W49xkaR18y | 1.0 | TEST:DIST~112 cm |
-| Blink organizado v3 | 2tMhkuosDyj | 1.0 | TEST:ON/OFF, ruteo 2/2 |
+| # | Circuito | ID Tinkercad | Fidelidad | Oráculo observado |
+|---|---|---|---|---|
+| 1 | Blink organizado v3 | 2tMhkuosDyj | 100% | `TEST:ON`/`TEST:OFF` alternando |
+| 2 | Semáforo 3 LEDs | hGHU2MiJnDJ | 100% | fases `TEST:RED`/`YELLOW`/`GREEN` |
+| 3 | Botón pull-up + LED | lp8O5143UNj | 100% | `TEST:PRESSED` al apretar |
+| 4 | Servo + potenciómetro | 9Rpc2a0C6te | 100% | `TEST:ANGLE=0..180` |
+| 5 | TMP36 + LED | 2Z7ubKF9ieN | 100% | `TEST:TEMP=24.78`, LED encendido |
+| 6 | Ultrasónico HC-SR04 + LED | 2ly9vcxYUyc | 100% | `TEST:DIST=7.46` + `TEST:LED=ON` |
+| 7 | RGB (3 resistencias) | i525BUubYAE | 100% | `TEST:RED/GREEN/BLUE` |
+| 8 | Motor DC con transistor + diodo | 73azwj2IJDE | 100% | `TEST:MOTOR=0..255` |
+| 9 | Motor con L293D + batería 9V | kJPyfC1VQaM | 100% | `TEST:MOTOR`, `TEST:SENTIDO` |
+| 10 | Buzzer activo con botón | 93Dj8w6iEv1 | 100% | `TEST:SILENCIO` / `TEST:PRESSED` (tone/noTone) |
+| 11 | LDR divisor, luz nocturna | lo9VkvBdWmT | 100% | `TEST:LUZ=6` + `TEST:LED=ON` |
+| 12 | Barrera de parking (HC-SR04 + servo + RGB) | 2xxjwQBZuOH | 100% | `TEST:DIST=112` + `TEST:ESTADO=ABIERTO` + `TEST:SERVO=90` |
 
-## Latencias observadas (todas las corridas, en segundos)
+## Qué agrega cada nivel
 
-| tool | n | mediana | peor |
-|---|---|---|---|
-| tinkercad_auth_status | 1 | 10.664 | 10.664 |
-| tinkercad_list_available_components | 3 | 0.007 | 0.01 |
-| tinkercad_build_circuit | 1 | 52.206 | 52.206 |
-| tinkercad_inspect_circuit | 9 | 0.039 | 0.062 |
-| tinkercad_create_circuit | 6 | 18.0315 | 21.404 |
-| tinkercad_build_circuit_model | 10 | 4.295 | 6.713 |
-| tinkercad_set_code | 10 | 16.4085 | 18.405 |
-| tinkercad_open_circuit | 16 | 11.309000000000001 | 12.603 |
-| tinkercad_start_simulation | 11 | 5.436 | 7.201 |
-| tinkercad_read_serial_monitor | 11 | 1.071 | 35.085 |
-| tinkercad_take_screenshot | 7 | 0.209 | 0.403 |
-| tinkercad_stop_simulation | 10 | 1.2429999999999999 | 1.45 |
-| tinkercad_simulate_samples | 1 | 10.062 | 10.062 |
-| tinkercad_open_serial_monitor | 2 | 0.9565 | 0.978 |
-| tinkercad_zoom_canvas | 4 | 0.831 | 0.856 |
-| tinkercad_list_circuits | 1 | 6.824 | 6.824 |
-| tinkercad_get_circuit_info | 1 | 0.046 | 0.046 |
-| tinkercad_inspect_schematic_connections | 5 | 0.027 | 0.029 |
-| tinkercad_connect_verified_netlist | 1 | 14.195 | 14.195 |
-| tinkercad_validate_circuit_pre_simulation | 1 | 1.242 | 1.242 |
-| tinkercad_verify_schematic_connections | 1 | 0.021 | 0.021 |
-| tinkercad_get_code | 2 | 0.603 | 1.174 |
-| tinkercad_get_simulation_status | 3 | 0.109 | 0.111 |
-| tinkercad_resolve_terminal | 1 | 0.197 | 0.197 |
-| tinkercad_connect_component_pins | 2 | 0.3755 | 0.389 |
+- **Nivel 1 (1-4):** salida digital, entrada digital, PWM y entrada analógica
+  con un solo actuador.
+- **Nivel 2 (5-7):** sensores analógicos y buses de pines (LCD no, todavía;
+  sí sensores de 3-4 pines y RGB con tres resistencias).
+- **Nivel 3 (8-9):** carga inductiva con transistor y diodo flyback, y driver
+  de potencia con alimentación externa (batería 9V) compartiendo tierra.
+- **Nivel 4 (10-12):** componentes con geometría no trivial (piezo de 5
+  columnas, fotorresistencia de 1 columna) y un circuito de integración con
+  tres subsistemas: sensor de distancia, actuador (servo) e indicador (RGB).
 
-Total de llamadas registradas: 120. Fallos registrados: 6 (ver reportes por circuito en docs/reportes/).
+## Latencias
+
+Las latencias por herramienta de cada corrida quedan en su reporte
+individual (`docs/reportes/<fixture>.md`). Las caras siguen siendo
+`tinkercad_create_circuit` (~10-18 s), `tinkercad_set_code` (~17 s) y
+`tinkercad_open_circuit` (~9-12 s); `tinkercad_inspect_circuit` ronda 0.1-0.2 s
+y es lo que se usa masivamente para verificar.
+
+## Pendientes conocidos
+
+- Sin herramienta de borrado en el puente: los circuitos de exploración se
+  renombran `BORRAR - ...` y se eliminan desde el dashboard.
+- El sampler de píxeles (brillo de LED) no calibra en headless; el oráculo
+  real es el serial.
