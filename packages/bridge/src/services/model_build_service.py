@@ -247,7 +247,12 @@ _BUILD_JS = r"""
   // menos de 8) y base a la que arranca la banda por encima/debajo de la
   // placa. El reparto por lado se lleva aparte: cada banda usa sus propios
   // numeros, asi que la de arriba no se come el espacio de la de abajo.
-  const LANE_BASE = 115, LANE_STEP = 8;
+  //
+  // LANE_BASE tiene que superar el cuerpo de la protoboard (filas -55..+55
+  // y rieles -95..+95, plastico hasta ~110): con 115 el cable pasaba a 5
+  // unidades del borde y se veia pegado a la placa. LANE_CLEAR es la
+  // holgura que se le deja a una parte libre que caiga dentro de la banda.
+  const LANE_BASE = 130, LANE_STEP = 8, LANE_CLEAR = 30;
   const ROW_Y = { j: -55, i: -45, h: -35, g: -25, f: -15, e: 15, d: 25, c: 35, b: 45, a: 55 };
   const RAIL_Y = { 'T-': -95, 'T+': -85, 'B-': 85, 'B+': 95 };
   const UNO_DID = 132521, BB_DID = 111211;
@@ -678,6 +683,7 @@ _BUILD_JS = r"""
           const w = new window.Circuits.BendableWireData(root, a, b, { color });
           if (data.wires && typeof data.wires.add === 'function') data.wires.add(w);
           let didRoute = false;
+          let routePoints = null;
           if (shouldRoute) {
             let reason = null;
             if (!w || typeof w.addPoint !== 'function') {
@@ -697,9 +703,19 @@ _BUILD_JS = r"""
                 const sideY = (freeEntry && freeEntry.free && isFinite(freeEntry.free.y))
                   ? Number(freeEntry.free.y) : freePos.y;
                 const below = sideY > BASE_Y;
+                // El corredor es la banda de siempre: cae entre el cuerpo de
+                // la placa (±110) y los integrados que viven arriba
+                // (y=-230). Si la parte libre esta DENTRO de la banda (o casi
+                // sobre el borde, como el piezo en y=76), el carril se corre
+                // 30 mas alla de la parte... pero nunca hacia la placa: el
+                // tramo tiene que limpiar las dos cosas.
+                const topBase = (sideY < BASE_Y - LANE_BASE)
+                  ? BASE_Y - LANE_BASE : Math.min(BASE_Y - LANE_BASE, sideY - LANE_CLEAR);
+                const bottomBase = (sideY > BASE_Y + LANE_BASE)
+                  ? BASE_Y + LANE_BASE : Math.max(BASE_Y + LANE_BASE, sideY + LANE_CLEAR);
                 const laneY = below
-                  ? BASE_Y + LANE_BASE + sideLanes.bottom * LANE_STEP
-                  : BASE_Y - LANE_BASE - sideLanes.top * LANE_STEP;
+                  ? bottomBase + sideLanes.bottom * LANE_STEP
+                  : topBase - sideLanes.top * LANE_STEP;
                 if (below) sideLanes.bottom++; else sideLanes.top++;
                 // Si el pin vive arriba del cuerpo, primero se sale de lado
                 // (a la altura del pin, fuera del cuerpo) y despues se baja.
@@ -728,6 +744,12 @@ _BUILD_JS = r"""
                     const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
                     if (r === false) throw new Error('addPoint returned false');
                   }
+                  // Polilinea completa del cable (extremo, quiebres, extremo)
+                  // para que el cerebro pueda medir cruces sin mirar pixeles.
+                  const startPt = freeIsFrom ? freePos : destPos;
+                  const endPt = freeIsFrom ? destPos : freePos;
+                  routePoints = [[startPt.x, startPt.y]].concat(
+                    pts.map((p) => [p.x, p.y]), [[endPt.x, endPt.y]]);
                   didRoute = true;
                 } catch (e) {
                   reason = 'addpoint_error: ' + e.toString();
@@ -756,6 +778,10 @@ _BUILD_JS = r"""
                     const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
                     if (r === false) throw new Error('addPoint returned false');
                   }
+                  const startPt = fromIsUno ? unoPos : destPos;
+                  const endPt = fromIsUno ? destPos : unoPos;
+                  routePoints = [[startPt.x, startPt.y]].concat(
+                    pts.map((p) => [p.x, p.y]), [[endPt.x, endPt.y]]);
                   didRoute = true;
                 } catch (e) {
                   reason = 'addpoint_error: ' + e.toString();
@@ -763,7 +789,8 @@ _BUILD_JS = r"""
               }
             }
             if (didRoute) {
-              route_debug.push({ wire: wireLabel, routed: true, reason: 'ok' });
+              route_debug.push({ wire: wireLabel, routed: true, reason: 'ok',
+                                 points: routePoints });
             } else {
               route_debug.push({ wire: wireLabel, routed: false, reason: reason || 'unknown' });
               errors.push('wire ' + wireLabel + ': route_failed: ' + (reason || 'unknown'));

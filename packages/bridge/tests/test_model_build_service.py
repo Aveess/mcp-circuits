@@ -837,20 +837,23 @@ console.log(JSON.stringify({ out,
             300, {"from": "motor1.1", "to": "5e", "color": "blue", "route": True, "lane": 0})
         self.assertEqual(out["out"]["routed"], 1)
         self.assertEqual(out["out"]["route_debug"],
-                         [{"wire": "motor1.1 -> 5e", "routed": True, "reason": "ok"}])
-        # free (560,300) is below board centre y=0 -> lane y=+115, dest col x=765
+                         [{"wire": "motor1.1 -> 5e", "routed": True, "reason": "ok",
+                           "points": [[560, 300], [560, 130], [765, 130], [765, 15]]}])
+        # free (560,300) is below the board and beyond the band: the run uses
+        # the band (y=+130), which passes between the board and the part.
         self.assertEqual(out["points"],
-                         [{"x": 560, "y": 115, "i": 1}, {"x": 765, "y": 115, "i": 2}])
+                         [{"x": 560, "y": 130, "i": 1}, {"x": 765, "y": 130, "i": 2}])
 
     def test_free_to_uno_above_board_produces_lane_points_reversed(self):
         out = self._run_free_route(
             -300, {"from": "uno.D9", "to": "motor1.1", "color": "blue", "route": True, "lane": 1})
         self.assertEqual(out["out"]["routed"], 1)
-        # above centre -> first top lane y=-115 (per-side counting ignores the
-        # global lane number, which only staggers the lateral escape)
+        # above -> the band (y=-130) sits between the board body and the
+        # part at -300; per-side counting ignores the global lane number,
+        # which only staggers the lateral escape.
         # points follow wire direction uno->free
         self.assertEqual(out["points"],
-                         [{"x": 200, "y": -115, "i": 1}, {"x": 560, "y": -115, "i": 2}])
+                         [{"x": 200, "y": -130, "i": 1}, {"x": 560, "y": -130, "i": 2}])
 
     # ------------------------------------------------ fase 36: escape lateral
 
@@ -860,11 +863,12 @@ console.log(JSON.stringify({ out,
             -230, {"from": "lcd1.DB5", "to": "5e", "color": "blue", "route": True, "lane": 0},
             did=113878, ref="lcd1", free_x=1100)
         self.assertEqual(out["out"]["routed"], 1)
-        # escape = origen (1100) - 154; lane 0 -> laneY -115; destino x 765
+        # escape = origen (1100) - 154; el LCD vive en y=-230, fuera de la
+        # banda, asi que el carril es la banda de arriba (-130); destino x 765
         self.assertEqual(out["points"], [
             {"x": 946, "y": -295, "i": 1},
-            {"x": 946, "y": -115, "i": 2},
-            {"x": 765, "y": -115, "i": 3},
+            {"x": 946, "y": -130, "i": 2},
+            {"x": 765, "y": -130, "i": 3},
         ])
 
     def test_el_escape_se_escalona_por_carril(self):
@@ -872,11 +876,40 @@ console.log(JSON.stringify({ out,
             -230, {"from": "lcd1.DB5", "to": "5e", "color": "blue", "route": True, "lane": 3},
             did=113878, ref="lcd1", free_x=1100)
         # 154 + 3*8 a la izquierda del origen; el y es el primer carril de la
-        # banda de arriba (-115), porque cada banda cuenta por su lado.
+        # banda de arriba (-130), porque cada banda cuenta por su lado.
         self.assertEqual(out["points"], [
             {"x": 922, "y": -295, "i": 1},
-            {"x": 922, "y": -115, "i": 2},
-            {"x": 765, "y": -115, "i": 3},
+            {"x": 922, "y": -130, "i": 2},
+            {"x": 765, "y": -130, "i": 3},
+        ])
+
+    def test_parte_libre_casi_sobre_el_borde_no_lleva_el_cable_a_la_placa(self):
+        """El piezo de lcd-distancia vive en y=76: el carril no puede ir a 106.
+
+        Correr el carril 30 mas alla de la parte lo metia dentro del cuerpo
+        de la placa (y=106 < 110). El tramo tiene que limpiar las dos: baja
+        a la banda (+130) y sube al pin desde afuera.
+        """
+        out = self._run_free_route(
+            76, {"from": "buzzer1.1", "to": "uno.D13", "color": "black", "route": True, "lane": 0},
+            did=999, ref="buzzer1", free_x=1250)
+        self.assertEqual(out["points"], [
+            {"x": 1250, "y": 130, "i": 1},
+            {"x": 200, "y": 130, "i": 2},
+        ])
+
+    def test_parte_libre_dentro_de_la_banda_corre_el_carril(self):
+        """Si la parte cae en la banda, el cable pasa por fuera, no por encima.
+
+        A -120 la banda (-130) le pasaria por el cuerpo; el carril se corre
+        30 mas alla (LANE_CLEAR) para salir por arriba.
+        """
+        out = self._run_free_route(
+            -120, {"from": "motor1.1", "to": "5e", "color": "blue", "route": True, "lane": 0},
+            did=999, ref="motor1", free_x=560)
+        self.assertEqual(out["points"], [
+            {"x": 560, "y": -150, "i": 1},
+            {"x": 765, "y": -150, "i": 2},
         ])
 
     def test_sin_escape_el_cable_baja_directo_desde_el_pin(self):
@@ -885,8 +918,8 @@ console.log(JSON.stringify({ out,
             did=999, ref="motor1", free_x=560)
         # Sin tabla de escape: solo los dos puntos de carril, sin lateral.
         self.assertEqual(out["points"], [
-            {"x": 560, "y": -115, "i": 1},
-            {"x": 765, "y": -115, "i": 2},
+            {"x": 560, "y": -130, "i": 1},
+            {"x": 765, "y": -130, "i": 2},
         ])
 
 
@@ -1078,9 +1111,9 @@ console.log(JSON.stringify({ out,
         })
         self.assertEqual(out["out"]["routed"], 1, out["out"]["errors"])
         # board 2 origin x=1270, column 5 -> 1270-145+40 = 1165; row e below
-        # the gap -> bottom band y=+115
+        # the gap -> bottom band y=+130 (clears the 110-wide board body)
         self.assertEqual(out["points"],
-                         [{"x": 200, "y": 115, "i": 1}, {"x": 1165, "y": 115, "i": 2}])
+                         [{"x": 200, "y": 130, "i": 1}, {"x": 1165, "y": 130, "i": 2}])
 
     def test_top_band_rails_with_prefix_keep_top_lane(self):
         out = self._run({
@@ -1093,7 +1126,7 @@ console.log(JSON.stringify({ out,
         self.assertEqual(out["out"]["routed"], 1, out["out"]["errors"])
         # rail T+ of board 2: x=1270-145+90=1215, y=-85; upper rail -> top band
         self.assertEqual(out["points"],
-                         [{"x": 200, "y": -115, "i": 1}, {"x": 1215, "y": -115, "i": 2}])
+                         [{"x": 200, "y": -130, "i": 1}, {"x": 1215, "y": -130, "i": 2}])
 
     def test_bn_rail_no_comparte_banda_con_hueco(self):
         """Arriba y abajo crecen por separado: 2 cables arriba no empujan abajo."""
@@ -1109,8 +1142,8 @@ console.log(JSON.stringify({ out,
         })
         self.assertEqual(out["out"]["routed"], 3, out["out"]["errors"])
         ys = [w[0]["y"] for w in out["all"]]
-        # dos en la banda de arriba (-115, -123) y uno abajo (+115)
-        self.assertEqual(ys, [-115, -123, 115])
+        # dos en la banda de arriba (-130, -138) y uno abajo (+130)
+        self.assertEqual(ys, [-130, -138, 130])
 
 
 class TestBuildCircuitModelToolSchema(unittest.TestCase):
