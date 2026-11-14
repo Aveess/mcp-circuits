@@ -20,6 +20,7 @@ píxel del LED.
 | 10 | Buzzer activo con botón | 93Dj8w6iEv1 | 100% | `TEST:SILENCIO` / `TEST:PRESSED` (tone/noTone) |
 | 11 | LDR divisor, luz nocturna | lo9VkvBdWmT | 100% | `TEST:LUZ=6` + `TEST:LED=ON` |
 | 12 | Barrera de parking (HC-SR04 + servo + RGB) | 2xxjwQBZuOH | 100% | `TEST:DIST=112` + `TEST:ESTADO=ABIERTO` + `TEST:SERVO=90` |
+| 13 | LCD 16x2 en modo 4 bits (contador) | cpySiVSE9vr | 100% | `TEST:LCD=LISTO` + `TEST:SEG=N` (mismo valor que muestra la pantalla) |
 
 ## Qué agrega cada nivel
 
@@ -32,6 +33,10 @@ píxel del LED.
 - **Nivel 4 (10-12):** componentes con geometría no trivial (piezo de 5
   columnas, fotorresistencia de 1 columna) y un circuito de integración con
   tres subsistemas: sensor de distancia, actuador (servo) e indicador (RGB).
+- **Nivel 5 (13):** bus de 4 bits y salida de texto. El LCD 16x2 tiene 16
+  terminales en una sola fila y su cuerpo tapa las filas f..c de la placa, así
+  que exige reglas propias: el display se coloca primero (columna 1, fila j) y
+  el resto de componentes que caerían debajo se rechaza en vez de quedar oculto.
 
 ## Latencias
 
@@ -42,6 +47,12 @@ individual (`docs/reportes/<fixture>.md`). Las caras siguen siendo
 y es lo que se usa masivamente para verificar.
 
 ## Pendientes conocidos
+
+- El contraste del LCD va con `VO` a GND: el potenciómetro en su posición por
+  defecto deja la pantalla en blanco en el simulador (y su cuerpo tapa el
+  display).
+- El 7 segmentos directo no entra: 7 resistencias son 42 columnas para una
+  placa de 30. Necesita 74HC595 o una placa más grande.
 
 - Sin herramienta de borrado en el puente: los circuitos de exploración se
   renombran `BORRAR - ...` y se eliminan desde el dashboard.

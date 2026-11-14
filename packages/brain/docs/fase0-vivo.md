@@ -143,3 +143,24 @@ Lecciones:
 4. Un disco grande (piezo, LDR, HC-SR04) siempre al extremo derecho y en la
    ultima pasada del planner: tapar un LED o un boton se ve como un
    circuito roto aunque la conectividad sea 1.0.
+
+## Nivel 5: LCD 16x2 en modo 4 bits (2026-11-13)
+
+Primer circuito con salida de texto y bus de 4 bits. `cpySiVSE9vr`, 100% de
+fidelidad y oraculo serial `TEST:SEG=N` que coincide con lo que muestra la
+pantalla.
+
+Hechos medidos en vivo:
+1. `LiquidCrystal` SI esta soportada por el simulador de Tinkercad.
+2. El potenciometro de contraste en su posicion por defecto (wiper al 50%)
+   deja la pantalla EN BLANCO. Con `VO` a GND se lee perfecto. El circuito
+   va sin potenciometro y el sketch lo documenta.
+3. El cuerpo del LCD mide ~25 columnas y tapa las filas f..c de la placa.
+   Regla: el LCD se coloca primero (columna 1, fila j, ocupando 18 columnas)
+   y los bloques que caerian debajo (piezo, LDR, ultrasonico, boton, 3 pines,
+   L293D) se rechazan con un error claro en vez de quedar ocultos.
+4. Los cables etiquetan los pines del LCD con nombres humanos (`Ground`,
+   `Power`, `Contrast`, `Register Select`, `Read/Write`, `Enable`,
+   `LED Anode`, `LED Cathode`) distintos de los de `inspect_circuit`
+   (`GND`, `VDD`, `VO`, `RS`, `RW`, `E`, `LED+`, `LED-`): hacen falta alias
+   por tipo o la conectividad se cae a 44% sin que el cableado este mal.
