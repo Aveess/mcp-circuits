@@ -191,14 +191,30 @@ def _is_ground(endpoint):
 
 
 def _star_or_sort(translated):
-    """Oraculo propio de los pares de UNA net (contrato, no el codigo)."""
+    """Oraculo propio de los pares de UNA net (contrato, no el codigo).
+
+    Contrato actualizado tras el hallazgo MEDIA de esta misma ronda: si la
+    net no trae ningun pin del Uno, el hub es el terminal de una parte libre
+    (lo unico que el puente rutea por carriles) y solo si tampoco hay uno se
+    usa el primer extremo declarado. Un hub en un hueco dejaba cables
+    hueco-hueco rectos sobre los cuerpos.
+    """
     if len(translated) == 2:
         return [tuple(translated)]
     if len(translated) < 2:
         return []
     unique = list(dict.fromkeys(translated))
-    hub = next((e for e in unique if _is_uno(e)), unique[0])
+    hub = next(
+        (e for e in unique if _is_uno(e)),
+        next((e for e in unique if _is_free_terminal(e)), unique[0]),
+    )
     return [(hub, endpoint) for endpoint in unique if endpoint != hub]
+
+
+def _is_free_terminal(endpoint):
+    """Un terminal de parte libre no traduce a hueco ni a pin del Uno."""
+    ref = endpoint.split(".", 1)[0]
+    return ref != "uno" and not re.fullmatch(r"\d+[a-j]", endpoint)
 
 
 def _expected_pairs(fixture):
