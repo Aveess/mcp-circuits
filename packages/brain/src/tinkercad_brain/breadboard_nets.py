@@ -26,6 +26,9 @@ from tinkercad_brain.fase0.component_map import fixture_type
 _REF_PREFIX = {
     "led": "led",
     "resistor": "r",
+    # Mismo criterio: normalize_circuit debe producir "lcd1" para que los
+    # endpoints no queden opacos en compare_connectivity.
+    "lcd-16x2": "lcd",
     # OJO: no agregar "photoresistor": "ldr". Los refs derivados deben
     # coincidir con los de normalize_circuit (photoresistor1), porque
     # compare_connectivity traduce refs por tipo+orden: un prefijo distinto
@@ -134,6 +137,15 @@ _PIN_ALIASES_BY_TYPE = {
         "terminal-2": "2",
         "Terminal 1": "1",
         "Terminal 2": "2",
+    },
+    # Acotado a lcd-16x2: los 16 terminales reales ya son los nombres de la
+    # fixture (identidad). Se declaran explicitos para que el alias generico
+    # "GND" -> "gnd" no rompa la net del LCD.
+    "lcd-16x2": {
+        "GND": "GND", "VDD": "VDD", "VO": "VO", "RS": "RS", "RW": "RW",
+        "E": "E", "DB0": "DB0", "DB1": "DB1", "DB2": "DB2", "DB3": "DB3",
+        "DB4": "DB4", "DB5": "DB5", "DB6": "DB6", "DB7": "DB7",
+        "LED+": "LED+", "LED-": "LED-",
     },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo

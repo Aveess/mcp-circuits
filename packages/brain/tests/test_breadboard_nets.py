@@ -604,3 +604,61 @@ def test_ldr_aliases_are_type_scoped():
         ["photoresistor1.1", "r1.1"],
         ["photoresistor1.2", "r1.2"],
     ]
+
+
+def _lcd_data():
+    """Inspect sintetico con un LCD 16x2 (type real "LCD 16 x 2")."""
+    bb = ("Breadboard Small", "bb1")
+    uno = ("Arduino Uno R3", "uno1")
+    lcd = ("LCD 16 x 2", "lcd_a")
+    r = ("Resistor", "r_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    wires = [
+        _wire(e(uno, "D12"), e(bb, "i1")),
+        _wire(e(lcd, "RS"), e(bb, "i1")),
+        _wire(e(uno, "D11"), e(bb, "i2")),
+        _wire(e(lcd, "E"), e(bb, "i2")),
+        _wire(e(uno, "D5"), e(bb, "i3")),
+        _wire(e(lcd, "DB4"), e(bb, "i3")),
+        _wire(e(lcd, "GND"), e(bb, "z1")),
+        _wire(e(uno, "GND"), e(bb, "z1")),
+        _wire(e(lcd, "LED+"), e(bb, "j5")),
+        _wire(e(r, "Terminal 1"), e(bb, "j5")),
+    ]
+    return {
+        "components": [_comp(*uno), _comp(*bb), _comp(*lcd), _comp(*r)],
+        "wires": wires,
+    }
+
+
+def test_lcd_real_pin_names_keep_fixture_vocabulary():
+    # Los 16 terminales reales del LCD (GND, VDD, VO, RS, RW, E, DB0..DB7,
+    # LED+, LED-) ya son los nombres de la fixture: el mapa es identidad.
+    # Ojo con GND: el alias generico lo convertiria a "gnd".
+    assert derive_nets(_lcd_data()) == [
+        ["lcd1.DB4", "uno.D5"],
+        ["lcd1.E", "uno.D11"],
+        ["lcd1.GND", "uno.GND1"],
+        ["lcd1.LED+", "r1.1"],
+        ["lcd1.RS", "uno.D12"],
+    ]
+
+
+def test_lcd_refs_match_normalize_circuit_for_same_instance_ids():
+    from tinkercad_brain.fase0.normalize import normalize_circuit
+
+    data = _lcd_data()
+    normalized = normalize_circuit(data, {"nets": []})
+    normalized_refs = {c["ref"] for c in normalized["components"]}
+    derived_refs = {
+        endpoint.split(".", 1)[0]
+        for net in derive_nets(data)
+        for endpoint in net
+    }
+    # Un prefijo distinto (p. ej. "lcd16x21") deja los endpoints del LCD
+    # opacos en compare_connectivity: ambos lados deben decir "lcd1".
+    assert normalized_refs == derived_refs == {"uno", "lcd1", "r1"}
+    assert {"ref": "lcd1", "type": "lcd-16x2"} in normalized["components"]

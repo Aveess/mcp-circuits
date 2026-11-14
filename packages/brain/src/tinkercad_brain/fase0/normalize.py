@@ -3,6 +3,10 @@ from tinkercad_brain.fase0.component_map import fixture_type
 _REF_PREFIX = {
     "led": "led",
     "resistor": "r",
+    # LCD 16x2: sin esta entrada el fallback produce "lcd16x21" y
+    # compare_connectivity deja opacos todos los endpoints del LCD
+    # (derive_nets usa "lcd1").
+    "lcd-16x2": "lcd",
 }
 
 

@@ -30,6 +30,7 @@ EXPECTED = {
     "Breadboard Small": "breadboard",
     "H-bridge Motor Driver [L293D]": "l293d",
     "9V Battery": "battery-9v",
+    "LCD 16 x 2": "lcd-16x2",
 }
 
 
@@ -142,3 +143,11 @@ def test_piezo_and_ldr_real_ezhil_names_resolve():
     assert "buzzer" in known_slugs()
     assert "photoresistor" in known_slugs()
     assert known_slugs().count("photoresistor") == 1
+
+
+def test_lcd_16x2_real_ezhil_name_resolves_without_duplicate_slug():
+    # Nombre real verificado en vivo con inspect_circuit (did 113878).
+    assert fixture_type("LCD 16 x 2") == "lcd-16x2"
+    assert fixture_type("  lcd   16   x   2 ") == "lcd-16x2"
+    assert "lcd-16x2" in known_slugs()
+    assert known_slugs().count("lcd-16x2") == 1
