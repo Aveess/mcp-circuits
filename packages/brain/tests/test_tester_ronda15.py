@@ -769,8 +769,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 16, rows
-    assert [int(number) for number in rows] == list(range(1, 17))
+    assert len(rows) == 17, rows
+    assert [int(number) for number in rows] == list(range(1, 18))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line
