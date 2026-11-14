@@ -485,8 +485,9 @@ def test_motor_dc_transistor_real_fixture_parts_and_wires():
         ("uno.D9", r1),
         (_shift(r1, 4), base),
         (emitter, "uno.GND1"),
-        (q1, "motor1.2"),
-        (q1, d1),
+        # Net sin pin del Uno: el hub es el terminal libre del motor.
+        ("motor1.2", q1),
+        ("motor1.2", d1),
         ("uno.5V", "motor1.1"),
         ("uno.5V", cathode),
     }
@@ -1175,3 +1176,24 @@ def test_net_without_uno_hangs_from_its_first_endpoint():
         ("lcd1.RS", "lcd1.E"),
         ("lcd1.RS", "lcd1.DB4"),
     }
+
+
+def test_net_without_uno_prefers_a_free_part_terminal_as_hub():
+    """Sin pin del Uno, el hub es un terminal de parte libre si lo hay.
+
+    La estrella desde un hueco de placa dejaria cables hueco-hueco, que el
+    puente dibuja rectos (el defecto visual que esta regla elimina).
+    """
+    fixture = _fixture("motor-dc-transistor")
+    layout = plan_layout(fixture)
+    placements = layout["placements"]
+    assert "free" in placements["motor1"]
+
+    result = fixture_to_model_call(fixture)
+
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    collector = placements["q1"]["at"]
+    diode = placements["d1"]["at"]
+    assert (collector, "motor1.2") in pairs or ("motor1.2", collector) in pairs
+    assert ("motor1.2", collector) in pairs
+    assert ("motor1.2", diode) in pairs

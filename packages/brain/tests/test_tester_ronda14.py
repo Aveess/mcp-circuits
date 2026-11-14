@@ -781,15 +781,18 @@ def test_r14_el_sketch_es_determinista():
 
 # --------------------------------------------------------------- docs
 
-def test_r14_el_benchmark_lista_los_14_circuitos_y_los_dos_del_lcd():
+def test_r14_el_benchmark_lista_los_circuitos_y_los_del_lcd():
+    # Contrato actualizado (fase 22): el benchmark crecio a 15 circuitos con
+    # el medidor de distancia (blN5d8qCr2z). Los dos del LCD siguen siendo
+    # el 13 y el 14.
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(
         r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([A-Za-z0-9]+)\s*\|", text, re.M
     )
     numbers = [int(number) for number, _title, _cid in rows]
-    assert len(rows) == 14, (len(rows), numbers)
-    assert numbers == list(range(1, 15))
+    assert len(rows) == 15, (len(rows), numbers)
+    assert numbers == list(range(1, 16))
 
     ids = {cid: title for _number, title, cid in rows}
     assert "cpySiVSE9vr" in ids and "LCD" in ids["cpySiVSE9vr"]
@@ -797,9 +800,9 @@ def test_r14_el_benchmark_lista_los_14_circuitos_y_los_dos_del_lcd():
     assert "tmp36" in ids["9hZJgbsYOC5"].lower() or "term" in ids[
         "9hZJgbsYOC5"
     ].lower()
-    # Los dos circuitos con display son el 13 y el 14 y van al 100%.
-    assert ids["cpySiVSE9vr"] and ids["9hZJgbsYOC5"]
-    for cid in ("cpySiVSE9vr", "9hZJgbsYOC5"):
+    # Los circuitos con display (13, 14 y 15) van al 100%.
+    assert ids["cpySiVSE9vr"] and ids["9hZJgbsYOC5"] and ids["blN5d8qCr2z"]
+    for cid in ("cpySiVSE9vr", "9hZJgbsYOC5", "blN5d8qCr2z"):
         line = next(line for line in text.splitlines() if f"| {cid} |" in line)
         assert "100%" in line, line
     # Y el oraculo del termometro es el del reporte real.

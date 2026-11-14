@@ -192,22 +192,31 @@ def _wire_group(first: str, second: str) -> int:
     return 2
 
 
-def _star_pairs(endpoints):
+def _star_pairs(endpoints, free_refs=()):
     """Empareja una net en estrella desde su hub.
 
     El puente solo rutea por carriles los cables que tocan un pin del Uno o
     un terminal de una parte libre; un cable hueco-hueco sale recto y cruza
     en diagonal por encima de los cuerpos. Por eso toda la net de 3+ extremos
-    cuelga del mismo extremo (el primer pin del Uno si lo hay, si no el
-    primero declarado) en vez de encadenarse.
+    cuelga del mismo extremo en vez de encadenarse: el primer pin del Uno
+    si esta en la net, si no el terminal de una parte libre (es lo unico que
+    el puente rutea), y si tampoco el primero declarado.
     """
     # Las nets de 2 extremos se dejan tal cual (un cable, sin cadena que
     # romper): asi se conserva la orientacion declarada en la fixture.
     if len(endpoints) < 3:
         return [tuple(endpoints)] if len(endpoints) == 2 else []
+    free_refs = set(free_refs)
     hub = next(
         (endpoint for endpoint in endpoints if endpoint.startswith("uno.")),
-        endpoints[0],
+        next(
+            (
+                endpoint
+                for endpoint in endpoints
+                if endpoint.split(".", 1)[0] in free_refs
+            ),
+            endpoints[0],
+        ),
     )
     pairs = []
     seen = {hub}
@@ -477,6 +486,9 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             }
         )
 
+    free_refs = {
+        ref for ref, placement in placements.items() if "free" in placement
+    }
     pairs = []
     for net in fixture.get("nets") or []:
         if not isinstance(net, (list, tuple)) or len(net) < 2:
@@ -485,7 +497,7 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             _translate_endpoint(endpoint, placements, type_by_ref)
             for endpoint in net
         ]
-        pairs.extend(_star_pairs(translated))
+        pairs.extend(_star_pairs(translated, free_refs))
 
     return {"parts": parts, "wires": _ordered_colored_wires(pairs), "code": code}
 
