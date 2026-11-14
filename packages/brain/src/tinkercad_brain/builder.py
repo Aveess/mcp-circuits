@@ -307,6 +307,131 @@ def _wire_group(first: str, second: str) -> int:
     return 2
 
 
+# ---------------------------------------------------------------- rieles
+# La protoboard tiene dos pares de rieles de alimentacion: arriba (T+/T-) y
+# abajo (B+/B-). El puente acepta "T+5" como extremo y el verificador los
+# lee como un nodo unico por riel (derive_nets los agrupa por letra), asi
+# que un cable del Uno al riel y una bajada corta por terminal sustituye a
+# una tirada larga por cada tap.
+_RAIL_TOP_POWER = "T+"
+_RAIL_BOTTOM_POWER = "B+"
+_RAIL_TOP_GROUND = "T-"
+_RAIL_BOTTOM_GROUND = "B-"
+# Los dos rieles del mismo tipo se puentean en el borde derecho, donde no
+# hay cuerpos de componentes.
+_RAIL_BRIDGE_COLUMN = 30
+_UPPER_ROWS = frozenset("fghij")
+# Geometria de la placa en el puente: hueco de la columna c en
+# x = 725 + 10*(c-1) (ORIGIN.x - 145 + 10*(c-1)).
+_BOARD_FIRST_COLUMN_X = 725
+_BOARD_COLUMN_PITCH = 10
+_MAX_RAIL_COLUMN = 30
+
+
+def _net_kind(endpoints):
+    """'power', 'ground' o None: una net de senal nunca va por riel."""
+    if any(e in _POWER_ENDPOINTS for e in endpoints):
+        return "power"
+    if any(e.startswith("uno.GND") for e in endpoints):
+        return "ground"
+    return None
+
+
+def _rail_kinds(nets):
+    """Tipos de riel que usa el circuito, decidido a nivel de circuito.
+
+    La topologia por defecto es la estrella desde el pin del Uno: un mazo
+    de cables paralelos por net, verificada en todo el benchmark. El riel
+    es opt-in (``"wiring": "rails"`` en la fixture) porque cambia el
+    cableado de un circuito ya verificado, y solo se aplica al tipo que
+    aparece en dos o mas nets: con un solo mazo no hay tiradas largas que
+    evitar y el riel solo agrega cables (tap + alimentacion + puente).
+    """
+    counts = {}
+    for endpoints in nets:
+        kind = _net_kind(endpoints)
+        if kind is not None:
+            counts[kind] = counts.get(kind, 0) + 1
+    return {kind for kind, count in counts.items() if count >= 2}
+
+
+def _rail_tap(endpoint, top, bottom, placements):
+    """Riel y columna donde baja este extremo (misma columna: vertical)."""
+    if endpoint.startswith("uno."):
+        # El Uno esta a la izquierda de la placa: columna 1 del riel de
+        # arriba, un tramo corto y ruteado por el puente.
+        return top, 1
+    match = _HOLE_RE.fullmatch(endpoint)
+    if match is not None:
+        column, row = int(match.group(1)), match.group(2)
+        return (top if row in _UPPER_ROWS else bottom), column
+    ref = endpoint.split(".", 1)[0]
+    placement = placements.get(ref)
+    if placement is not None and "free" in placement:
+        # Las partes libres viven encima de la placa: siempre al riel de
+        # arriba, en la columna mas cercana a su x para que la bajada no
+        # cruce el lienzo.
+        x = placement["free"]["x"]
+        column = round((x - _BOARD_FIRST_COLUMN_X) / _BOARD_COLUMN_PITCH) + 1
+        column = min(max(column, 1), _MAX_RAIL_COLUMN)
+        return top, column
+    return top, 1
+
+
+def _rail_rails(kind):
+    if kind == "power":
+        return _RAIL_TOP_POWER, _RAIL_BOTTOM_POWER
+    return _RAIL_TOP_GROUND, _RAIL_BOTTOM_GROUND
+
+
+def _rail_wires(taps, kind, uno_endpoint, placements):
+    """Cablea todos los taps de un tipo: un cable por terminal, uno del Uno
+    al riel y, si se usan los dos rieles, el puente del borde.
+
+    Se decide por circuito (no por net) porque todos los taps comparten el
+    mismo nodo: repetir el cable del Uno al riel una vez por net dibujaria
+    tres cables encima del mismo punto. Cada tap usa una columna libre del
+    riel: dos cables al mismo hueco se ven como uno solo y el puente no
+    garantiza aceptar dos terminales en el mismo punto.
+    """
+    top, bottom = _rail_rails(kind)
+    pairs = []
+    sides = set()
+    seen = set()
+    used = {}  # riel -> columnas ocupadas
+
+    def _libre(side, proposed):
+        ocupadas = used.setdefault(side, set())
+        column = proposed
+        while column in ocupadas or column == _RAIL_BRIDGE_COLUMN:
+            column += 1
+            if column > _MAX_RAIL_COLUMN:
+                column = 1
+        ocupadas.add(column)
+        return column
+
+    feed_column = _libre(top, 1) if uno_endpoint is not None else None
+    # Orden determinista: la columna de cada tap no puede depender del orden
+    # en que la fixture declara sus nets.
+    for endpoint in sorted(set(taps)):
+        side, proposed = _rail_tap(endpoint, top, bottom, placements)
+        column = _libre(side, proposed)
+        pair = (endpoint, f"{side}{column}")
+        if pair in seen:
+            continue
+        seen.add(pair)
+        pairs.append(pair)
+        sides.add(side)
+    if uno_endpoint is not None:
+        sides.add(top)
+        pairs.append((uno_endpoint, f"{top}{feed_column}"))
+    if len(sides) > 1:
+        pairs.append(
+            (f"{top}{_RAIL_BRIDGE_COLUMN}", f"{bottom}{_RAIL_BRIDGE_COLUMN}")
+        )
+    return pairs
+
+
 def _star_pairs(endpoints, free_refs=()):
     """Empareja una net en estrella desde su hub.
 
@@ -626,15 +751,39 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     free_refs = {
         ref for ref, placement in placements.items() if "free" in placement
     }
-    pairs = []
+    translated_nets = []
     for net in fixture.get("nets") or []:
         if not isinstance(net, (list, tuple)) or len(net) < 2:
             raise BuildError(f"net invalida (se esperaban 2+ extremos): {net!r}")
-        translated = [
-            _translate_endpoint(endpoint, placements, type_by_ref)
-            for endpoint in net
-        ]
+        translated_nets.append(
+            [
+                _translate_endpoint(endpoint, placements, type_by_ref)
+                for endpoint in net
+            ]
+        )
+    wiring = fixture.get("wiring")
+    if wiring not in (None, "rails"):
+        raise BuildError(
+            f"wiring desconocido: {wiring!r} (esperado None o 'rails')"
+        )
+    rail_kinds = _rail_kinds(translated_nets) if wiring == "rails" else set()
+    rail_taps = {kind: [] for kind in rail_kinds}
+    rail_uno = {}
+    pairs = []
+    for translated in translated_nets:
+        kind = _net_kind(translated)
+        if kind is not None and kind in rail_kinds:
+            for endpoint in translated:
+                if endpoint.startswith("uno."):
+                    rail_uno[kind] = endpoint
+                else:
+                    rail_taps[kind].append(endpoint)
+            continue
         pairs.extend(_star_pairs(translated, free_refs))
+    for kind in sorted(rail_kinds):
+        pairs.extend(
+            _rail_wires(rail_taps[kind], kind, rail_uno.get(kind), placements)
+        )
 
     return {"parts": parts, "wires": _ordered_colored_wires(pairs), "code": code}
 

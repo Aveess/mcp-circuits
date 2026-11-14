@@ -1738,6 +1738,7 @@
       "digitalWrite",
       "Serial"
     ],
-    "tinkercad_id": "aF67dwSGoqC"
+    "tinkercad_id": "aF67dwSGoqC",
+    "wiring": "rails"
   }
 ]

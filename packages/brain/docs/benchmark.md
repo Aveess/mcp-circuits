@@ -31,7 +31,7 @@ píxel del LED.
 | 20 | Temporizador 555 en astable (reloj de ~14 Hz) | abIk7XRpSR4 | 100% | `TEST:555=ALTO,73173` + `BAJO,427` + `FREQ,13.6` + `TEST:555=OK` |
 | 21 | Contador binario 4 bits 74HC93 con LEDs | fCB0eO8cBbn | 100% | `TEST:CONTADOR=1..15,0` + `FIN` (secuencia de 16 pulsos) |
 | 22 | Carrusel de 4 LEDs con 74HC4017 | ij6ypc8wB5x | 100% | `TEST:4017=1,2,3,0` ciclando + `LISTO` (Q4 -> MR hace la vuelta en 4 pasos) |
-| 23 | Faro automatico con rele SPDT, NPN y LDR | aF67dwSGoqC | 100% | `TEST:LUZ=6` + `TEST:RELE=ON` + `TEST:FOCO=1` y tras apagar `RELE=OFF` + `FOCO=0` |
+| 23 | Faro automatico con rele SPDT, NPN y LDR (con rieles) | aF67dwSGoqC | 100% | `TEST:LUZ=6` + `TEST:RELE=ON` + `TEST:FOCO=1` y tras apagar `RELE=OFF` + `FOCO=0` |
 
 ## Qué agrega cada nivel
 
@@ -57,6 +57,11 @@ píxel del LED.
   en fila sobre la placa (`x=560+200*i`, `y=-230`): apilados en la misma `x`
   el mazo de cables sube en columna. La vuelta en anillo del 4017 es
   hardware puro (Q4 -> MR), el Uno solo relojea y lee.
+- **Rieles (opt-in, fase 31):** cuando una fixture declara
+  `"wiring": "rails"` y reparte 5V o GND en dos o más nets, cada terminal
+  baja al riel de la placa en su misma columna y el Uno alimenta el riel
+  una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
+  columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
 - **Nivel 7 (23):** conmutacion de carga. El rele SPDT lo mueve un NPN con
   resistencia de base y diodo de recirculacion (un pin del Uno no puede con
   la bobina), el contacto COM1-R1 alimenta una bombilla y A1 lee el nodo del

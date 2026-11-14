@@ -501,3 +501,45 @@ la protoboard.
 Lección: un actuador sin salida propia necesita un nodo sensado (aquí
 `A1` en el contacto) para que el serial pueda afirmar algo; el brillo
 del píxel no es oráculo.
+
+## Fase 31: rieles de la protoboard para 5V y GND (2026-11-14)
+
+En el faro las nets de 5V y GND con tres extremos salían como tiradas
+largas paralelas cruzando el lienzo (se ve en la captura de la fase 30).
+Un humano usa los rieles de alimentación de la placa; ahora el puente
+también.
+
+- Riel por tipo: `T+`/`B+` para 5V y `T-`/`B-` para GND, con la columna
+  como sufijo (`T+11`). El puente ya aceptaba ese formato y `derive_nets`
+  agrupa todas las columnas del mismo riel en un solo nodo.
+- Bajada vertical: la mitad superior (f..j) baja al riel de arriba y la
+  inferior (a..e) al de abajo, siempre en la **misma columna** del hueco,
+  para que el cable sea vertical y no cruce el cuerpo de la placa.
+  Las partes libres (relé, bombilla) siempre al riel de arriba.
+- Un solo cable del Uno al riel por tipo (`uno.5V -> T+1`,
+  `uno.GND1 -> T-1`) y, si se usan los dos rieles del mismo tipo, un
+  puente en la columna 30 (borde derecho).
+- Cada tap toma una columna libre: dos cables al mismo hueco se dibujan
+  como uno y el puente no garantiza aceptar dos terminales en el mismo
+  punto. Las columnas se asignan en orden de endpoint, no de declaración,
+  para que reordenar las nets no cambie el cableado.
+- El riel es **opt-in** por fixture (`"wiring": "rails"`). El default
+  sigue siendo la estrella desde el pin del Uno: está verificada en los
+  23 circuitos y cambiar su topología por gusto es riesgo sin ganancia.
+  Solo se aplica al tipo de alimentación que aparece en dos o más nets;
+  con una sola net no hay tiradas que evitar y el riel solo agrega cables.
+- Circuito reconstruido: `faro-rele-ldr` (`aF67dwSGoqC`), 100% de
+  fidelidad, mismo oráculo de 16 líneas y bombilla encendida. Comparado
+  contra la captura anterior: desaparecen las tres tiradas rojas y las
+  tres negras que cruzaban la placa.
+- Verificación del riel inferior: la conectividad al 100% exige que
+  `B+22` (5V del LDR) y `T+11` (cátodo del diodo) sean el mismo nodo, y
+  eso solo pasa si el puente `T+30 - B+30` está cableado. El serial no
+  puede demostrarlo solo porque a oscuras el divisor del LDR lee ~0 con
+  y sin 5V.
+
+Lección: los rieles son la forma humana de repartir alimentación; el
+puente ya sabe rutear por carriles, pero solo si el extremo es un riel o
+un pin del Uno. Y la decisión de usar riel es del circuito, no de la net:
+una net de 4 extremos sigue siendo un mazo corto desde el pin; varias
+nets de 5V son las que se ven mal.

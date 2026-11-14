@@ -223,6 +223,9 @@ def _fixture(fixture_id):
 
 
 FIXTURE_IDS = [c["id"] for c in _fixtures()]
+# Fase 31: las fixtures que optan por rieles. No se parametriza sobre
+# todas y se salta: un skip por 22 casos sanos esconde el caso real.
+RAILED_IDS = [c["id"] for c in _fixtures() if c.get("wiring") == "rails"]
 
 
 # ------------------------------------------------------------- utilidades
@@ -301,6 +304,46 @@ def _expected_pairs(fixture):
 
 def _pairs(call):
     return [(wire["from"], wire["to"]) for wire in call["wires"]]
+
+
+def _railed(fixture):
+    """La fixture opta por rieles (fase 31): su topologia no es la estrella."""
+    return fixture.get("wiring") == "rails"
+
+
+_RAIL_ENDPOINT_RE = re.compile(r"^([TB])([+-])\d+$")
+
+
+def _node(endpoint):
+    """Todas las columnas del mismo riel son el mismo nodo electrico."""
+    match = _RAIL_ENDPOINT_RE.match(endpoint)
+    if match:
+        return f"rail:{match.group(1)}{match.group(2)}"
+    return endpoint
+
+
+def _model_groups(call):
+    """Nets fisicas del cableado del modelo, con el riel colapsado a un nodo."""
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for wire in call["wires"]:
+        union(_node(wire["from"]), _node(wire["to"]))
+    grupos = {}
+    for endpoint in parent:
+        grupos.setdefault(find(endpoint), set()).add(endpoint)
+    return list(grupos.values())
 
 
 def _part_y_did(call):
@@ -419,6 +462,12 @@ def test_r15_los_cables_son_exactamente_la_estrella_declarada(fixture_id):
     """Pares exactos: estrella de 3+ desde el hub, 2 extremos tal cual, y
     exactamente ``len(net) - 1`` cables por net."""
     fixture = _fixture(fixture_id)
+    if _railed(fixture):
+        pytest.skip(
+            f"{fixture_id}: opta por rieles (fase 31), su topologia no es la "
+            "estrella; la equivalencia fisica se comprueba en "
+            "test_r15_con_rieles_cada_net_sigue_siendo_un_nodo"
+        )
     call = fixture_to_model_call(fixture)
     pairs = _pairs(call)
 
@@ -439,6 +488,21 @@ def test_r15_la_estrella_no_deja_cables_hueco_hueco(fixture_id):
     fixture = _fixture(fixture_id)
     pairs = set(_pairs(fixture_to_model_call(fixture)))
 
+    if _railed(fixture):
+        # Con riel cada extremo de una net de 3+ baja al riel: si dos huecos
+        # de esa net quedaran unidos por un cable, seria el defecto de nuevo.
+        offenders = []
+        for net in fixture["nets"]:
+            if len(net) < 3:
+                continue
+            huecos = [e for e in _translated_net(fixture, net) if _is_hole(e)]
+            for first in huecos:
+                for second in huecos:
+                    if first < second and (first, second) in pairs:
+                        offenders.append((net, first, second))
+        assert offenders == [], (fixture_id, offenders)
+        return
+
     offenders = []
     for net in fixture["nets"]:
         if len(net) < 3:
@@ -458,7 +522,23 @@ def test_r15_la_estrella_no_deja_cables_hueco_hueco(fixture_id):
 @pytest.mark.parametrize("fixture_id", FIXTURE_IDS)
 def test_r15_el_hub_es_el_primer_pin_del_uno_si_esta_en_la_net(fixture_id):
     fixture = _fixture(fixture_id)
-    pairs = set(_pairs(fixture_to_model_call(fixture)))
+    call = fixture_to_model_call(fixture)
+    pairs = set(_pairs(call))
+
+    if _railed(fixture):
+        # Sin estrella no hay hub por net: el hub es el riel, y el riel se
+        # alimenta con un unico cable desde el pin del Uno. Si falta ese
+        # cable el riel queda flotando aunque los taps existan.
+        nodos = {_node(w["from"]) for w in call["wires"]} | {
+            _node(w["to"]) for w in call["wires"]
+        }
+        for riel, pin in (("rail:T+", "uno.5V"), ("rail:T-", "uno.GND1")):
+            if riel not in nodos:
+                continue
+            assert any(
+                _node(w["to"]) == riel and w["from"] == pin for w in call["wires"]
+            ), (fixture_id, riel, call["wires"])
+        return
 
     for net in fixture["nets"]:
         if len(net) < 3:
@@ -506,7 +586,28 @@ def test_r15_las_nets_de_dos_extremos_conservan_su_orientacion(fixture_id):
         if len(net) != 2:
             continue
         translated = tuple(_translated_net(fixture, net))
+        if _railed(fixture) and any(
+            _is_power(e) or _is_ground(e) for e in translated
+        ):
+            # Con riel, 5V/GND no van pin a pin: el extremo baja al riel y
+            # el Uno alimenta el riel una sola vez.
+            continue
         assert pairs.count(translated) == 1, (fixture_id, net, translated)
+
+
+@pytest.mark.parametrize("fixture_id", RAILED_IDS)
+def test_r15_con_rieles_cada_net_sigue_siendo_un_nodo(fixture_id):
+    """El riel cambia el dibujo, no la fisica: cada net de la fixture debe
+    quedar en un solo nodo del cableado del modelo."""
+    fixture = _fixture(fixture_id)
+    assert _railed(fixture)
+
+    grupos = _model_groups(fixture_to_model_call(fixture))
+    for net in fixture["nets"]:
+        nodos = {_node(e) for e in _translated_net(fixture, net)}
+        assert any(nodos <= grupo for grupo in grupos), (
+            f"{fixture_id}: la net {net} quedo partida en el cableado con riel"
+        )
 
 
 @pytest.mark.parametrize("fixture_id", FIXTURE_IDS)

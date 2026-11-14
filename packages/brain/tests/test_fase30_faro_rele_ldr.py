@@ -18,6 +18,7 @@ Contrato de la fase:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,50 @@ FIXTURES = ROOT / "fixtures" / "fase0" / "circuits.json"
 def _fixture():
     circuits = json.loads(FIXTURES.read_text(encoding="utf-8"))
     return next(c for c in circuits if c["id"] == "faro-rele-ldr")
+
+
+_RAIL_RE = re.compile(r"^([TB])([+-])\d+$")
+
+
+def _node(endpoint):
+    """Todas las columnas del mismo riel son el mismo nodo electrico."""
+    match = _RAIL_RE.match(endpoint)
+    if match:
+        return f"rail:{match.group(1)}{match.group(2)}"
+    return endpoint
+
+
+def _grupos(call):
+    """Nets del cableado del modelo, con los rieles colapsados a un nodo.
+
+    El faro usa `"wiring": "rails"`: 5V y GND no cuelgan cada uno del pin
+    del Uno sino del riel. Para comprobar la fisica (que extremos quedan
+    conectados) hay que leer el cableado como nodos, no como pares.
+    """
+    parent = {}
+
+    def find(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for wire in call["wires"]:
+        union(_node(wire["from"]), _node(wire["to"]))
+    grupos = {}
+    for endpoint in parent:
+        grupos.setdefault(find(endpoint), set()).add(endpoint)
+    return list(grupos.values())
+
+
+def _conectados(call, first, second):
+    return any({_node(first), _node(second)} <= grupo for grupo in _grupos(call))
 
 
 def test_la_fixture_tiene_rele_bombilla_y_el_driver_del_rele():
@@ -81,11 +126,17 @@ def test_did_y_nombres_del_catalogo():
     assert fixture_type("Light bulb") == "light-bulb"
 
 
-def test_model_call_siete_partes_y_quince_cables():
+def test_model_call_siete_partes_y_diecinueve_cables_con_riel():
+    """19: ocho de senal + los taps de 5V/GND alimentados por el riel.
+
+    Sin riel eran 15 (una tirada por cada tap de alimentacion). Con riel son
+    tres taps de GND, cuatro de 5V, una alimentacion del Uno por riel y dos
+    puentes de borde. El riel es opt-in de la fixture, no el default.
+    """
     call = fixture_to_model_call(_fixture())
 
     assert len(call["parts"]) == 7  # el Uno lo crea el puente
-    assert len(call["wires"]) == 15
+    assert len(call["wires"]) == 19
     free = sorted(p["ref"] for p in call["parts"] if "free" in p)
     assert free == ["k1", "lamp1"]
 
@@ -97,34 +148,39 @@ def test_la_bobina_va_por_transistor_con_diodo_de_recirculacion():
     # Base por resistencia: el pin del Uno no mueve la bobina directo.
     assert frozenset(("uno.D2", "1g")) in puntas
     assert frozenset(("5g", "8c")) in puntas
-    # Colector a COIL2 y emisor a tierra: el NPN cierra el circuito.
+    # Colector a COIL2 y emisor a tierra (por el riel): el NPN cierra.
     assert frozenset(("k1.COIL2", "7c")) in puntas
-    assert frozenset(("9c", "uno.GND1")) in puntas
+    assert _conectados(call, "9c", "uno.GND1")
     # Diodo entre los dos extremos de la bobina (anodo al colector).
     assert frozenset(("k1.COIL2", "15g")) in puntas
-    assert frozenset(("uno.5V", "11g")) in puntas
-    assert frozenset(("uno.5V", "k1.COIL1")) in puntas
+    assert _conectados(call, "11g", "uno.5V")
+    assert _conectados(call, "k1.COIL1", "uno.5V")
+    # Nada de esto pasa por el riel: la bobina es senal, no alimentacion.
+    for wire in call["wires"]:
+        if "k1.COIL2" in (wire["from"], wire["to"]):
+            assert not wire["from"].startswith(("T", "B"))
+            assert not wire["to"].startswith(("T", "B"))
 
 
 def test_el_contacto_na_alimenta_la_bombilla_y_a1_lo_verifica():
     call = fixture_to_model_call(_fixture())
-    puntas = {frozenset((w["from"], w["to"])) for w in call["wires"]}
 
-    assert frozenset(("uno.5V", "k1.COM1")) in puntas
+    # COM1 come del riel de 5V, igual que la bobina.
+    assert _conectados(call, "uno.5V", "k1.COM1")
     # El nodo R1 tiene tres extremos: rele, bombilla y la lectura de A1.
-    assert frozenset(("uno.A1", "k1.R1")) in puntas
-    assert frozenset(("uno.A1", "lamp1.1")) in puntas
-    assert frozenset(("lamp1.2", "uno.GND1")) in puntas
+    assert frozenset(("uno.A1", "k1.R1")) in {frozenset((w["from"], w["to"])) for w in call["wires"]}
+    assert frozenset(("uno.A1", "lamp1.1")) in {frozenset((w["from"], w["to"])) for w in call["wires"]}
+    assert _conectados(call, "lamp1.2", "uno.GND1")
 
 
 def test_el_divisor_del_ldr_esta_cableado():
     call = fixture_to_model_call(_fixture())
     puntas = {frozenset((w["from"], w["to"])) for w in call["wires"]}
 
-    assert frozenset(("uno.5V", "22e")) in puntas
+    assert _conectados(call, "22e", "uno.5V")
     assert frozenset(("uno.A0", "23e")) in puntas  # pin 2 del LDR
     assert frozenset(("uno.A0", "25e")) in puntas  # pin 1 de la resistencia
-    assert frozenset(("29e", "uno.GND1")) in puntas  # pin 2, cuatro al este
+    assert _conectados(call, "29e", "uno.GND1")  # pin 2, cuatro al este
 
 
 def test_el_builder_rechaza_un_pin_inventado_del_rele():
