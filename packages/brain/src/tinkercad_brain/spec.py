@@ -82,6 +82,12 @@ PIN_TABLE: dict[str, frozenset[str]] = {
         {"1A", "1B", "1Y", "2A", "2B", "2Y", "3A", "3B", "3Y",
          "4A", "4B", "4Y", "Vcc", "GND"}
     ),
+    # 74HC74 (did 116725): dos biestables D con preset y reset activos en
+    # bajo; Q y NQ por cada mitad.
+    "flip-flop-d": frozenset(
+        {"1D", "1CP", "1RD", "1SD", "1Q", "1NQ",
+         "2D", "2CP", "2RD", "2SD", "2Q", "2NQ", "Vcc", "GND"}
+    ),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

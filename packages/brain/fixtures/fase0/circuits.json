@@ -1306,5 +1306,70 @@
       "Serial"
     ],
     "tinkercad_id": "4z8ZkFcpmuC"
+  },
+  {
+    "id": "biestable-d",
+    "title": "Biestable D 74HC74 como divisor por 2",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "ff",
+        "type": "flip-flop-d"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "ff.Vcc",
+        "ff.1RD",
+        "ff.1SD",
+        "ff.2RD",
+        "ff.2SD"
+      ],
+      [
+        "uno.GND1",
+        "ff.GND",
+        "ff.2D",
+        "ff.2CP"
+      ],
+      [
+        "uno.D2",
+        "ff.1CP"
+      ],
+      [
+        "ff.1NQ",
+        "ff.1D"
+      ],
+      [
+        "ff.1Q",
+        "uno.D4",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "euU4CI6HwhX"
   }
 ]

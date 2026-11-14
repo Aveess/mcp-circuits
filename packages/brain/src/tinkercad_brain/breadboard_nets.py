@@ -212,6 +212,18 @@ _PIN_ALIASES_BY_TYPE = {
         "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
         "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
     },
+    # 74HC74 (descubierto en vivo en euU4CI6HwhX): inspect devuelve
+    # 1D/1CP/1RD/1SD/1Q/1NQ, pero el cableado guardado usa nombres humanos:
+    # "Input 1", "Clock 1", "Reset 1", "Set 1", "Output 1" y
+    # "Inverted Output 1". Power/Ground van a Vcc/GND con mayuscula.
+    "flip-flop-d": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Input 1": "1D", "Clock 1": "1CP", "Reset 1": "1RD",
+        "Set 1": "1SD", "Output 1": "1Q", "Inverted Output 1": "1NQ",
+        "Input 2": "2D", "Clock 2": "2CP", "Reset 2": "2RD",
+        "Set 2": "2SD", "Output 2": "2Q", "Inverted Output 2": "2NQ",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

@@ -245,7 +245,7 @@ FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 # pines (74HC86 XOR, 74HC00 NAND). Sus terminales se cablean directo, sin
 # huecos de protoboard. Comparten un solo apilado en orden de fixture.
 SHIFT_REGISTER_TYPE = "shift-register"
-LOGIC_GATE_TYPES = ("xor-gate", "nand-gate")
+LOGIC_GATE_TYPES = ("xor-gate", "nand-gate", "flip-flop-d")
 IC_STACK_TYPES = (SHIFT_REGISTER_TYPE,) + LOGIC_GATE_TYPES
 FREE_SHIFT_REGISTER_X = 560
 FREE_SHIFT_REGISTER_Y = -230

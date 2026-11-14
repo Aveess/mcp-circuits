@@ -97,6 +97,7 @@ RAW_TYPE = {
     "shift-register": "8-Bit Shift Register [74HC595]",
     "xor-gate": "Quad XOR gate [74HC86]",
     "nand-gate": "Quad NAND gate [74HC00]",
+    "flip-flop-d": "Dual D Flip-Flop [74HC74]",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -159,6 +160,16 @@ INSPECT_PIN = {
         **{f"{i}A": f"Input {i}A" for i in range(1, 5)},
         **{f"{i}B": f"Input {i}B" for i in range(1, 5)},
         **{f"{i}Y": f"Output {i}" for i in range(1, 5)},
+    },
+    # El guardado: Input/Clock/Reset/Set/Output/Inverted Output.
+    "flip-flop-d": {
+        "Vcc": "Power", "GND": "Ground",
+        **{f"{i}D": f"Input {i}" for i in range(1, 3)},
+        **{f"{i}CP": f"Clock {i}" for i in range(1, 3)},
+        **{f"{i}RD": f"Reset {i}" for i in range(1, 3)},
+        **{f"{i}SD": f"Set {i}" for i in range(1, 3)},
+        **{f"{i}Q": f"Output {i}" for i in range(1, 3)},
+        **{f"{i}NQ": f"Inverted Output {i}" for i in range(1, 3)},
     },
 }
 
@@ -784,8 +795,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 18, rows
-    assert [int(number) for number in rows] == list(range(1, 19))
+    assert len(rows) == 19, rows
+    assert [int(number) for number in rows] == list(range(1, 20))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

@@ -993,3 +993,69 @@ def half_adder_sketch(
             "",
         ]
     )
+
+
+def d_flip_flop_sketch(
+    clk: int = 2,
+    q: int = 4,
+    settle_ms: int = 30,
+    cycles: int = 8,
+) -> str:
+    """Biestable T con un 74HC74: 1D atado a 1NQ, reloj en 1CP.
+
+    Cada flanco de subida del reloj debe invertir Q. El sketch no se cree
+    el resultado: lee Q antes y despues de cada flanco, imprime la muestra
+    (``TEST:FF=<q>``) y emite un veredicto explicito
+    (``TEST:FF=TOGGLE-OK`` / ``TEST:FF=FAIL``) que el runner usa como
+    oraculo. No importa el estado inicial: lo que se exige es que cada
+    flanco cambie Q.
+    """
+    pins = (clk, q)
+    for pin in pins:
+        _validate_pin(pin)
+    if clk == q:
+        raise ValueError(f"pines repetidos en biestable D: {pins}")
+    _validate_ms("settle_ms", settle_ms)
+    if not isinstance(cycles, int) or isinstance(cycles, bool) or cycles < 1:
+        raise ValueError(f"cycles debe ser un entero >= 1: {cycles!r}")
+
+    return "\n".join(
+        [
+            "// Biestable T con 74HC74: 1D <- 1NQ y reloj en 1CP.",
+            "// Cada flanco de subida debe invertir Q; el sketch lo verifica.",
+            f"const byte CLK = {clk};",
+            f"const byte Q = {q};",
+            "",
+            "void setup() {",
+            "  pinMode(CLK, OUTPUT);",
+            "  pinMode(Q, INPUT);",
+            "  digitalWrite(CLK, LOW);",
+            "  Serial.begin(9600);",
+            "  delay(100);",
+            '  Serial.println("TEST:FF=LISTO");',
+            "  // Solo se comparan muestras consecutivas: leer Q antes del primer",
+            "  // pulso no es fiable (el pin flota hasta que el biestable arranca).",
+            "  int previo = -1;",
+            "  bool alterna = true;",
+            f"  for (byte i = 0; i < {cycles}; i++) {{",
+            "    digitalWrite(CLK, HIGH);",
+            f"    delay({settle_ms});",
+            "    int actual = digitalRead(Q);",
+            '    Serial.print("TEST:FF=");',
+            "    Serial.println(actual);",
+            "    if (previo >= 0 && actual == previo) {",
+            "      alterna = false;",
+            "    }",
+            "    previo = actual;",
+            "    digitalWrite(CLK, LOW);",
+            f"    delay({settle_ms});",
+            "  }",
+            '  Serial.println(alterna ? "TEST:FF=TOGGLE-OK" : "TEST:FF=FAIL");',
+            "}",
+            "",
+            "void loop() {",
+            "  delay(1000);",
+            "}",
+            "",
+        ]
+    )

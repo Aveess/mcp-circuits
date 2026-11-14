@@ -319,3 +319,31 @@ Hallazgos en vivo:
 Nota para el proyecto real: el mismo patrón sirve para cualquier combinación
 (comparadores, sumadores completos, decodificadores) sin depender de chips
 que Tinkercad no tiene.
+
+## Fase 26: biestable D 74HC74 (2026-11-14)
+
+Segundo circuito de lógica secuencial: el 74HC74 se cablea como biestable T
+(1D atado a 1NQ) y el Uno le da el reloj. Cada flanco de subida debe
+invertir Q. Circuito `euU4CI6HwhX`, 100%.
+
+Oráculo: el sketch imprime cada muestra (`TEST:FF=1`, `TEST:FF=0`...) y un
+veredicto calculado por él mismo, `TEST:FF=TOGGLE-OK`, que exige que cada
+muestra difiera de la anterior. No depende del estado inicial.
+
+Hallazgos en vivo:
+
+- **El registro también va libre**: 74HC74 (did 116725), 14 pines, en el
+  apilado de integrados (`x=560`, `y=-230`). 1RD y 1SD a 5V (inactivos);
+  la mitad 2 se deja estable con 2D y 2CP a GND y 2RD/2SD a 5V.
+- **Nombres de pin**: `inspect` dice `1D`, `1CP`, `1RD`, `1SD`, `1Q`, `1NQ`;
+  el guardado los etiqueta `Input 1`, `Clock 1`, `Reset 1`, `Set 1`,
+  `Output 1`, `Inverted Output 1`. Sin alias, conectividad 28.6%.
+- **Leer Q antes del primer pulso no es fiable**: el pin flota hasta que el
+  biestable arranca y el primer `digitalRead` puede devolver cualquier cosa,
+  así que un veredicto que compare contra esa lectura previa da FAIL aunque
+  la secuencia sea correcta. El oráculo compara solo muestras consecutivas.
+- Verificación en vivo: 8 muestras alternando 1,0,1,0,1,0,1,0 y
+  `TEST:FF=TOGGLE-OK`.
+
+Con esto quedan cubiertos los dos bloques combinacional (fase 25) y
+secuencial (fase 26) antes del 555 y los contadores.

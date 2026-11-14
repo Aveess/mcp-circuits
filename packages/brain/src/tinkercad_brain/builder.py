@@ -54,6 +54,8 @@ DID_BY_TYPE: dict[str, int] = {
     # 74HC86 (Quad XOR) y 74HC00 (Quad NAND) verificados en vivo.
     "xor-gate": 116727,
     "nand-gate": 116696,
+    # 74HC74 (Dual D Flip-Flop) verificado en vivo: did 116725.
+    "flip-flop-d": 116725,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -207,9 +209,17 @@ _NAND_REAL_PINS: dict[str, str] = {
     "4A": "4A", "4B": "4B", "4Y": "4Y",
     "Vcc": "Vcc", "GND": "GND",
 }
+_FLIP_FLOP_D_REAL_PINS: dict[str, str] = {
+    "1D": "1D", "1CP": "1CP", "1RD": "1RD", "1SD": "1SD",
+    "1Q": "1Q", "1NQ": "1NQ",
+    "2D": "2D", "2CP": "2CP", "2RD": "2RD", "2SD": "2SD",
+    "2Q": "2Q", "2NQ": "2NQ",
+    "Vcc": "Vcc", "GND": "GND",
+}
 _FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
+    "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")

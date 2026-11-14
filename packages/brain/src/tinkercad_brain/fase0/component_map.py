@@ -34,6 +34,8 @@ TYPE_MAP: dict[str, str] = {
     "XOR Gate": "xor-gate",  # Alias del buscador (add_component acepta "XOR Gate").
     "Quad NAND gate [74HC00]": "nand-gate",  # Verificado en vivo (did 116696, pines 1A..4A, 1B..4B, 1Y..4Y, Vcc, GND).
     "Quad NAND gate": "nand-gate",  # Alias del buscador (add_component acepta "Quad NAND gate").
+    "Dual D Flip-Flop [74HC74]": "flip-flop-d",  # Verificado en vivo (did 116725, pines 1D/1CP/1RD/1SD/1Q/1NQ y la mitad 2).
+    "D Flip-Flop": "flip-flop-d",  # Alias del buscador (add_component acepta "D Flip-Flop").
 }
 
 

@@ -27,6 +27,7 @@ píxel del LED.
 | 16 | Contador 0-9 en display 7 segmentos | gfgLntRuWJv | 100% | `TEST:DIGITO=0..9` y el display muestra el mismo dígito |
 | 17 | Contador 0-9 con 74HC595 y display 7 segmentos | kBGbtwAbFlz | 100% | `TEST:595=LISTO` + `TEST:DIGITO=0..9` (los bits salen por `shiftOut`) |
 | 18 | Media suma con compuertas XOR y NAND | 4z8ZkFcpmuC | 100% | `TEST:LOGICA=LISTO` + `TEST:HA=a,b,suma,acarreo` con la tabla 00/01/10/11 |
+| 19 | Biestable D 74HC74 como divisor por 2 | euU4CI6HwhX | 100% | `TEST:FF=TOGGLE-OK` (Q alterna en cada flanco de reloj) |
 
 ## Qué agrega cada nivel
 

@@ -66,6 +66,7 @@ _SKETCH_BY_FIXTURE = {
     "siete-segmentos": "seven_seg_sketch",
     "desplazador-595": "shift_register_sketch",
     "media-suma-logica": "half_adder_sketch",
+    "biestable-d": "d_flip_flop_sketch",
 }
 
 
