@@ -60,6 +60,18 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "diode": frozenset({"anode", "cathode"}),
     "led-rgb-common-cathode": frozenset({"red", "green", "blue", "cathode"}),
     "tmp36": frozenset({"vcc", "vout", "gnd"}),
+    # Display 7 segmentos (did 129710): un digito + punto decimal y los dos
+    # comunes. En la practica solo se cablea com1 (com2 comparte etiqueta
+    # "Common" en el guardado y rompe la conectividad).
+    "seven-segment": frozenset(
+        {"a", "b", "c", "d", "e", "f", "g", "dp", "com1", "com2"}
+    ),
+    # LCD 16x2 (did 113878): 16 terminales en una fila.
+    "lcd-16x2": frozenset(
+        {"GND", "VDD", "VO", "RS", "RW", "E",
+         "DB0", "DB1", "DB2", "DB3", "DB4", "DB5", "DB6", "DB7",
+         "LED+", "LED-"}
+    ),
 }
 # Supuesto: "arduino-uno" y "breadboard" no tienen evidencia de pines en las
 # nets de las fixtures (uno se referencia como "uno.PIN", no como ref.pin);

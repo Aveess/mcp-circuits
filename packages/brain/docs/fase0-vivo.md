@@ -205,7 +205,7 @@ Dos defectos visuales que la conectividad al 100% no veia:
 ## Fase 23: display 7 segmentos (2026-11-14)
 
 Contador 0-9 en un display de un dígito (`gfgLntRuWJv`, 100%). El display
-(did 129710) es una parte libre como el LCD (`x=870`, `y=-200`), así que no
+(did 129710) es una parte libre como el LCD (`x=870`, `y=-230`), así que no
 ocupa columnas ni tapa la placa; sus 10 terminales se cablean directo
 (`seg.a`, `seg.com1`...).
 
@@ -226,3 +226,13 @@ Hallazgos en vivo:
   existen. En circuitos con partes libres se reconstruye completo.
 - Verificación visual: el "0" y el "3" del contador se comprobaron en captura,
   lo que cubre los siete segmentos.
+- **Correcciones de la ronda 16 de tester** (independiente, 132 casos):
+  - `hold_ms` pasó de 1000 a 400 ms: el ciclo de 10 dígitos dura 4 s y entra
+    en la ventana de 5 s del runner. Antes el oráculo solo veía `0..4`; ahora
+    el reporte guardado trae `TEST:DIGITO=0..9` completo.
+  - El LCD y el display comparten un único apilado `FREE_MODULE_*`; así el
+    segundo nunca cae encima del primero (antes se separaban solo 30 px).
+  - `spec.PIN_TABLE` ya tiene `seven-segment` y `lcd-16x2`: la capa spec
+    rechaza un pin inventado igual que el builder.
+  - Docstring y comentario de la tabla dicen ánodo común, que es lo que
+    emite el sketch y lo que confirma el simulador.

@@ -765,7 +765,10 @@ def _scan_pair(a: str, b: str, pin_by_resistor: dict, leds_by_resistor: dict) ->
 
 
 # Patrones por digito, orden de segmentos a b c d e f g.
-# Display de catodo comun: HIGH enciende el segmento.
+# 1 = segmento encendido (tabla logica, como en cualquier display de 7
+# segmentos). El display de Tinkercad (did 129710) es de ANODO comun en el
+# simulador: el comun va a 5V y el segmento enciende con LOW, asi que el
+# sketch invierte cada bit al escribirlo.
 SEVEN_SEG_DIGITS: tuple[tuple[int, ...], ...] = (
     (1, 1, 1, 1, 1, 1, 0),  # 0
     (0, 1, 1, 0, 0, 0, 0),  # 1
@@ -788,9 +791,16 @@ def seven_seg_sketch(
     e: int = 6,
     f: int = 7,
     g: int = 8,
-    hold_ms: int = 1000,
+    hold_ms: int = 400,
 ) -> str:
-    """Contador 0-9 en un display 7 segmentos de catodo comun."""
+    """Contador 0-9 en un display 7 segmentos de anodo comun.
+
+    El comun va a 5V y el segmento se enciende con LOW: la tabla
+    ``SEVEN_SEG_DIGITS`` es logica (1 = encendido) y el sketch la invierte
+    al escribir el pin. ``hold_ms`` por defecto 400 para que el ciclo
+    completo (10 digitos) quepa en la ventana de simulacion del runner y
+    el oraculo serial vea TEST:DIGITO=0..9.
+    """
     pins = (a, b, c, d, e, f, g)
     for pin in pins:
         _validate_pin(pin)

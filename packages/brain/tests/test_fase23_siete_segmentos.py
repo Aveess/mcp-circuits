@@ -41,7 +41,7 @@ def test_layout_display_libre_y_resistencias_en_dos_filas():
 
     assert "free" in placements["seg"]
     assert placements["seg"]["free"]["x"] == 870
-    assert placements["seg"]["free"]["y"] == -200
+    assert placements["seg"]["free"]["y"] == -230
     assert layout.get("unplaced") == []
 
     filas = [placements[f"r{i}"]["at"][-1] for i in range(1, 8)]

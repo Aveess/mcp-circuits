@@ -106,12 +106,15 @@ FREE_BATTERY_STEP_X = 120
 # placed as a free module directly above the board (the board sits at
 # x=870, y=0; y=-230 clears its top edge with the terminals facing down),
 # and it consumes no columns: the rest of the board is laid out exactly
-# as if the display were not in the fixture. Extra displays stack upward
-# in steps of 200 on the same x so their bodies do not overlap.
+# as if the display were not in the fixture.
+#
+# Every free display module (LCD, 7-segment) shares one stack: they all
+# sit on the same x and go upward in steps of 200, in fixture order, so
+# no two bodies can overlap even when a circuit uses both kinds.
 LCD_TYPE = "lcd-16x2"
-FREE_LCD_X = 870
-FREE_LCD_Y = -230
-FREE_LCD_STEP_Y = 200
+FREE_MODULE_X = 870
+FREE_MODULE_Y = -230
+FREE_MODULE_STEP_Y = 200
 
 
 class LayoutError(Exception):
@@ -228,10 +231,14 @@ def _ldr_divider_resistors(components, nets, reserved):
     return mapping
 
 
+# Display 7 segmentos (fixture slug "siete-segmentos", did 129710): 10
+# terminales y un cuerpo que taparia media placa, asi que va libre en el
+# mismo apilado que el LCD (FREE_MODULE_*).
 SEVEN_SEG_TYPE = "seven-segment"
-FREE_SEVEN_SEG_X = 870
-FREE_SEVEN_SEG_Y = -200
-FREE_SEVEN_SEG_STEP_Y = 200
+
+# Tipos que van como modulo libre en el apilado de arriba, en el orden en
+# que aparecen en la fixture.
+FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
@@ -310,35 +317,22 @@ def plan_layout(fixture: dict) -> dict:
     )
     ldr_divider_resistors = set(ldr_to_resistor.values())
 
-    # The LCD is a free module above the board: it takes no columns and
-    # hides nothing, so every other part is placed normally.
-    lcd_count = 0
+    # Displays are free modules above the board: they take no columns and
+    # hide nothing, so every other part is placed normally. They share a
+    # single stack (see FREE_MODULE_*) so an LCD and a 7-segment display in
+    # the same circuit never land on top of each other.
+    free_module_count = 0
     for component in components:
-        if component["type"] != LCD_TYPE:
+        if component["type"] not in FREE_MODULE_TYPES:
             continue
         placements[component["ref"]] = {
             "free": {
-                "x": FREE_LCD_X,
-                "y": FREE_LCD_Y - lcd_count * FREE_LCD_STEP_Y,
+                "x": FREE_MODULE_X,
+                "y": FREE_MODULE_Y - free_module_count * FREE_MODULE_STEP_Y,
                 "angle": 0,
             }
         }
-        lcd_count += 1
-
-    # The 7-segment display is also a free module: its 10 terminals need
-    # no board space and its body would hide half the board.
-    seven_seg_count = 0
-    for component in components:
-        if component["type"] != SEVEN_SEG_TYPE:
-            continue
-        placements[component["ref"]] = {
-            "free": {
-                "x": FREE_SEVEN_SEG_X,
-                "y": FREE_SEVEN_SEG_Y - seven_seg_count * FREE_SEVEN_SEG_STEP_Y,
-                "angle": 0,
-            }
-        }
-        seven_seg_count += 1
+        free_module_count += 1
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
