@@ -441,8 +441,8 @@ def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
     from tinkercad_brain.fase0.fixtures import load_fixtures
 
     circuits = load_fixtures(REAL_FIXTURES)
-    # Fase 33 suma la cerradura con teclado: 25 fixtures.
-    assert len(circuits) == 25
+    # Fase 34 suma la caja fuerte con LCD: 26 fixtures.
+    assert len(circuits) == 26
     fixture = next(c for c in circuits if c["id"] == "motor-l293d-bateria")
 
     result = plan_layout(fixture)

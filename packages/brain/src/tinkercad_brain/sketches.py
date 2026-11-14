@@ -1553,3 +1553,145 @@ def keypad_lock_sketch(
             "",
         ]
     )
+
+
+def keypad_lcd_sketch(
+    row_pins: tuple[int, ...] = (2, 3, 4, 5),
+    column_pins: tuple[int, ...] = (6, 7, 8, 9),
+    lcd_pins: tuple[str, ...] = ("A0", "A1", "A2", "A3", "A4", "A5"),
+    code: str = "1234",
+    debounce_ms: int = 20,
+    hold_ms: int = 1500,
+) -> str:
+    """Caja fuerte: teclado 4x4 y LCD 16x2 en modo 4 bits.
+
+    Primer circuito que integra dos bloques ya verificados por separado:
+    entrada matricial (teclado) y salida de texto (LCD). El teclado ocupa
+    D2..D9 y el LCD los analogicos A0..A5, que funcionan como digitales
+    (verificado en vivo): sin repartir los pines no caben los dos.
+
+    El LCD muestra la clave enmascarada y el resultado; el oraculo imprime
+    ``TEST:TECLA=<tecla>`` por pulsacion aceptada, ``TEST:CLAVE=OK`` o
+    ``FALLA`` al completar cuatro, y ``TEST:PANTALLA=<texto>`` con lo que
+    quedo escrito en la segunda linea.
+    """
+    if len(row_pins) != 4 or len(column_pins) != 4:
+        raise ValueError("el teclado 4x4 necesita 4 filas y 4 columnas")
+    for pin in (*row_pins, *column_pins):
+        _validate_pin(pin)
+    if len(set((*row_pins, *column_pins))) != 8:
+        raise ValueError(f"los ocho pines del teclado deben ser distintos: {row_pins}, {column_pins}")
+    if len(lcd_pins) != 6:
+        raise ValueError(f"el LCD en 4 bits necesita 6 pines: {lcd_pins!r}")
+    for pin in lcd_pins:
+        if pin not in _ANALOG_PINS:
+            raise ValueError(f"lcd_pins debe ser A0..A5: {lcd_pins!r}")
+    if len(set(lcd_pins)) != 6:
+        raise ValueError(f"lcd_pins repetidos: {lcd_pins!r}")
+    if not isinstance(code, str) or len(code) != 4:
+        raise ValueError(f"code debe ser una cadena de 4 teclas: {code!r}")
+    validas = set("".join(_KEYPAD_LABELS))
+    if any(key not in validas for key in code):
+        raise ValueError(f"code solo admite teclas del teclado 4x4: {code!r}")
+    _validate_ms("debounce_ms", debounce_ms)
+    if not 5 <= debounce_ms <= 200:
+        raise ValueError(f"debounce_ms debe estar en 5..200: {debounce_ms!r}")
+    _validate_ms("hold_ms", hold_ms)
+    if not 200 <= hold_ms <= 5000:
+        raise ValueError(f"hold_ms debe estar en 200..5000: {hold_ms!r}")
+
+    filas = ", ".join(str(pin) for pin in row_pins)
+    columnas = ", ".join(str(pin) for pin in column_pins)
+    tabla = ",\n  ".join(
+        "{" + ", ".join(f"'{key}'" for key in fila) + "}" for fila in _KEYPAD_LABELS
+    )
+    clave = ", ".join(f"'{key}'" for key in code)
+    lcd = ", ".join(lcd_pins)
+    return "\n".join(
+        [
+            "// Caja fuerte: teclado 4x4 a D2..D9 y LCD 16x2 en 4 bits a A0..A5.",
+            f"// Clave: {code}.",
+            "#include <LiquidCrystal.h>",
+            "",
+            f"const byte FILAS[4] = {{{filas}}};",
+            f"const byte COLS[4] = {{{columnas}}};",
+            "const char TECLAS[4][4] = {",
+            f"  {tabla}",
+            "};",
+            f"const char CLAVE[4] = {{{clave}}};",
+            "",
+            f"LiquidCrystal lcd({lcd});",
+            "byte digitos = 0;",
+            "byte aciertos = 0;",
+            "",
+            "char leerTecla() {",
+            "  for (byte f = 0; f < 4; f++) {",
+            "    digitalWrite(FILAS[f], LOW);",
+            "    delay(2);",
+            "    for (byte c = 0; c < 4; c++) {",
+            "      if (digitalRead(COLS[c]) == LOW) {",
+            f"        delay({debounce_ms});",
+            "        if (digitalRead(COLS[c]) == LOW) {",
+            "          // Una pulsacion mantenida vale una sola tecla.",
+            "          while (digitalRead(COLS[c]) == LOW) delay(5);",
+            "          digitalWrite(FILAS[f], HIGH);",
+            "          return TECLAS[f][c];",
+            "        }",
+            "      }",
+            "    }",
+            "    digitalWrite(FILAS[f], HIGH);",
+            "  }",
+            "  return 0;",
+            "}",
+            "",
+            "void linea(byte fila, const char* texto) {",
+            "  lcd.setCursor(0, fila);",
+            "  lcd.print(texto);",
+            "  byte largo = 0;",
+            "  while (texto[largo] != 0) largo++;",
+            "  // Rellena hasta 16 para borrar los restos del texto anterior.",
+            "  for (byte i = largo; i < 16; i++) lcd.print(' ');",
+            "}",
+            "",
+            "void setup() {",
+            "  Serial.begin(9600);",
+            "  for (byte i = 0; i < 4; i++) {",
+            "    pinMode(FILAS[i], OUTPUT);",
+            "    digitalWrite(FILAS[i], HIGH);",
+            "    pinMode(COLS[i], INPUT_PULLUP);",
+            "  }",
+            "  lcd.begin(16, 2);",
+            '  linea(0, "Clave:");',
+            '  linea(1, "");',
+            '  Serial.println("TEST:KP=LISTO");',
+            '  Serial.println("TEST:CLAVE=ESPERANDO");',
+            "}",
+            "",
+            "void loop() {",
+            "  char tecla = leerTecla();",
+            "  if (tecla == 0) return;",
+            '  Serial.print("TEST:TECLA=");',
+            "  Serial.println(tecla);",
+            "  if (digitos < 4) {",
+            "    if (tecla == CLAVE[digitos]) aciertos++;",
+            "    digitos++;",
+            "    lcd.setCursor(digitos - 1, 1);",
+            "    lcd.print('*');",
+            "  }",
+            "  if (digitos == 4) {",
+            "    bool abierta = (aciertos == 4);",
+            '    linea(1, abierta ? "ABIERTO" : "DENEGADO");',
+            '    Serial.print("TEST:CLAVE=");',
+            '    Serial.println(abierta ? "OK" : "FALLA");',
+            '    Serial.print("TEST:PANTALLA=");',
+            '    Serial.println(abierta ? "ABIERTO" : "DENEGADO");',
+            f"    delay({hold_ms});",
+            '    linea(1, "");',
+            '    linea(0, "Clave:");',
+            "    digitos = 0;",
+            "    aciertos = 0;",
+            "  }",
+            "}",
+            "",
+        ]
+    )

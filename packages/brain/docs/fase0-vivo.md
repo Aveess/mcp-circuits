@@ -614,3 +614,45 @@ Lección: un componente de entrada no se verifica leyendo, se verifica
 accionándolo. Y cuando el estímulo es una pulsación, la duración importa:
 el simulador no tiene "click", tiene "botón abajo". El sketch tiene que
 estar escrito para eso, no para un teclado ideal.
+
+## Fase 34: caja fuerte con teclado y LCD (2026-11-14)
+
+Primer circuito que **integra dos bloques** ya verificados por separado:
+entrada matricial (teclado 4x4) y salida de texto (LCD 16x2 en 4 bits).
+
+- Circuito: `clave-lcd` (`9wyFlvHHzIo`), 100% de fidelidad, con rieles.
+- Reparto de pines: el teclado ocupa D2..D9 y el LCD los analógicos
+  A0..A5. No alcanzan los digitales libres para los dos, y se verificó en
+  vivo que `LiquidCrystal` sobre A0..A5 funciona como digital (sonda
+  `6cqYV514HA4`: el display mostró "PINES A OK / t=1s" y el serial imprimió
+  el contador). Ese sondeo fue barato y evitó diseñar a ciegas.
+- El LCD muestra la clave enmascarada (`*` por tecla) y el resultado
+  (`ABIERTO` / `DENEGADO`); el serial imprime además
+  `TEST:PANTALLA=<texto>` para que el oráculo no dependa de leer píxeles.
+- Oráculo del runner (5 s, reposo): `TEST:KP=LISTO` +
+  `TEST:CLAVE=ESPERANDO`. Con estímulo (`scripts/keypad_stimulus.py`):
+  1-2-3-4 → `TECLA=1..4`, `CLAVE=OK`, `PANTALLA=ABIERTO`; 1-1-1-1 →
+  `CLAVE=FALLA`, `PANTALLA=DENEGADO`. Verificado también en la captura del
+  display en los dos estados.
+- El estímulo espera 1.8 s entre intentos: el sketch bloquea 1.5 s
+  mostrando el resultado y la primera tecla del intento siguiente se
+  perdía. Es el mismo patrón que la ventana de 5 s del runner: el sketch
+  tiene que caber en el tiempo del que lo observa.
+- Regla de rieles afinada: un tipo va por riel si aparece en **dos o más
+  nets** o si su net tiene **tres o más extremos**. Antes solo miraba lo
+  primero, y este circuito tenía un único 5V con tres consumos (el LCD, su
+  retroiluminación y el Uno) que se dibujaba como tirada larga. Los otros
+  tres circuitos con riel conservan su cableado exacto (19, 10 y 15
+  cables).
+
+Nota de diseño: la versión anterior de esta fase incluía un **servo** como
+cerrojo. Se descartó tras verlo montado: en una placa densa el cuerpo del
+servo tapa los taps del riel (parece desconectado) y su cable de señal
+rodea el Uno entero porque los pines digitales están arriba y el servo
+abajo. El servo ya está verificado en dos circuitos; integrarlo pide
+colocación libre de partes grandes, que es trabajo aparte.
+
+Lección: integrar no es sumar cables, es repartir recursos. El pin, la
+columna y el riel son escasos, y el primer choque aparece ahí, no en el
+código. Y cuando una parte no encaja, sacarla del circuito es una decisión
+de diseño válida; maquillarla con un cable largo, no.

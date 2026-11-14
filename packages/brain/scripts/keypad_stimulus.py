@@ -110,6 +110,9 @@ async def main() -> int:
             await page.screenshot(path=str(ok_path))
             print("teclas 1-2-3-4:", bien, "->", ok_path)
 
+            # El sketch muestra el resultado y bloquea 1.5 s: si se empieza
+            # antes, la primera tecla del intento siguiente se pierde.
+            await page.wait_for_timeout(1800)
             antes = len(await _serial(page))
             mal = await _secuencia(page, coords, "1111", antes)
             mal_path = SHOTS / f"{args.prefix}_falla.png"

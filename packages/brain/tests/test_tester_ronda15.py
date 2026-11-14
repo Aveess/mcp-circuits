@@ -941,9 +941,9 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    # La fase 33 agrega la fila 25 (cerradura con teclado).
-    assert len(rows) == 25, rows
-    assert [int(number) for number in rows] == list(range(1, 26))
+    # La fase 34 agrega la fila 26 (caja fuerte con LCD).
+    assert len(rows) == 26, rows
+    assert [int(number) for number in rows] == list(range(1, 27))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

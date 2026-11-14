@@ -358,16 +358,27 @@ def _rail_kinds(nets):
     La topologia por defecto es la estrella desde el pin del Uno: un mazo
     de cables paralelos por net, verificada en todo el benchmark. El riel
     es opt-in (``"wiring": "rails"`` en la fixture) porque cambia el
-    cableado de un circuito ya verificado, y solo se aplica al tipo que
-    aparece en dos o mas nets: con un solo mazo no hay tiradas largas que
-    evitar y el riel solo agrega cables (tap + alimentacion + puente).
+    cableado de un circuito ya verificado.
+
+    Un tipo va por riel cuando en el circuito hay **varias tiradas** de ese
+    tipo: o aparece en dos o mas nets (tres nets de GND en el faro), o su
+    net tiene tres o mas extremos (un unico 5V que alimenta LCD, servo y
+    resistencia). Con una sola tirada de dos extremos el riel solo agrega
+    cables (tap + alimentacion + puente) sin quitar ningun cruce.
     """
-    counts = {}
+    nets_by_kind = {}
+    widest = {}
     for endpoints in nets:
         kind = _net_kind(endpoints)
-        if kind is not None:
-            counts[kind] = counts.get(kind, 0) + 1
-    return {kind for kind, count in counts.items() if count >= 2}
+        if kind is None:
+            continue
+        nets_by_kind[kind] = nets_by_kind.get(kind, 0) + 1
+        widest[kind] = max(widest.get(kind, 0), len(endpoints))
+    return {
+        kind
+        for kind, count in nets_by_kind.items()
+        if count >= 2 or widest[kind] >= 3
+    }
 
 
 def _rail_tap(endpoint, top, bottom, placements):

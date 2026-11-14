@@ -34,6 +34,7 @@ píxel del LED.
 | 23 | Faro automatico con rele SPDT, NPN y LDR (con rieles) | aF67dwSGoqC | 100% | `TEST:LUZ=6` + `TEST:RELE=ON` + `TEST:FOCO=1` y tras apagar `RELE=OFF` + `FOCO=0` |
 | 24 | Alarma de movimiento con PIR, buzzer y LED | dgFz6r0k1xV | 100% | `TEST:PIR=LISTO` + `TEST:MOV=0`; con estimulo: `MOV=1` (LED encendido, buzer sonando) y `MOV=0` al soltar |
 | 25 | Cerradura con teclado 4x4 y dos LEDs | g3KZdQc0DFu | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` (LED de apertura) y `1111` + `CLAVE=FALLA` (LED de rechazo) |
+| 26 | Caja fuerte con teclado 4x4 y LCD 16x2 | 9wyFlvHHzIo | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `PANTALLA=DENEGADO` |
 
 ## Qué agrega cada nivel
 
@@ -64,6 +65,12 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Nivel 10 (26):** integracion de bloques. Primer circuito con dos
+  bloques ya verificados conviviendo: entrada matricial (D2..D9) y salida
+  de texto (LCD en 4 bits sobre A0..A5, que el simulador trata como
+  digitales). El reparto de pines es lo que hace posible el circuito: los
+  digitales libres no alcanzan para los dos. La alimentacion va por rieles
+  en vertical; verificado en pantalla con `ABIERTO` y `DENEGADO`.
 - **Nivel 9 (25):** entrada matricial. El teclado 4x4 se barre a mano
   (`INPUT_PULLUP`, una fila en LOW por vuelta) sin libreria. El simulador
   solo cierra la matriz mientras el boton del mouse esta **presionado**:
