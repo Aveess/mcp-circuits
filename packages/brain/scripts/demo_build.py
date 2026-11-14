@@ -62,6 +62,7 @@ _SKETCH_BY_FIXTURE = {
     "ldr-divisor": "ldr_led_sketch",
     "lcd-contador": "lcd_counter_sketch",
     "lcd-temperatura": "lcd_temp_sketch",
+    "lcd-distancia": "lcd_distance_sketch",
 }
 
 
