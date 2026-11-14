@@ -6,7 +6,7 @@
 - Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 27,
+  "total_lines": 49,
   "lines": [
     "READY",
     "TEST:DIST=110.60",
@@ -34,22 +34,44 @@
     "TEST:ESTADO=ABIERTO",
     "TEST:SERVO=90",
     "TEST:DIST=112.08",
-    "TEST:ESTADO=ABIERTO"
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=111.33",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.08",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.08",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.05",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.05",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.10",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90",
+    "TEST:DIST=112.08",
+    "TEST:ESTADO=ABIERTO",
+    "TEST:SERVO=90"
   ],
-  "raw_output": "READY\nTEST:DIST=110.60\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.53\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.57\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.57\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=111.33\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO",
-  "message": "Retrieved 27 lines from Serial Monitor."
+  "raw_output": "READY\nTEST:DIST=110.60\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.53\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.57\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=110.57\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=111.33\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=111.33\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.05\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.05\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.10\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90\nTEST:DIST=112.08\nTEST:ESTADO=ABIERTO\nTEST:SERVO=90",
+  "message": "Retrieved 49 lines from Serial Monitor."
 }
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 6.3 | 6.3 |
+| tinkercad_build_circuit_model | 1 | 5.1 | 5.1 |
 | tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_list_circuits | 1 | 9.4 | 9.4 |
-| tinkercad_open_circuit | 2 | 11.7 | 12.9 |
-| tinkercad_read_serial_monitor | 1 | 2.1 | 2.1 |
-| tinkercad_set_code | 1 | 16.3 | 16.3 |
-| tinkercad_start_simulation | 1 | 5.7 | 5.7 |
+| tinkercad_list_circuits | 1 | 9.1 | 9.1 |
+| tinkercad_open_circuit | 2 | 9.1 | 9.2 |
+| tinkercad_read_serial_monitor | 1 | 2.2 | 2.2 |
+| tinkercad_set_code | 1 | 15.8 | 15.8 |
+| tinkercad_start_simulation | 1 | 5.6 | 5.6 |
 | tinkercad_stop_simulation | 1 | 1.9 | 1.9 |
 
 ## Fallos
