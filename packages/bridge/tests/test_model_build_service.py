@@ -1092,6 +1092,81 @@ console.log(JSON.stringify({ out, points: wiresMade.length ? wiresMade[0].points
         self.assertEqual(out["points"], [])
 
 
+class TestEditorReady(unittest.IsolatedAsyncioTestCase):
+    """El build no puede evaluarse antes de que el editor exista.
+
+    En la regresion de las 28 fixtures, `buzzer-activo` fallo 1 de 28 con
+    `circuit_editor not available`: el JS corrio cuando la pagina todavia no
+    habia montado el editor. El circuito ya estaba bien (100% de fidelidad,
+    serial correcto) y el build se reportaba como fallido igual: un fallo
+    intermitente que ensucia el benchmark.
+    """
+
+    PARTS = [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode"}]
+    GUARD = {"success": False, "placed": {}, "errors": ["circuit_editor not available"],
+             "persisted": False, "routed": 0, "route_debug": []}
+    GOOD = {"success": True, "placed": {}, "errors": [], "persisted": True,
+            "routed": 1, "route_debug": []}
+
+    def _svc(self, results, clear_return=None):
+        mock_bm = MagicMock()
+        mock_page = AsyncMock()
+        builds = iter(results)
+        clear = clear_return if clear_return is not None else {
+            "cleared": True, "removed_wires": 0, "removed_devices": 0,
+            "kept_uno": True, "errors": [],
+        }
+
+        def _evaluate(*args, **kwargs):
+            js = args[0] if args else ""
+            if isinstance(js, str) and "removed_devices" in js:
+                return clear
+            if len(args) >= 2 or "plan" in kwargs:
+                return next(builds)
+            return 0
+
+        mock_page.evaluate = AsyncMock(side_effect=_evaluate)
+        mock_page.wait_for_function = AsyncMock(return_value=None)
+        mock_bm.get_page = AsyncMock(return_value=mock_page)
+        return ModelBuildService(mock_bm), mock_page
+
+    async def test_espera_al_editor_antes_de_construir(self):
+        svc, page = self._svc([self.GOOD])
+        await svc.build_from_holes(parts=self.PARTS, wires=[])
+        page.wait_for_function.assert_awaited()
+        expr = page.wait_for_function.await_args.args[0]
+        self.assertIn("circuit_editor", expr)
+
+    async def test_si_el_editor_no_estaba_se_reintenta_una_vez(self):
+        svc, page = self._svc([self.GUARD, self.GOOD])
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertTrue(res["success"], res["errors"])
+        self.assertEqual(res["errors"], [])
+        self.assertEqual(page.wait_for_function.await_count, 2)
+
+    async def test_dos_guardas_seguidas_se_reportan_como_fallo(self):
+        """Reintentar una vez, no en bucle: si sigue sin editor, se informa."""
+        svc, page = self._svc([self.GUARD, self.GUARD])
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertFalse(res["success"])
+        self.assertIn("circuit_editor not available", res["errors"])
+
+    async def test_un_error_que_no_es_del_editor_no_se_reintenta(self):
+        svc, page = self._svc([{**self.GOOD, "success": False, "errors": ["hole 99z not found"]}])
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[])
+        self.assertFalse(res["success"])
+        self.assertEqual(page.wait_for_function.await_count, 1)
+
+    async def test_la_limpieza_tambien_espera_al_editor(self):
+        """Borrar antes de que exista el editor dejaria el circuito a medias."""
+        svc, page = self._svc([self.GOOD])
+        await svc.build_from_holes(parts=self.PARTS, wires=[], clear_existing=True)
+        # Una espera antes de limpiar y otra antes de construir.
+        self.assertGreaterEqual(page.wait_for_function.await_count, 2)
+        first_evaluate = page.evaluate.await_args_list[0].args[0]
+        self.assertIn("removed_devices", first_evaluate)
+
+
 class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
     async def test_plan_carries_boards_and_single_board_default(self):
         svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})

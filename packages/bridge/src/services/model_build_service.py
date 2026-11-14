@@ -25,6 +25,16 @@ _PERSIST_TIMEOUT_S = 30.0
 _PERSIST_POLL_S = 0.3
 _PERSIST_REQUIRED_ZEROS = 3
 
+# El JS de build y de limpieza arrancan con `if (!ce || !ce.data) return
+# {errors: ['circuit_editor not available']}`. Si la pagina todavia no monto
+# el editor (o se esta re-renderizando), el build se reporta como fallido sin
+# que el circuito tenga nada malo: paso 1 de 28 en la regresion de la fase 41.
+_EDITOR_READY_JS = (
+    "() => !!(window.circuit_editor && window.circuit_editor.data "
+    "&& window.circuit_editor.data.devices)"
+)
+_EDITOR_READY_TIMEOUT_S = 15.0
+
 # Returns pending ShareJS ops; 0 when shareJsDoc/numberPending is unavailable
 # (nothing can be pending through that doc in that case).
 _PENDING_JS = r"""
@@ -930,6 +940,33 @@ class ModelBuildService:
     def __init__(self, browser: Optional[BrowserManager] = None) -> None:
         self.browser = browser or BrowserManager.get_instance()
 
+    async def _wait_for_editor(self, page: Any) -> bool:
+        """Espera a que el editor exista en la pagina. Best-effort, no lanza.
+
+        El build y la limpieza corren dentro del modelo del editor; si la
+        pagina aun no lo monto, ambos devuelven ``circuit_editor not
+        available``. Eso no es culpa del circuito: se espera antes de
+        evaluar y, si aun asi aparece la guarda, se reintenta una vez.
+        """
+        try:
+            await page.wait_for_function(
+                _EDITOR_READY_JS, timeout=_EDITOR_READY_TIMEOUT_S * 1000
+            )
+            return True
+        except Exception as exc:  # timeout, page cerrada, js deshabilitado
+            logger.debug(f"editor ready wait failed: {exc}")
+            return False
+
+    @staticmethod
+    def _editor_guard_hit(result: Any) -> bool:
+        """True si el JS se corto en la guarda de `circuit_editor`."""
+        if not isinstance(result, dict):
+            return False
+        return any(
+            "circuit_editor not available" in str(e)
+            for e in (result.get("errors") or [])
+        )
+
     async def _wait_for_persistence(self, page: Any) -> Tuple[bool, Optional[int]]:
         """Poll shareJsDoc.numberPending() until 0 x _PERSIST_REQUIRED_ZEROS.
 
@@ -1090,6 +1127,7 @@ class ModelBuildService:
         page = await self.browser.get_page()
         cleared = False
         if clear_existing:
+            await self._wait_for_editor(page)
             clear_result = await page.evaluate(_CLEAR_JS)
             if not isinstance(clear_result, dict):
                 return {
@@ -1141,7 +1179,15 @@ class ModelBuildService:
             "wires": plan_wire_style(wires, free_refs=free_refs),
             "code": code,
         }
+        await self._wait_for_editor(page)
         result = await page.evaluate(_BUILD_JS, plan)
+        if self._editor_guard_hit(result):
+            # El editor se desmonto justo al evaluar (re-render): se espera y
+            # se reintenta una vez. La guarda corta ANTES de tocar nada, asi
+            # que reintentar no duplica partes ni cables.
+            logger.warning("build hit editor guard; waiting and retrying once")
+            await self._wait_for_editor(page)
+            result = await page.evaluate(_BUILD_JS, plan)
         if not isinstance(result, dict):
             return {
                 "success": False,
