@@ -271,7 +271,9 @@ FREE_SHIFT_REGISTER_STEP_X = 200
 # filas de terminales y la bombilla (Light bulb) se para con el vidrio
 # encima de la protoboard, tapando filas. Van en la misma fila de las
 # partes libres, continuando despues de los integrados.
-FREE_PERIPHERAL_TYPES = ("relay-spdt", "light-bulb", "pir-sensor")
+FREE_PERIPHERAL_TYPES = (
+    "relay-spdt", "light-bulb", "pir-sensor", "keypad-4x4",
+)
 
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""

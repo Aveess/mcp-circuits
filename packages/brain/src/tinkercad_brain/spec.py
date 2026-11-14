@@ -105,6 +105,10 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "light-bulb": frozenset({"1", "2"}),
     # PIR (did 234203): salida digital y alimentacion.
     "pir-sensor": frozenset({"out", "vcc", "gnd"}),
+    # Teclado 4x4 (did 203761): matriz sin alimentacion, 4 filas y 4 columnas.
+    "keypad-4x4": frozenset(
+        {f"row{i}" for i in range(1, 5)} | {f"column{i}" for i in range(1, 5)}
+    ),
     # 74HC4017 (did 129343): contador Johnson de 10 salidas. Q5-9n es el
     # acarreo; CP1n habilita en bajo y MR resetea en alto.
     "decade-counter": frozenset(

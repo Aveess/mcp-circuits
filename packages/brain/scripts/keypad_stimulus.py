@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Estimulo para el teclado 4x4: pulsaciones reales contra la simulacion.
+
+El runner del proyecto arranca la simulacion y lee el serial, pero no puede
+tocar el teclado. La cerradura solo demuestra algo si alguien pulsa teclas,
+asi que el oraculo vive aqui: este script mantiene pulsada cada tecla el
+tiempo suficiente para que el barrido la lea.
+
+Hallazgo en vivo: **un click no registra la tecla**. El teclado de Tinkercad
+solo cierra la matriz mientras el boton del mouse esta presionado, asi que
+se usa ``mouse.down()`` / ``mouse.up()``. Un doble click tampoco sirve.
+
+Prueba dos secuencias contra el mismo circuito:
+
+1. la clave correcta (por defecto ``1234``) -> ``TEST:CLAVE=OK``;
+2. cuatro veces la misma tecla -> ``TEST:CLAVE=FALLA``.
+
+Uso:
+    python scripts/keypad_stimulus.py <circuit_id> [--keys "x,y x,y x,y x,y"]
+
+Las coordenadas son las de las teclas 1, 2, 3 y 4 en el encuadre que
+Tinkercad elige al abrir el diseno. Los defaults son los del circuito
+``g3KZdQc0DFu`` (cerradura-teclado).
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import sys
+from pathlib import Path
+
+BRIDGE = Path("/home/usuario/Documentos/StartUp/TInkercad/tinkercad-mcp").expanduser()
+sys.path.insert(0, str(BRIDGE))
+
+from playwright.async_api import async_playwright  # noqa: E402
+
+from src.config import PROFILE_DIR  # noqa: E402
+
+SHOTS = Path("/tmp/opencode")
+
+# Teclas 1, 2, 3 y 4 en el encuadre del circuito cerradura-teclado.
+KEYS_DEFAULT = "755,310 800,310 850,310 755,356"
+
+
+async def _serial(page):
+    text = await page.evaluate("() => document.body.innerText")
+    return [line.strip() for line in text.splitlines() if line.strip().startswith("TEST:")]
+
+
+async def _arrancar(page, circuit_id):
+    await page.goto(
+        f"https://www.tinkercad.com/things/{circuit_id}/editel",
+        wait_until="domcontentloaded",
+        timeout=60000,
+    )
+    await page.wait_for_timeout(10000)
+    sim = page.locator(
+        "a#SIMULATION_ID, a.js-toggleSimulation, a[data-event='simulate'], "
+        "button:has-text('Start Simulation')"
+    ).first
+    await sim.click()
+    await page.wait_for_timeout(3500)
+
+
+async def _pulsar(page, xy, hold_ms=350):
+    """Mantiene la tecla: un click solo no cierra la matriz del teclado."""
+    await page.mouse.move(*xy)
+    await page.mouse.down()
+    await page.wait_for_timeout(hold_ms)
+    await page.mouse.up()
+    await page.wait_for_timeout(250)
+
+
+async def _secuencia(page, coords, teclas, antes):
+    for tecla in teclas:
+        await _pulsar(page, coords[tecla])
+    lineas = await _serial(page)
+    return lineas[antes:]
+
+
+async def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("circuit_id")
+    parser.add_argument("--keys", default=KEYS_DEFAULT, help="coords de 1,2,3,4")
+    parser.add_argument("--prefix", default="keypad")
+    args = parser.parse_args()
+
+    pares = [tuple(int(v) for v in par.split(",")) for par in args.keys.split()]
+    if len(pares) != 4:
+        parser.error("--keys necesita cuatro coordenadas: x,y x,y x,y x,y")
+    coords = {tecla: xy for tecla, xy in zip("1234", pares)}
+
+    SHOTS.mkdir(parents=True, exist_ok=True)
+    async with async_playwright() as pw:
+        context = await pw.chromium.launch_persistent_context(
+            user_data_dir=str(PROFILE_DIR),
+            headless=True,
+            viewport={"width": 1600, "height": 1000},
+            args=["--disable-blink-features=AutomationControlled", "--enable-webgl"],
+        )
+        try:
+            page = context.pages[0] if context.pages else await context.new_page()
+            await _arrancar(page, args.circuit_id)
+            print("reposo:", await _serial(page))
+
+            antes = len(await _serial(page))
+            bien = await _secuencia(page, coords, "1234", antes)
+            ok_path = SHOTS / f"{args.prefix}_ok.png"
+            await page.screenshot(path=str(ok_path))
+            print("teclas 1-2-3-4:", bien, "->", ok_path)
+
+            antes = len(await _serial(page))
+            mal = await _secuencia(page, coords, "1111", antes)
+            mal_path = SHOTS / f"{args.prefix}_falla.png"
+            await page.screenshot(path=str(mal_path))
+            print("teclas 1-1-1-1:", mal, "->", mal_path)
+
+            errores = []
+            if [l for l in bien if l.startswith("TEST:TECLA=")] != [
+                "TEST:TECLA=1", "TEST:TECLA=2", "TEST:TECLA=3", "TEST:TECLA=4"
+            ]:
+                errores.append(f"lectura de teclas inesperada: {bien}")
+            if "TEST:CLAVE=OK" not in bien:
+                errores.append(f"la clave correcta no abrio: {bien}")
+            if "TEST:CLAVE=FALLA" not in mal:
+                errores.append(f"el codigo erroneo no fallo: {mal}")
+            if errores:
+                for error in errores:
+                    print("FALLO:", error)
+                return 1
+            print("OK: 1234 -> CLAVE=OK y 1111 -> CLAVE=FALLA")
+            return 0
+        finally:
+            await context.close()
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(main()))

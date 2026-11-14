@@ -69,6 +69,8 @@ DID_BY_TYPE: dict[str, int] = {
     "light-bulb": 116693,
     # PIR Sensor verificado en vivo: did 234203.
     "pir-sensor": 234203,
+    # Keypad 4x4 verificado en vivo: did 203761.
+    "keypad-4x4": 203761,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -260,6 +262,13 @@ _RELAY_REAL_PINS: dict[str, str] = {
 _LIGHT_BULB_REAL_PINS: dict[str, str] = {"1": "1", "2": "2"}
 # PIR: modulo libre de 3 pines; el puente los resuelve por nombre de inspect.
 _PIR_REAL_PINS: dict[str, str] = {"out": "out", "vcc": "vcc", "gnd": "gnd"}
+# Keypad 4x4: matriz de 4 filas por 4 columnas, sin alimentacion. Los
+# nombres de inspect (row1..row4, column1..column4) son los que acepta el
+# puente; el guardado los etiqueta "Row 1".."Column 4" (ver breadboard_nets).
+_KEYPAD_REAL_PINS: dict[str, str] = {
+    **{f"row{i}": f"row{i}" for i in range(1, 5)},
+    **{f"column{i}": f"column{i}" for i in range(1, 5)},
+}
 
 _DECADE_COUNTER_REAL_PINS: dict[str, str] = {
     "CP0": "CP0", "CP1n": "CP1n", "MR": "MR",
@@ -274,6 +283,7 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "relay-spdt": _RELAY_REAL_PINS,
     "light-bulb": _LIGHT_BULB_REAL_PINS,
     "pir-sensor": _PIR_REAL_PINS,
+    "keypad-4x4": _KEYPAD_REAL_PINS,
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,

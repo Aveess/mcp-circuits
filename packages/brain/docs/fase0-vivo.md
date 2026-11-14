@@ -576,3 +576,41 @@ sigue siendo ciego a la interacción, y por eso el reporte guarda el
 reposo mientras la evidencia del movimiento queda en una corrida aparte,
 con su screenshot. Prometer en el reporte algo que el runner no puede
 observar sería mentir con formato.
+
+## Fase 33: cerradura con teclado 4x4 (2026-11-14)
+
+Segunda capacidad de **entrada** y la primera matriz: el teclado 4x4 no
+tiene pines de alimentación, son cuatro filas y cuatro columnas que hay
+que barrer.
+
+- Circuito: `cerradura-teclado` (`g3KZdQc0DFu`), 100% de fidelidad, con
+  rieles. Filas a D2..D5, columnas a D6..D9, LED de apertura en D10 y de
+  rechazo en D11, cada uno con su resistencia.
+- Barrido sin librería: `INPUT_PULLUP` en las columnas, una fila en LOW
+  por vuelta, `delay(2)` para que el pin se estabilice. No se usó
+  `<Keypad.h>` porque no está verificado en el simulador.
+- **Hallazgo en vivo:** el simulador solo cierra la matriz mientras el
+  botón del mouse está **presionado**. Un click suelto, un doble click o
+  un click seguido de lectura no registran nada; hay que mantener
+  (`mouse.down()`, esperar, `mouse.up()`). Y como la tecla queda cerrada
+  todo ese tiempo, el sketch **espera a que se suelte** antes de devolver
+  el carácter: una pulsación mantenida vale una sola tecla. Sin esa espera
+  la misma tecla se reporta decenas de veces y la clave nunca cierra.
+- Mapa físico medido pulsando las 16 teclas: la matriz es fila-mayor,
+  `f1c1`=1 ... `f1c4`=A, `f4c1`=*, `f4c4`=D. No hay sorpresa de cableado.
+- Oráculo del runner (5 s, reposo): `TEST:KP=LISTO` +
+  `TEST:CLAVE=ESPERANDO`. El teclado necesita manos, así que el oráculo
+  real lo produce `scripts/keypad_stimulus.py`: mantiene 1-2-3-4 y lee
+  `TEST:TECLA=1..4` + `TEST:CLAVE=OK`; luego 1-1-1-1 y lee
+  `TEST:CLAVE=FALLA`.
+- Verificación visual por píxel (los LEDs rojos del simulador apenas se
+  distinguen a ojo): con la clave correcta el LED de D10 sube de brillo
+  medio 126 a 135 y el de D11 queda en 94; con la incorrecta, D11 sube a
+  115 y D10 baja a 126.
+- Alias del guardado: `Row 1..4` / `Column 1..4` (inspect devuelve
+  `row1..4` / `column1..4`).
+
+Lección: un componente de entrada no se verifica leyendo, se verifica
+accionándolo. Y cuando el estímulo es una pulsación, la duración importa:
+el simulador no tiene "click", tiene "botón abajo". El sketch tiene que
+estar escrito para eso, no para un teclado ideal.

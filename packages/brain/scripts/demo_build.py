@@ -78,6 +78,7 @@ _SKETCH_BY_FIXTURE = {
     "carrusel-4017": "decade_counter_sketch",
     "faro-rele-ldr": "faro_ldr_relay_sketch",
     "alarma-pir": "pir_alarm_sketch",
+    "cerradura-teclado": "keypad_lock_sketch",
 }
 
 

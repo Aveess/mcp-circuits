@@ -105,6 +105,7 @@ RAW_TYPE = {
     "relay-spdt": "Relay SPDT",
     "light-bulb": "Light bulb",
     "pir-sensor": "PIR Sensor",
+    "keypad-4x4": "Keypad 4x4",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -210,6 +211,11 @@ INSPECT_PIN = {
     "light-bulb": {"1": "Terminal 1", "2": "Terminal 2"},
     # El guardado del PIR usa Signal/Power/Ground (vivo en dgFz6r0k1xV).
     "pir-sensor": {"out": "Signal", "vcc": "Power", "gnd": "Ground"},
+    # El teclado guarda Row n / Column n (vivo en bOhGx6ENPnn).
+    "keypad-4x4": {
+        **{f"row{i}": f"Row {i}" for i in range(1, 5)},
+        **{f"column{i}": f"Column {i}" for i in range(1, 5)},
+    },
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}
@@ -935,9 +941,9 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    # La fase 32 agrega la fila 24 (alarma con PIR).
-    assert len(rows) == 24, rows
-    assert [int(number) for number in rows] == list(range(1, 25))
+    # La fase 33 agrega la fila 25 (cerradura con teclado).
+    assert len(rows) == 25, rows
+    assert [int(number) for number in rows] == list(range(1, 26))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

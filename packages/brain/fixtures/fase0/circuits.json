@@ -1809,5 +1809,102 @@
     ],
     "wiring": "rails",
     "tinkercad_id": "dgFz6r0k1xV"
+  },
+  {
+    "id": "cerradura-teclado",
+    "title": "Cerradura con teclado 4x4 y dos LEDs",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "kp1",
+        "type": "keypad-4x4"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "kp1.row1"
+      ],
+      [
+        "uno.D3",
+        "kp1.row2"
+      ],
+      [
+        "uno.D4",
+        "kp1.row3"
+      ],
+      [
+        "uno.D5",
+        "kp1.row4"
+      ],
+      [
+        "uno.D6",
+        "kp1.column1"
+      ],
+      [
+        "uno.D7",
+        "kp1.column2"
+      ],
+      [
+        "uno.D8",
+        "kp1.column3"
+      ],
+      [
+        "uno.D9",
+        "kp1.column4"
+      ],
+      [
+        "uno.D10",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D11",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "led2.anode"
+      ],
+      [
+        "led2.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "INPUT_PULLUP",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "tinkercad_id": "g3KZdQc0DFu"
   }
 ]

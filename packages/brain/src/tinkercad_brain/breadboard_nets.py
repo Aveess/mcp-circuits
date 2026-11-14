@@ -276,6 +276,12 @@ _PIN_ALIASES_BY_TYPE = {
     # PIR (descubierto en vivo en 9mlXTR2qKBd): el guardado usa
     # Signal/Power/Ground, inspect devuelve out/vcc/gnd.
     "pir-sensor": {"Signal": "out", "Power": "vcc", "Ground": "gnd"},
+    # Teclado 4x4 (medido en vivo en bOhGx6ENPnn): el guardado usa
+    # "Row 1..4" / "Column 1..4", inspect devuelve row1../column1...
+    "keypad-4x4": {
+        **{f"Row {i}": f"row{i}" for i in range(1, 5)},
+        **{f"Column {i}": f"column{i}" for i in range(1, 5)},
+    },
     # 74HC4017 (descubierto en vivo en ij6ypc8wB5x): inspect devuelve
     # Q0..Q9/CP0/CP1n/MR, pero el guardado usa "Output 1".."Output 10"
     # (Q0 -> Output 1, Q4 -> Output 5), "Clock", "Clock Enable" y "Reset".

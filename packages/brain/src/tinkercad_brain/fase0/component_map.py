@@ -45,6 +45,8 @@ TYPE_MAP: dict[str, str] = {
     "Relay SPDT": "relay-spdt",  # Verificado en vivo (did 122167, 2 polos: COM1/R1 y COM2/R2).
     "Light bulb": "light-bulb",  # Verificado en vivo (did 116693, dos terminales).
     "PIR Sensor": "pir-sensor",  # Verificado en vivo (did 234203, out/vcc/gnd, cono de deteccion).
+    # Verificado en vivo (did 203761): 4 filas + 4 columnas, sin alimentacion.
+    "Keypad 4x4": "keypad-4x4",
     "Decade Counter": "decade-counter",  # Alias del buscador.
 }
 

@@ -1426,3 +1426,130 @@ def pir_alarm_sketch(
             "",
         ]
     )
+
+
+_KEYPAD_LABELS = (
+    "123A",
+    "456B",
+    "789C",
+    "*0#D",
+)
+
+
+def keypad_lock_sketch(
+    row_pins: tuple[int, ...] = (2, 3, 4, 5),
+    column_pins: tuple[int, ...] = (6, 7, 8, 9),
+    code: str = "1234",
+    open_led: int = 10,
+    deny_led: int = 11,
+    debounce_ms: int = 20,
+) -> str:
+    """Cerradura con teclado 4x4: clave de 4 teclas y dos LEDs.
+
+    El teclado se barre sin libreria: una fila en LOW, las columnas con
+    ``INPUT_PULLUP``. La tecla queda pulsada hasta que se lee, asi que el
+    sketch **espera a que se suelte** antes de devolver el caracter: una
+    pulsacion mantenida vale una sola tecla, no una rafaga.
+
+    El oraculo imprime ``TEST:TECLA=<tecla>`` por cada pulsacion aceptada y,
+    al completar cuatro, ``TEST:CLAVE=OK`` o ``TEST:CLAVE=FALLA``. El LED de
+    apertura (``open_led``) queda encendido con la clave correcta y el de
+    rechazo (``deny_led``) con la incorrecta, hasta el siguiente intento.
+    """
+    if len(row_pins) != 4 or len(column_pins) != 4:
+        raise ValueError("el teclado 4x4 necesita 4 filas y 4 columnas")
+    for pin in (*row_pins, *column_pins):
+        _validate_pin(pin)
+    if len(set((*row_pins, *column_pins))) != 8:
+        raise ValueError(f"los ocho pines deben ser distintos: {row_pins}, {column_pins}")
+    _validate_pin(open_led)
+    _validate_pin(deny_led)
+    if open_led == deny_led or {open_led, deny_led} & set((*row_pins, *column_pins)):
+        raise ValueError(f"los LEDs no pueden repetir pines del teclado: {open_led}, {deny_led}")
+    if not isinstance(code, str) or len(code) != 4:
+        raise ValueError(f"code debe ser una cadena de 4 teclas: {code!r}")
+    validas = set("".join(_KEYPAD_LABELS))
+    if any(key not in validas for key in code):
+        raise ValueError(f"code solo admite teclas del teclado 4x4: {code!r}")
+    _validate_ms("debounce_ms", debounce_ms)
+    if not 5 <= debounce_ms <= 200:
+        raise ValueError(f"debounce_ms debe estar en 5..200: {debounce_ms!r}")
+
+    filas = ", ".join(str(pin) for pin in row_pins)
+    columnas = ", ".join(str(pin) for pin in column_pins)
+    tabla = ",\n  ".join(
+        "{" + ", ".join(f"'{key}'" for key in fila) + "}" for fila in _KEYPAD_LABELS
+    )
+    clave = ", ".join(f"'{key}'" for key in code)
+    return "\n".join(
+        [
+            "// Cerradura: teclado 4x4, clave y dos LEDs de respuesta.",
+            f"// Clave: {code}. Apertura en D{open_led}, rechazo en D{deny_led}.",
+            f"const byte FILAS[4] = {{{filas}}};",
+            f"const byte COLS[4] = {{{columnas}}};",
+            "const char TECLAS[4][4] = {",
+            f"  {tabla}",
+            "};",
+            f"const char CLAVE[4] = {{{clave}}};",
+            f"const byte LED_OK = {open_led};",
+            f"const byte LED_FALLA = {deny_led};",
+            "byte digitos = 0;",
+            "byte aciertos = 0;",
+            "",
+            "char leerTecla() {",
+            "  for (byte f = 0; f < 4; f++) {",
+            "    digitalWrite(FILAS[f], LOW);",
+            "    delay(2);",
+            "    for (byte c = 0; c < 4; c++) {",
+            "      if (digitalRead(COLS[c]) == LOW) {",
+            f"        delay({debounce_ms});",
+            "        if (digitalRead(COLS[c]) == LOW) {",
+            "          // Una pulsacion mantenida vale una sola tecla.",
+            "          while (digitalRead(COLS[c]) == LOW) delay(5);",
+            "          digitalWrite(FILAS[f], HIGH);",
+            "          return TECLAS[f][c];",
+            "        }",
+            "      }",
+            "    }",
+            "    digitalWrite(FILAS[f], HIGH);",
+            "  }",
+            "  return 0;",
+            "}",
+            "",
+            "void setup() {",
+            "  Serial.begin(9600);",
+            "  for (byte i = 0; i < 4; i++) {",
+            "    pinMode(FILAS[i], OUTPUT);",
+            "    digitalWrite(FILAS[i], HIGH);",
+            "    pinMode(COLS[i], INPUT_PULLUP);",
+            "  }",
+            "  pinMode(LED_OK, OUTPUT);",
+            "  pinMode(LED_FALLA, OUTPUT);",
+            "  digitalWrite(LED_OK, LOW);",
+            "  digitalWrite(LED_FALLA, LOW);",
+            '  Serial.println("TEST:KP=LISTO");',
+            '  Serial.println("TEST:CLAVE=ESPERANDO");',
+            "}",
+            "",
+            "void loop() {",
+            "  char tecla = leerTecla();",
+            "  if (tecla == 0) return;",
+            '  Serial.print("TEST:TECLA=");',
+            "  Serial.println(tecla);",
+            "  if (digitos < 4) {",
+            "    if (tecla == CLAVE[digitos]) aciertos++;",
+            "    digitos++;",
+            "  }",
+            "  if (digitos == 4) {",
+            "    bool abierta = (aciertos == 4);",
+            "    digitalWrite(LED_OK, abierta ? HIGH : LOW);",
+            "    digitalWrite(LED_FALLA, abierta ? LOW : HIGH);",
+            '    Serial.print("TEST:CLAVE=");',
+            '    Serial.println(abierta ? "OK" : "FALLA");',
+            "    digitos = 0;",
+            "    aciertos = 0;",
+            "  }",
+            "}",
+            "",
+        ]
+    )
