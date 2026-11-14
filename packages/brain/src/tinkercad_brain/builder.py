@@ -45,6 +45,8 @@ DID_BY_TYPE: dict[str, int] = {
     # Verificados en vivo (circuito cZcqbZ3eNlA).
     "buzzer": 114067,
     "photoresistor": 116691,
+    # LCD 16x2 verificado en vivo (circuito ib98EAPoqPP, modo 4 bits).
+    "lcd-16x2": 113878,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -141,6 +143,22 @@ _PHOTORESISTOR_REAL_PINS: dict[str, str] = {
     "1": "terminal-1", "2": "terminal-2",
 }
 _PHOTORESISTOR_SECOND_OFFSET = 1
+
+# LCD 16x2 (did 113878, type real "LCD 16 x 2", verificado en vivo en
+# ib98EAPoqPP): 16 terminales en UNA fila; ancla "GND" (angle 0) y el
+# resto a +1..+15 columnas, misma fila. Los nombres reales son los mismos
+# de la fixture (mapa identidad), pero se declaran explicitos para
+# rechazar pines desconocidos en vez de rutear un hueco inventado.
+_LCD_ANCHOR = "GND"
+_LCD_REAL_PINS: dict[str, str] = {
+    "GND": "GND", "VDD": "VDD", "VO": "VO", "RS": "RS", "RW": "RW", "E": "E",
+    "DB0": "DB0", "DB1": "DB1", "DB2": "DB2", "DB3": "DB3",
+    "DB4": "DB4", "DB5": "DB5", "DB6": "DB6", "DB7": "DB7",
+    "LED+": "LED+", "LED-": "LED-",
+}
+_LCD_PIN_OFFSETS: dict[str, int] = {
+    pin: index for index, pin in enumerate(_LCD_REAL_PINS)
+}
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
 
@@ -295,6 +313,20 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
         raise BuildError(
             f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
         )
+    elif ctype == "lcd-16x2":
+        # Geometria verificada en vivo: 16 terminales en una fila, ancla
+        # "GND" en el `at` y el resto a +1..+15 columnas (angle 0).
+        if placement.get("pin") != _LCD_ANCHOR:
+            raise BuildError(
+                f"ancla inesperada para {endpoint!r} (type {ctype!r}): "
+                f"{placement.get('pin')!r} (se esperaba {_LCD_ANCHOR!r})"
+            )
+        offset = _LCD_PIN_OFFSETS.get(pin)
+        if offset is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return at if offset == 0 else _shift_hole(at, offset, endpoint)
     elif ctype in _LINEAR_PIN_PINS:
         for index, (fixture_pin, _real_pin) in enumerate(_LINEAR_PIN_PINS[ctype]):
             if pin == fixture_pin:
@@ -378,6 +410,8 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             real_by_fixture = _BUZZER_REAL_PINS
         elif ctype == "photoresistor":
             real_by_fixture = _PHOTORESISTOR_REAL_PINS
+        elif ctype == "lcd-16x2":
+            real_by_fixture = _LCD_REAL_PINS
         if real_by_fixture is not None:
             if part_pin not in real_by_fixture:
                 raise BuildError(
