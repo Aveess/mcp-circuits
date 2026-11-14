@@ -99,6 +99,12 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "binary-counter": frozenset(
         {"CP0", "CP1", "MR1", "MR2", "Q0", "Q1", "Q2", "Q3", "Vcc", "GND"}
     ),
+    # 74HC4017 (did 129343): contador Johnson de 10 salidas. Q5-9n es el
+    # acarreo; CP1n habilita en bajo y MR resetea en alto.
+    "decade-counter": frozenset(
+        {"CP0", "CP1n", "MR", "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6",
+         "Q7", "Q8", "Q9", "Q5-9n", "Vcc", "GND"}
+    ),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

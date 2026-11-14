@@ -1203,3 +1203,78 @@ def binary_counter_sketch(
             "",
         ]
     )
+
+
+def decade_counter_sketch(
+    clk: int = 2,
+    bits: tuple[int, int, int, int] = (4, 5, 6, 7),
+    step_ms: int = 400,
+    cycles: int = 8,
+) -> str:
+    """Carrusel de 4 salidas con el 74HC4017 (contador Johnson).
+
+    El 4017 avanza en cada flanco de subida de CP0 y tiene las salidas
+    one-hot. Q4 se cablea a MR (reset), asi que el carrusel da la vuelta en
+    cuatro pasos sin intervencion del Uno. El sketch solo da el reloj, lee
+    que salida esta activa y la imprime; los LEDs muestran lo mismo.
+
+    ``step_ms`` es 400 y no 500: con 8 pasos de medio segundo el ciclo
+    completo son 4 s y el ``FIN`` cae fuera de la ventana de 5 s del runner
+    (la misma leccion de la fase 28). A 400 ms el oraculo cierra en 3.3 s.
+    """
+    for pin in (clk,) + tuple(bits):
+        _validate_pin(pin)
+    if len(set((clk,) + tuple(bits))) != 5:
+        raise ValueError(f"pines repetidos en carrusel: {(clk,) + tuple(bits)}")
+    _validate_ms("step_ms", step_ms)
+    if not isinstance(cycles, int) or isinstance(cycles, bool) or not 1 <= cycles <= 20:
+        raise ValueError(f"cycles debe ser un entero 1..20: {cycles!r}")
+    if step_ms < 30:
+        raise ValueError(f"step_ms debe ser >= 30: {step_ms!r}")
+
+    q0, q1, q2, q3 = bits
+    return "\n".join(
+        [
+            "// 74HC4017: Q4 -> MR para que el carrusel vuelva a Q0 en 4 pasos.",
+            "// El Uno da el reloj en CP0 y lee la salida activa.",
+            f"const byte CLK = {clk};",
+            f"const byte Q0 = {q0};",
+            f"const byte Q1 = {q1};",
+            f"const byte Q2 = {q2};",
+            f"const byte Q3 = {q3};",
+            "",
+            "byte leer() {",
+            "  if (digitalRead(Q0)) return 0;",
+            "  if (digitalRead(Q1)) return 1;",
+            "  if (digitalRead(Q2)) return 2;",
+            "  if (digitalRead(Q3)) return 3;",
+            "  return 9;",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(CLK, OUTPUT);",
+            "  pinMode(Q0, INPUT);",
+            "  pinMode(Q1, INPUT);",
+            "  pinMode(Q2, INPUT);",
+            "  pinMode(Q3, INPUT);",
+            "  digitalWrite(CLK, LOW);",
+            "  Serial.begin(9600);",
+            "  delay(100);",
+            '  Serial.println("TEST:4017=LISTO");',
+            "}",
+            "",
+            "void loop() {",
+            f"  for (byte i = 0; i < {cycles}; i++) {{",
+            "    digitalWrite(CLK, HIGH);",
+            "    delay(20);",
+            '    Serial.print("TEST:4017=");',
+            "    Serial.println(leer());",
+            "    digitalWrite(CLK, LOW);",
+            f"    delay({step_ms - 20});",
+            "  }",
+            '  Serial.println("TEST:4017=FIN");',
+            "  while (true) { delay(1000); }",
+            "}",
+            "",
+        ]
+    )

@@ -101,6 +101,7 @@ RAW_TYPE = {
     "timer-555": "555 Timer",
     "capacitor": "Capacitor",
     "binary-counter": "4-Bit Binary Counter [74HC93]",
+    "decade-counter": "Johnson Decade Counter [74HC4017]",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -189,6 +190,12 @@ INSPECT_PIN = {
         "MR1": "Reset 1", "MR2": "Reset 2",
         "Q0": "Output Bit 0", "Q1": "Output Bit 1",
         "Q2": "Output Bit 2", "Q3": "Output Bit 3",
+    },
+    # El guardado del 74HC4017 (descubierto en vivo en ij6ypc8wB5x).
+    "decade-counter": {
+        "Vcc": "Power", "GND": "Ground",
+        "CP0": "Clock", "CP1n": "Clock Enable", "MR": "Reset",
+        **{f"Q{i}": f"Output {i + 1}" for i in range(10)},
     },
 }
 
@@ -814,8 +821,9 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 21, rows
-    assert [int(number) for number in rows] == list(range(1, 22))
+    # La fase 29 agrega la fila 22 (carrusel 4017).
+    assert len(rows) == 22, rows
+    assert [int(number) for number in rows] == list(range(1, 23))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

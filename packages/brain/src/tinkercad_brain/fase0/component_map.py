@@ -41,6 +41,8 @@ TYPE_MAP: dict[str, str] = {
     "Capacitor": "capacitor",  # Verificado en vivo (did 57752, terminales 1/2, propiedad "capacitance").
     "4-Bit Binary Counter [74HC93]": "binary-counter",  # Verificado en vivo (did 116728, CP0/CP1/MR1/MR2/Q0..Q3).
     "Binary Counter": "binary-counter",  # Alias del buscador (add_component acepta "Binary Counter").
+    "Johnson Decade Counter [74HC4017]": "decade-counter",  # Verificado en vivo (did 129343, Q0..Q9, CP0, CP1n, MR).
+    "Decade Counter": "decade-counter",  # Alias del buscador.
 }
 
 

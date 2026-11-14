@@ -437,3 +437,33 @@ poste encima del hueco entre el Uno y la placa.
 Lección: el apilado vertical solo funciona para dos piezas; de tres en
 adelante conviene una fila (o una rejilla) porque el cableado del puente
 vive en carriles horizontales.
+
+## Fase 29: carrusel de 4 LEDs con 74HC4017 (2026-11-14)
+
+Primer circuito donde el chip hace la secuencia solo: el 4017 es un
+contador Johnson con salidas one-hot y Q4 cableado a `MR` (reset). El
+Uno únicamente da el reloj en `CP0` y lee qué salida está activa; la
+vuelta en 4 pasos es hardware, no software. `CP1n` (clock enable activo
+en bajo) va a GND o el contador no avanza.
+
+- Circuito: `carrusel-4017` (`ij6ypc8wB5x`), 100% de fidelidad.
+- Oráculo serial completo en la ventana del runner (10 líneas):
+  `TEST:4017=LISTO` + `1,2,3,0,1,2,3,0` + `FIN`.
+  Con `step_ms=500` el ciclo son 4 s y el `FIN` se queda fuera de los
+  5 s del runner; con 400 ms cierra en 3.3 s. Es la misma lección de la
+  fase 28, ahora parametrizada en el default del sketch.
+- Evidencia visual: se comparó el brillo del cuerpo de cada LED contra el
+  estado apagado. En t=1 s enciende el LED4 (+11 de brillo medio) y en
+  t=2 s el LED2, con los otros tres en el valor apagado: el carrusel
+  avanza de uno en uno. En este simulador un LED rojo encendido se ve
+  sólo un poco más brillante, por eso la comprobación es numérica y no
+  a ojo.
+- Alias del guardado (descubiertos en vivo): `Power`, `Ground`, `Clock`,
+  `Clock Enable`, `Reset` y `Output 1`..`Output 10`, donde `Output 1` es
+  Q0 y `Output 5` es Q4. Sin alias la conectividad se queda en 33.3%.
+
+Lección: un contador con reset por realimentación de la última salida
+(Q4 -> MR) es el patrón para cualquier anillo de N pasos; el Uno no
+necesita saber cuántas salidas hay, sólo leer las que usa. Y las
+etiquetas del 4017 están numeradas 1..10, no 0..9: un alias corrido un
+paso convierte el anillo de 4 en uno de 3 o 5.

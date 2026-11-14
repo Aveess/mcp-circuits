@@ -259,6 +259,17 @@ _PIN_ALIASES_BY_TYPE = {
         "Output Bit 2": "Q2",
         "Output Bit 3": "Q3",
     },
+    # 74HC4017 (descubierto en vivo en ij6ypc8wB5x): inspect devuelve
+    # Q0..Q9/CP0/CP1n/MR, pero el guardado usa "Output 1".."Output 10"
+    # (Q0 -> Output 1, Q4 -> Output 5), "Clock", "Clock Enable" y "Reset".
+    "decade-counter": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Clock": "CP0",
+        "Clock Enable": "CP1n",
+        "Reset": "MR",
+        **{f"Output {i + 1}": f"Q{i}" for i in range(10)},
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

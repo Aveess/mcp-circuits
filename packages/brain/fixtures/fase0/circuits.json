@@ -1534,5 +1534,116 @@
       "Serial"
     ],
     "tinkercad_id": "fCB0eO8cBbn"
+  },
+  {
+    "id": "carrusel-4017",
+    "title": "Carrusel de 4 LEDs con 74HC4017",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "n1",
+        "type": "decade-counter"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      },
+      {
+        "ref": "led3",
+        "type": "led"
+      },
+      {
+        "ref": "led4",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "n1.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "n1.GND",
+        "n1.CP1n",
+        "led1.cathode",
+        "led2.cathode",
+        "led3.cathode",
+        "led4.cathode"
+      ],
+      [
+        "n1.Q4",
+        "n1.MR"
+      ],
+      [
+        "uno.D2",
+        "n1.CP0"
+      ],
+      [
+        "n1.Q0",
+        "uno.D4",
+        "r1.1"
+      ],
+      [
+        "n1.Q1",
+        "uno.D5",
+        "r2.1"
+      ],
+      [
+        "n1.Q2",
+        "uno.D6",
+        "r3.1"
+      ],
+      [
+        "n1.Q3",
+        "uno.D7",
+        "r4.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "r2.2",
+        "led2.anode"
+      ],
+      [
+        "r3.2",
+        "led3.anode"
+      ],
+      [
+        "r4.2",
+        "led4.anode"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "ij6ypc8wB5x"
   }
 ]

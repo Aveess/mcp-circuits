@@ -75,6 +75,7 @@ _SKETCH_BY_FIXTURE = {
     "biestable-d": "d_flip_flop_sketch",
     "temporizador-555": "astable_555_sketch",
     "contador-binario": "binary_counter_sketch",
+    "carrusel-4017": "decade_counter_sketch",
 }
 
 

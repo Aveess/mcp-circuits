@@ -61,6 +61,8 @@ DID_BY_TYPE: dict[str, int] = {
     "capacitor": 57752,
     # 74HC93 (4-Bit Binary Counter) verificado en vivo: did 116728.
     "binary-counter": 116728,
+    # 74HC4017 (Johnson Decade Counter) verificado en vivo: did 129343.
+    "decade-counter": 129343,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -237,6 +239,14 @@ _BINARY_COUNTER_REAL_PINS: dict[str, str] = {
     "Q0": "Q0", "Q1": "Q1", "Q2": "Q2", "Q3": "Q3",
     "Vcc": "Vcc", "GND": "GND",
 }
+# 74HC4017 (16 pines): contador Johnson de 10 salidas one-hot. CP0 sube,
+# CP1n habilita en bajo y MR resetea en alto. Q5-9n es el acarreo.
+_DECADE_COUNTER_REAL_PINS: dict[str, str] = {
+    "CP0": "CP0", "CP1n": "CP1n", "MR": "MR",
+    "Q0": "Q0", "Q1": "Q1", "Q2": "Q2", "Q3": "Q3", "Q4": "Q4",
+    "Q5": "Q5", "Q6": "Q6", "Q7": "Q7", "Q8": "Q8", "Q9": "Q9",
+    "Q5-9n": "Q5-9n", "Vcc": "Vcc", "GND": "GND",
+}
 _FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
@@ -244,6 +254,7 @@ _FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
     "timer-555": _TIMER_555_REAL_PINS,
     "capacitor": _CAPACITOR_REAL_PINS,
     "binary-counter": _BINARY_COUNTER_REAL_PINS,
+    "decade-counter": _DECADE_COUNTER_REAL_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")

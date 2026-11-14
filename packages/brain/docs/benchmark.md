@@ -30,6 +30,7 @@ píxel del LED.
 | 19 | Biestable D 74HC74 como divisor por 2 | euU4CI6HwhX | 100% | `TEST:FF=TOGGLE-OK` (Q alterna en cada flanco de reloj) |
 | 20 | Temporizador 555 en astable (reloj de ~14 Hz) | abIk7XRpSR4 | 100% | `TEST:555=ALTO,73173` + `BAJO,427` + `FREQ,13.6` + `TEST:555=OK` |
 | 21 | Contador binario 4 bits 74HC93 con LEDs | fCB0eO8cBbn | 100% | `TEST:CONTADOR=1..15,0` + `FIN` (secuencia de 16 pulsos) |
+| 22 | Carrusel de 4 LEDs con 74HC4017 | ij6ypc8wB5x | 100% | `TEST:4017=1,2,3,0` ciclando + `LISTO` (Q4 -> MR hace la vuelta en 4 pasos) |
 
 ## Qué agrega cada nivel
 
@@ -49,6 +50,12 @@ píxel del LED.
   entera para el sensor y permite combinaciones sensor + display: el 14 mide
   temperatura con un TMP36 y el 15 integra sensado, umbral y actuador
   (HC-SR04, display y alarma sonora) con dos cuerpos grandes conviviendo.
+- **Nivel 6 (19-22):** lógica secuencial con chips que el drawer sí tiene:
+  biestable D 74HC74 como divisor, 555 astable como reloj, contador binario
+  74HC93 y contador Johnson 4017 en anillo. Todos los integrados van libres
+  en fila sobre la placa (`x=560+200*i`, `y=-230`): apilados en la misma `x`
+  el mazo de cables sube en columna. La vuelta en anillo del 4017 es
+  hardware puro (Q4 -> MR), el Uno solo relojea y lee.
 - **Cableado:** las nets de 3+ extremos se emparejan en estrella desde el pin
   del Uno, no en cadena. Un cable hueco-hueco lo dibuja recto el simulador y
   cruzaba en diagonal por encima de los cuerpos; colgado del mismo extremo el
