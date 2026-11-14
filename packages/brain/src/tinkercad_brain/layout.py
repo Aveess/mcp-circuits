@@ -245,7 +245,7 @@ FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 # pines (74HC86 XOR, 74HC00 NAND). Sus terminales se cablean directo, sin
 # huecos de protoboard. Comparten un solo apilado en orden de fixture.
 SHIFT_REGISTER_TYPE = "shift-register"
-LOGIC_GATE_TYPES = ("xor-gate", "nand-gate", "flip-flop-d")
+LOGIC_GATE_TYPES = ("xor-gate", "nand-gate", "flip-flop-d", "binary-counter")
 # El 555 (8 pines) y su capacitor tambien van libres en ese apilado: el
 # capacitor es de dos patas y se cablea directo, sin geometria de huecos.
 TIMER_555_TYPE = "timer-555"

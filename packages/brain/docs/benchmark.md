@@ -29,6 +29,7 @@ píxel del LED.
 | 18 | Media suma con compuertas XOR y NAND | 4z8ZkFcpmuC | 100% | `TEST:LOGICA=LISTO` + `TEST:HA=a,b,suma,acarreo` con la tabla 00/01/10/11 |
 | 19 | Biestable D 74HC74 como divisor por 2 | euU4CI6HwhX | 100% | `TEST:FF=TOGGLE-OK` (Q alterna en cada flanco de reloj) |
 | 20 | Temporizador 555 en astable (reloj de ~14 Hz) | abIk7XRpSR4 | 100% | `TEST:555=ALTO,73173` + `BAJO,427` + `FREQ,13.6` + `TEST:555=OK` |
+| 21 | Contador binario 4 bits 74HC93 con LEDs | fCB0eO8cBbn | 100% | `TEST:CONTADOR=1..15,0` + `FIN` (secuencia de 16 pulsos) |
 
 ## Qué agrega cada nivel
 

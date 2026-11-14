@@ -379,3 +379,39 @@ Hallazgos en vivo:
 
 Con esto queda la familia de tiempo: compuertas (fase 25), biestable (26) y
 555 (27). Falta el contador para cerrar el bloque del proyecto real.
+
+## Fase 28: contador binario 4 bits 74HC93 (2026-11-14)
+
+Contador completo con display binario: Q0 se cablea a CP1 (ripple), el Uno
+da el reloj en CP0 y pulsa el reset en MR1/MR2. Los cuatro bits encienden
+un LED con su resistencia. Circuito `fCB0eO8cBbn`, 100%.
+
+Oráculo: el sketch resetea, da 16 flancos de bajada y tras cada uno imprime
+el nibble en decimal; el reporte tiene la secuencia exacta:
+
+| Pulsos | 1 | 2 | 3 | ... | 14 | 15 | 16 |
+|---|---|---|---|---|---|---|---|
+| `TEST:CONTADOR=` | 1 | 2 | 3 | ... | 14 | 15 | 0 |
+
+Cierra con `FIN`.
+
+Hallazgos en vivo:
+
+- **El 74HC93 no trae el ripple interno**: hay que cablear Q0 -> CP1 a
+  mano; CP0 solo mueve el bit 0. Con Q0 a CP1 el contador llega a 15.
+- **El reset es activo en alto y hay dos (MR1 y MR2)**: ambos al mismo pin
+  del Uno, que el sketch pulsa al arrancar. Sin ese reset el estado inicial
+  depende del simulador.
+- **Etiquetas del guardado**: `Clock 0`, `Clock 1`, `Reset 1`, `Reset 2`,
+  `Output Bit 0..3` y `Power`/`Ground`. Sin alias, conectividad 33.3%.
+- **Emparejamiento LED-resistencia**: el layout empareja el LED con la
+  resistencia que está en la net del **ánodo**. Con la resistencia en el
+  cátodo (como en la media suma) el layout las trata como bloques sueltos y
+  los cables salen diagonales. Poniendo R en el ánodo, cada LED queda justo
+  encima de su resistencia y el cable es vertical de 2 filas.
+- El `loop` sigue dando pulsos lentos (1.2 s por cuenta) sin serial: así la
+  captura muestra los LEDs contando en binario (en t=3 s estaba encendido
+  solo el LED de Q1: cuenta 2).
+
+Con esto queda cubierta la familia del proyecto: compuertas, biestable,
+tiempo (555) y conteo.

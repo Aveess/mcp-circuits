@@ -94,6 +94,11 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     ),
     # Capacitor (did 57752): dos terminales sin polaridad.
     "capacitor": frozenset({"1", "2"}),
+    # 74HC93 (did 116728): contador binario de 4 bits, dos resets y dos
+    # relojes. Los pines nc1..nc4 del DIP no se cablean.
+    "binary-counter": frozenset(
+        {"CP0", "CP1", "MR1", "MR2", "Q0", "Q1", "Q2", "Q3", "Vcc", "GND"}
+    ),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

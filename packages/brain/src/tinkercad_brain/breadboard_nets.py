@@ -244,6 +244,21 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 1": "1",
         "Terminal 2": "2",
     },
+    # 74HC93 (descubierto en vivo en fCB0eO8cBbn): inspect devuelve
+    # CP0/CP1/MR1/MR2/Q0..Q3, pero el guardado usa "Clock 0", "Clock 1",
+    # "Reset 1", "Reset 2" y "Output Bit 0".."Output Bit 3".
+    "binary-counter": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Clock 0": "CP0",
+        "Clock 1": "CP1",
+        "Reset 1": "MR1",
+        "Reset 2": "MR2",
+        "Output Bit 0": "Q0",
+        "Output Bit 1": "Q1",
+        "Output Bit 2": "Q2",
+        "Output Bit 3": "Q3",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

@@ -74,6 +74,7 @@ _SKETCH_BY_FIXTURE = {
     "media-suma-logica": "half_adder_sketch",
     "biestable-d": "d_flip_flop_sketch",
     "temporizador-555": "astable_555_sketch",
+    "contador-binario": "binary_counter_sketch",
 }
 
 

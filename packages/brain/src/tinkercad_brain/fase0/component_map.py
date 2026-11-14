@@ -39,6 +39,8 @@ TYPE_MAP: dict[str, str] = {
     "555 Timer": "timer-555",  # Verificado en vivo (did 116689, pines CTRL/Reset/OUT/THR/GND/DIS/TRIG/Vcc).
     "Timer": "timer-555",  # Alias del buscador (add_component acepta "Timer").
     "Capacitor": "capacitor",  # Verificado en vivo (did 57752, terminales 1/2, propiedad "capacitance").
+    "4-Bit Binary Counter [74HC93]": "binary-counter",  # Verificado en vivo (did 116728, CP0/CP1/MR1/MR2/Q0..Q3).
+    "Binary Counter": "binary-counter",  # Alias del buscador (add_component acepta "Binary Counter").
 }
 
 

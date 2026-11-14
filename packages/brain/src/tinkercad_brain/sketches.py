@@ -1115,3 +1115,91 @@ def astable_555_sketch(
             "",
         ]
     )
+
+
+def binary_counter_sketch(
+    clk: int = 2,
+    reset: int = 3,
+    bits: tuple[int, int, int, int] = (4, 5, 6, 7),
+    settle_ms: int = 20,
+    pulses: int = 16,
+) -> str:
+    """Contador binario 74HC93: Q0 -> CP1 (ripple) y reloj del Uno en CP0.
+
+    El sketch resetea el contador (MR1/MR2 activos en alto) y luego da
+    ``pulses`` flancos de bajada en CP0. Tras cada flanco lee el nibble
+    Q0..Q3 y lo imprime en decimal (``TEST:CONTADOR=<n>``), asi el oraculo
+    comprueba la secuencia completa y no un solo valor.
+    """
+    for pin in (clk, reset) + tuple(bits):
+        _validate_pin(pin)
+    if len(set((clk, reset) + tuple(bits))) != 6:
+        raise ValueError(f"pines repetidos en contador: {(clk, reset) + tuple(bits)}")
+    _validate_ms("settle_ms", settle_ms)
+    if not isinstance(pulses, int) or isinstance(pulses, bool) or not 1 <= pulses <= 64:
+        raise ValueError(f"pulses debe ser un entero 1..64: {pulses!r}")
+
+    q0, q1, q2, q3 = bits
+    return "\n".join(
+        [
+            "// Contador binario 74HC93: Q0 -> CP1 (ripple), reloj en CP0,",
+            "// MR1/MR2 al pin de reset. Cuenta en el flanco de bajada.",
+            f"const byte CLK = {clk};",
+            f"const byte RST = {reset};",
+            f"const byte Q0 = {q0};",
+            f"const byte Q1 = {q1};",
+            f"const byte Q2 = {q2};",
+            f"const byte Q3 = {q3};",
+            "",
+            "byte leer() {",
+            "  byte valor = 0;",
+            "  if (digitalRead(Q0)) valor |= 1;",
+            "  if (digitalRead(Q1)) valor |= 2;",
+            "  if (digitalRead(Q2)) valor |= 4;",
+            "  if (digitalRead(Q3)) valor |= 8;",
+            "  return valor;",
+            "}",
+            "",
+            "void pulso() {",
+            "  digitalWrite(CLK, HIGH);",
+            f"  delay({settle_ms});",
+            "  digitalWrite(CLK, LOW);",
+            f"  delay({settle_ms});",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(CLK, OUTPUT);",
+            "  pinMode(RST, OUTPUT);",
+            "  pinMode(Q0, INPUT);",
+            "  pinMode(Q1, INPUT);",
+            "  pinMode(Q2, INPUT);",
+            "  pinMode(Q3, INPUT);",
+            "  digitalWrite(CLK, LOW);",
+            "  digitalWrite(RST, LOW);",
+            "  Serial.begin(9600);",
+            "  delay(50);",
+            "  // Reseteo explicito: MR1 y MR2 son activos en alto.",
+            "  digitalWrite(RST, HIGH);",
+            f"  delay({settle_ms});",
+            "  digitalWrite(RST, LOW);",
+            f"  delay({settle_ms});",
+            '  Serial.println("TEST:CONTADOR=LISTO");',
+            f"  for (byte i = 0; i < {pulses}; i++) {{",
+            "    pulso();",
+            '    Serial.print("TEST:CONTADOR=");',
+            "    Serial.println(leer());",
+            "  }",
+            '  Serial.println("TEST:CONTADOR=FIN");',
+            "}",
+            "",
+            "void loop() {",
+            "  // Demostracion visual: el contador sigue avanzando despacio,",
+            "  // sin serial, para que los LEDs se vean contar en binario.",
+            "  digitalWrite(CLK, HIGH);",
+            "  delay(600);",
+            "  digitalWrite(CLK, LOW);",
+            "  delay(600);",
+            "}",
+            "",
+        ]
+    )

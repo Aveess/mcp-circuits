@@ -100,6 +100,7 @@ RAW_TYPE = {
     "flip-flop-d": "Dual D Flip-Flop [74HC74]",
     "timer-555": "555 Timer",
     "capacitor": "Capacitor",
+    "binary-counter": "4-Bit Binary Counter [74HC93]",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -181,6 +182,14 @@ INSPECT_PIN = {
         "OUT": "Out", "CTRL": "Control",
     },
     "capacitor": {"1": "Terminal 1", "2": "Terminal 2"},
+    # El guardado del 74HC93 (descubierto en vivo en fCB0eO8cBbn).
+    "binary-counter": {
+        "Vcc": "Power", "GND": "Ground",
+        "CP0": "Clock 0", "CP1": "Clock 1",
+        "MR1": "Reset 1", "MR2": "Reset 2",
+        "Q0": "Output Bit 0", "Q1": "Output Bit 1",
+        "Q2": "Output Bit 2", "Q3": "Output Bit 3",
+    },
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}
@@ -805,8 +814,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    assert len(rows) == 20, rows
-    assert [int(number) for number in rows] == list(range(1, 21))
+    assert len(rows) == 21, rows
+    assert [int(number) for number in rows] == list(range(1, 22))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

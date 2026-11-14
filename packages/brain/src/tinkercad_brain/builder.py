@@ -59,6 +59,8 @@ DID_BY_TYPE: dict[str, int] = {
     # 555 Timer (did 116689) y capacitor (did 57752) verificados en vivo.
     "timer-555": 116689,
     "capacitor": 57752,
+    # 74HC93 (4-Bit Binary Counter) verificado en vivo: did 116728.
+    "binary-counter": 116728,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -228,12 +230,20 @@ _TIMER_555_REAL_PINS: dict[str, str] = {
 # Capacitor (2 terminales). Va libre junto al 555: sus patas se cablean
 # directo y no hace falta conocer el paso de huecos de la placa.
 _CAPACITOR_REAL_PINS: dict[str, str] = {"1": "1", "2": "2"}
+# 74HC93 (14 pines): contador binario de 4 bits con dos resets (MR1/MR2,
+# activos en alto) y dos relojes (CP0 y CP1, ambos por flanco de bajada).
+_BINARY_COUNTER_REAL_PINS: dict[str, str] = {
+    "CP0": "CP0", "CP1": "CP1", "MR1": "MR1", "MR2": "MR2",
+    "Q0": "Q0", "Q1": "Q1", "Q2": "Q2", "Q3": "Q3",
+    "Vcc": "Vcc", "GND": "GND",
+}
 _FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
     "timer-555": _TIMER_555_REAL_PINS,
     "capacitor": _CAPACITOR_REAL_PINS,
+    "binary-counter": _BINARY_COUNTER_REAL_PINS,
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
