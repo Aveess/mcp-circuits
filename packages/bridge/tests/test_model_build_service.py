@@ -367,6 +367,24 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("route_failed" in e and "uno.GND1" in e for e in res["errors"]))
         self.assertFalse(res["success"])
 
+    async def test_un_cable_recto_a_proposito_no_es_un_fallo(self):
+        """Fase 41: el puente mide tambien los cables que no rutea.
+
+        `routed: false, reason: "straight"` es un cable que ya nacia
+        ortogonal (dos huecos de la placa, dos pines en la misma fila). Antes
+        cualquier `routed: false` se volvia error de build y el circuito
+        quedaba OK: False aunque el cable estuviera bien.
+        """
+        debug = [
+            {"wire": "1g -> T+2", "routed": False, "reason": "straight",
+             "points": [[-105, -25], [-75, -95]]},
+        ]
+        svc, _, _ = make_service({"placed": {}, "errors": [], "routed": 0,
+                                  "route_debug": debug})
+        res = await svc.build_from_holes(parts=self.PARTS, wires=[["1g", "T+2"]])
+        self.assertEqual(res["errors"], [])
+        self.assertTrue(res["success"])
+
     async def test_route_debug_defaults_empty_when_js_omits_it(self):
         svc, _, _ = make_service({"placed": {}, "errors": []})
         res = await svc.build_from_holes(parts=self.PARTS, wires=[])
@@ -705,10 +723,18 @@ class TestFreePartRouting(unittest.TestCase):
             [["motor1.1", "uno.D9"], ["uno.GND", "motor1.2"]], free_refs=self.FREE_REFS)
         self.assertEqual([(w["route"], w["lane"]) for w in styled], [(True, 0), (True, 1)])
 
-    def test_free_to_free_and_hole_to_hole_not_routed(self):
+    def test_free_to_free_routed_but_hole_to_hole_not(self):
+        """Fase 41: libre-libre se rutea; hueco-hueco sigue recto.
+
+        Antes libre-libre tampoco se ruteaba y Tinkercad dibujaba la recta
+        entre los dos pines: con los pines en filas distintas eso es una
+        diagonal larga (555 -> compuerta) y el circuito se ve torcido. Los
+        saltos cortos entre huecos de la misma placa se dejan rectos: son
+        puentes sobre el plastico, no cables del circuito.
+        """
         styled = plan_wire_style(
             [["motor1.1", "bat1.+"], ["5e", "6e"]], free_refs=["motor1", "bat1"])
-        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(False, -1), (False, -1)])
+        self.assertEqual([(w["route"], w["lane"]) for w in styled], [(True, 0), (False, -1)])
 
     def test_board_part_terminal_still_not_routed_without_free(self):
         styled = plan_wire_style([["led1.anode", "5e"], ["motor1.1", "5e"]])
@@ -921,6 +947,149 @@ console.log(JSON.stringify({ out,
             {"x": 560, "y": -130, "i": 1},
             {"x": 765, "y": -130, "i": 2},
         ])
+
+
+class TestFreeFreeRouting(unittest.TestCase):
+    """Fase 41: cable entre dos partes libres, ruteado en Z.
+
+    Sin esto el puente no tocaba el cable y Tinkercad dibujaba la recta entre
+    los dos pines. Con los pines en filas distintas (555 en -215, compuerta
+    en -245) la recta es una diagonal larga y el circuito se ve torcido.
+    """
+
+    def _run(self, parts, wire):
+        import json
+        import shutil
+        import subprocess
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        harness = r"""
+const src = __SRC__;
+class Pt { constructor(x, y) { this.x = x; this.y = y; } }
+const wiresMade = [];
+class Wire {
+  constructor(root, a, b, opts) { this.a = a; this.b = b; this.points = []; wiresMade.push(this); }
+  addPoint(p, i) { this.points.push({ x: p.x, y: p.y, i }); return true; }
+  updateNets() {}
+}
+const PIN_SETS = __PINS__;
+let callIdx = 0;
+function makePart(pins, did) {
+  const pos = { x: 0, y: 0 };
+  const content = {};
+  for (const [k, xy] of Object.entries(pins)) {
+    content[k] = { val: { getBreadboardPos() { return new Pt(xy[0], xy[1]); } } };
+  }
+  return {
+    did: () => did,
+    breadboard: () => ({
+      setPos(p) { pos.x = p.x; pos.y = p.y; },
+      setAngle() {},
+      pos: () => new Pt(pos.x, pos.y),
+    }),
+    setName() {},
+    getName() { return 'x'; },
+    name2terminal: { _content: content },
+  };
+}
+const bbDev = {
+  did: () => 111211,
+  breadboard: () => ({ setPos() {}, setAngle() {}, pos: () => new Pt(870, 0) }),
+  bbid2terminal: { _content: {} },
+  name2terminal: { _content: {} },
+};
+const unoDev = {
+  did: () => 132521,
+  breadboard: () => ({ setPos() {}, setAngle() {}, pos: () => new Pt(200, 0) }),
+  name2terminal: { _content: {} },
+};
+const data = {
+  devices: { _content: {}, add() {} },
+  wires: { _content: {}, add() {} },
+  createDeviceInstance(did) {
+    if (did === 111211) return bbDev;
+    if (did === 132521) return unoDev;
+    return makePart(PIN_SETS[callIdx++] || {}, __DIDS__[callIdx - 1] || 999);
+  },
+};
+global.window = {
+  circuit_editor: { data, root: { rec() {}, stopRec() {}, save() {} } },
+  Circuits: { BendableWireData: Wire },
+};
+const fn = eval('(' + src + ')');
+const plan = { parts: __PARTS__, wires: [__WIRE__], code: null };
+const out = fn(plan);
+console.log(JSON.stringify({ out, points: wiresMade.length ? wiresMade[0].points : null }));
+"""
+        script = (
+            harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))
+            .replace("__PINS__", json.dumps([p["pins"] for p in parts]))
+            .replace("__DIDS__", json.dumps([p.get("did", 999) for p in parts]))
+            .replace("__PARTS__", json.dumps([
+                {"ref": p["ref"], "did": p.get("did", 999), "free": p["free"]}
+                for p in parts
+            ]))
+            .replace("__WIRE__", json.dumps(wire))
+        )
+        res = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=30)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        return json.loads(res.stdout.strip().splitlines()[-1])
+
+    def test_dos_partes_libres_en_filas_distintas_se_rutean_en_z(self):
+        out = self._run([
+            {"ref": "t1", "free": {"x": 560, "y": -230}, "pins": {"OUT": [580, -215]}},
+            {"ref": "u1", "free": {"x": 760, "y": -230}, "pins": {"1A": [740, -245]}},
+        ], {"from": "t1.OUT", "to": "u1.1A", "color": "blue", "route": True, "lane": 0})
+        self.assertEqual(out["out"]["errors"], [])
+        # El quiebre va en la columna del medio (entre los dos cuerpos) y el
+        # cable entra a cada pin por su propia fila: nada de diagonales.
+        self.assertEqual(out["out"]["route_debug"], [{
+            "wire": "t1.OUT -> u1.1A", "routed": True, "reason": "ok",
+            "points": [[580, -215], [660, -215], [660, -245], [740, -245]],
+        }])
+        self.assertEqual(out["points"],
+                         [{"x": 660, "y": -215, "i": 1}, {"x": 660, "y": -245, "i": 2}])
+
+    def test_misma_parte_sale_por_el_lado_del_cuerpo(self):
+        """Dos pines del mismo integrado: el quiebre va fuera del cuerpo."""
+        out = self._run([
+            {"ref": "u1", "free": {"x": 760, "y": -230},
+             "pins": {"3Y": [780, -245], "4A": [770, -215]}},
+        ], {"from": "u1.3Y", "to": "u1.4A", "color": "blue", "route": True, "lane": 0})
+        self.assertEqual(out["out"]["errors"], [])
+        # 760 (origen) - 70: la vertical corre a la izquierda del integrado.
+        self.assertEqual(out["out"]["route_debug"], [{
+            "wire": "u1.3Y -> u1.4A", "routed": True, "reason": "ok",
+            "points": [[780, -245], [690, -245], [690, -215], [770, -215]],
+        }])
+
+    def test_una_parte_ancha_usa_su_escape_declarado(self):
+        """El LCD mide ~250 de ancho: 70 no alcanza, se usa FREE_ESCAPE (-154)."""
+        out = self._run([
+            {"ref": "lcd1", "did": 113878, "free": {"x": 1100, "y": -230},
+             "pins": {"RS": [1010, -215], "E": [1000, -245]}},
+        ], {"from": "lcd1.RS", "to": "lcd1.E", "color": "blue", "route": True, "lane": 0})
+        self.assertEqual(out["out"]["errors"], [])
+        self.assertEqual(out["out"]["route_debug"], [{
+            "wire": "lcd1.RS -> lcd1.E", "routed": True, "reason": "ok",
+            "points": [[1010, -215], [946, -215], [946, -245], [1000, -245]],
+        }])
+
+    def test_misma_fila_no_agrega_quiebre(self):
+        out = self._run([
+            {"ref": "t1", "free": {"x": 560, "y": -230}, "pins": {"OUT": [580, -215]}},
+            {"ref": "u1", "free": {"x": 760, "y": -230}, "pins": {"1A": [740, -215]}},
+        ], {"from": "t1.OUT", "to": "u1.1A", "color": "blue", "route": True, "lane": 0})
+        self.assertEqual(out["out"]["errors"], [])
+        # Ya era ortogonal: se deja recto y se guarda la polilinea para que el
+        # cerebro pueda medirla (sin quiebres duplicados).
+        self.assertEqual(out["out"]["route_debug"], [{
+            "wire": "t1.OUT -> u1.1A", "routed": True, "reason": "ok",
+            "points": [[580, -215], [740, -215]],
+        }])
+        self.assertEqual(out["points"], [])
 
 
 class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):

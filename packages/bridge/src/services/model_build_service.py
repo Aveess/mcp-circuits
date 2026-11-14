@@ -109,8 +109,9 @@ def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
     Color: explicit color wins; else GND/negative rail -> black,
     5V/3V3/VIN/positive rail -> red, else a rotating palette that never
     repeats the immediately previous wire's color. ``route`` is True for
-    Uno <-> breadboard hole/rail wires and for free-part terminal <->
-    breadboard hole/rail or Uno wires (hole<->hole stays straight);
+    Uno <-> breadboard hole/rail wires, free-part terminal <-> breadboard
+    hole/rail or Uno wires, and free-part <-> free-part wires (hole<->hole
+    stays straight);
     routed wires get distinct lanes 0, 1, 2, ... in arrival order, and
     non-routed wires get lane -1. ``free_refs`` holds the refs of parts
     placed with ``free`` (unknown/free-less callers keep the old routes).
@@ -157,6 +158,14 @@ def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
             or (
                 _is_free_endpoint(to, free_norms)
                 and (_is_breadboard_endpoint(frm) or _is_uno_endpoint(frm))
+            )
+            # Dos partes libres (555 -> compuerta, compuerta -> capacidad):
+            # sin ruteo Tinkercad dibuja la recta entre los dos pines y el
+            # circuito se ve torcido. El puente decide si hace falta el
+            # quiebre (pines en la misma fila ya son ortogonales).
+            or (
+                _is_free_endpoint(frm, free_norms)
+                and _is_free_endpoint(to, free_norms)
             )
         )
         wire_lane = lane if route else -1
@@ -253,6 +262,12 @@ _BUILD_JS = r"""
   // unidades del borde y se veia pegado a la placa. LANE_CLEAR es la
   // holgura que se le deja a una parte libre que caiga dentro de la banda.
   const LANE_BASE = 130, LANE_STEP = 8, LANE_CLEAR = 30;
+  // Cable entre dos partes libres: no hay carril ni placa de por medio, asi
+  // que el quiebre va en la columna del medio (o al lado del cuerpo cuando
+  // las dos terminales son de la misma parte). FREE_FREE_ESCAPE es la
+  // distancia al cuerpo del integrado (~35 de medio ancho) para no pasarle
+  // por encima.
+  const FREE_FREE_ESCAPE = 70;
   const ROW_Y = { j: -55, i: -45, h: -35, g: -25, f: -15, e: 15, d: 25, c: 35, b: 45, a: 55 };
   const RAIL_Y = { 'T-': -95, 'T+': -85, 'B-': 85, 'B+': 95 };
   const UNO_DID = 132521, BB_DID = 111211;
@@ -575,6 +590,25 @@ _BUILD_JS = r"""
       }
       return null;
     }
+    // Posicion absoluta de un extremo, para poder medir un cable aunque no se
+    // haya ruteado: la polilinea de un cable recto tambien sirve para cazar
+    // diagonales sin abrir el navegador a mirar pixeles.
+    function epPos(ep, term) {
+      const entry = placedEntryForEp(ep);
+      const s = String(ep || '').trim(), dot = s.indexOf('.');
+      const pin = dot > 0 ? s.slice(dot + 1) : '';
+      if (entry && entry.holes && pin) {
+        const h = entry.holes[pin] || Object.entries(entry.holes)
+          .find(([k]) => norm(k) === norm(pin))?.[1];
+        const p = h ? bbAbs(h) : null;
+        if (p) return p;
+      }
+      const bb = bbAbs(ep);
+      if (bb) return bb;
+      const dev = devForEp(ep);
+      if (dev) return termAbs(dev, term);
+      return null;
+    }
     function isUpperBb(ep) {
       const hole = parseHole(ep);
       if (hole) return ['j', 'i', 'h', 'g', 'f'].includes(hole.row);
@@ -664,7 +698,8 @@ _BUILD_JS = r"""
         const shouldRoute = (typeof spec.route === 'boolean') ? spec.route
           : (((isUnoEp(from) && isBbEp(to)) || (isBbEp(from) && isUnoEp(to)))
             || ((isFreeEp(from) && (isBbEp(to) || isUnoEp(to)))
-              || (isFreeEp(to) && (isBbEp(from) || isUnoEp(from)))));
+              || (isFreeEp(to) && (isBbEp(from) || isUnoEp(from))))
+            || (isFreeEp(from) && isFreeEp(to)));
         let lane = (typeof spec.lane === 'number' && spec.lane >= 0) ? spec.lane : -1;
         if (shouldRoute) {
           if (lane < 0) lane = fallbackLane;
@@ -688,6 +723,51 @@ _BUILD_JS = r"""
             let reason = null;
             if (!w || typeof w.addPoint !== 'function') {
               reason = 'addpoint_unavailable';
+            } else if (isFreeEp(from) && isFreeEp(to)) {
+              // Las dos puntas son partes libres (integrados, capacitor): el
+              // cable sale del pin, corre hasta una columna libre entre las
+              // dos partes y entra al otro pin. Sin esto Tinkercad dibuja la
+              // recta pin-a-pin y el circuito se ve torcido.
+              const posA = termAbs(devForEp(from), a);
+              const posB = termAbs(devForEp(to), b);
+              if (!posA) reason = 'free_pos_null';
+              else if (!posB) reason = 'dest_pos_null';
+              else if (Math.abs(posA.y - posB.y) < 1) {
+                // Misma fila: el cable recto ya es ortogonal, no hay quiebre
+                // que agregar (y agregarlo dejaria dos puntos encima).
+                routePoints = [[posA.x, posA.y], [posB.x, posB.y]];
+                didRoute = true;
+              } else {
+                const samePart = norm(epRef(from)) === norm(epRef(to));
+                const entryA = placedEntryForEp(from);
+                const baseX = (entryA && entryA.free && isFinite(entryA.free.x))
+                  ? Number(entryA.free.x) : posA.x;
+                // Si la parte declara escape (LCD, cuerpo ancho) se usa ese;
+                // si no, el cuerpo de un integrado se salva con 70.
+                let escA = null;
+                try {
+                  const esc = FREE_ESCAPE[didOf(devForEp(from))];
+                  if (esc) escA = baseX + esc.dx;
+                } catch (e) {}
+                const splitX = samePart
+                  ? (escA === null ? baseX - FREE_FREE_ESCAPE : escA)
+                  : (posA.x + posB.x) / 2;
+                const chain = [{ x: splitX, y: posA.y },
+                               { x: splitX, y: posB.y }];
+                const C = coordCtor();
+                try {
+                  for (let i = 0; i < chain.length; i++) {
+                    const pt = chain[i];
+                    const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+                    if (r === false) throw new Error('addPoint returned false');
+                  }
+                  routePoints = [[posA.x, posA.y]].concat(
+                    chain.map((p) => [p.x, p.y]), [[posB.x, posB.y]]);
+                  didRoute = true;
+                } catch (e) {
+                  reason = 'addpoint_error: ' + e.toString();
+                }
+              }
             } else if (isFreeEp(from) || isFreeEp(to)) {
               const freeIsFrom = isFreeEp(from);
               const freeEp = freeIsFrom ? from : to;
@@ -794,6 +874,15 @@ _BUILD_JS = r"""
             } else {
               route_debug.push({ wire: wireLabel, routed: false, reason: reason || 'unknown' });
               errors.push('wire ' + wireLabel + ': route_failed: ' + (reason || 'unknown'));
+            }
+          } else {
+            // Cable recto (salto corto en la placa, pines en la misma fila):
+            // la polilinea se guarda igual, asi el cerebro mide diagonales
+            // tambien en los cables que el puente no toca.
+            const pA = epPos(from, a), pB = epPos(to, b);
+            if (pA && pB) {
+              route_debug.push({ wire: wireLabel, routed: false, reason: 'straight',
+                                 points: [[pA.x, pA.y], [pB.x, pB.y]] });
             }
           }
           if (didRoute) routed++;
@@ -1075,6 +1164,11 @@ class ModelBuildService:
             if entry.get("routed") is False:
                 label = entry.get("wire") or "?"
                 reason = entry.get("reason") or "unknown"
+                # "straight" no es un fallo: es un cable que ya nacia
+                # ortogonal (dos huecos de la placa, dos pines en la misma
+                # fila). Se mide igual y el cerebro decide si es diagonal.
+                if reason == "straight":
+                    continue
                 if not any(
                     "route_failed" in str(e) and str(label) in str(e) for e in js_errors
                 ):
