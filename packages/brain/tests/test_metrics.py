@@ -205,6 +205,148 @@ def test_connectivity_empty_circuits_no_division_by_zero():
     assert result["shorts"] == []
 
 
+# --------------- alineacion por type independiente del orden declarado
+
+def _serie_con_led(ref_r1, ref_r2):
+    """Dos resistencias y un LED con roles distintos (no simetricos)."""
+    return {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": ref_r1, "type": "resistor"},
+            {"ref": ref_r2, "type": "resistor"},
+            {"ref": "led1", "type": "led"},
+        ],
+        "nets": [
+            ["uno.D13", f"{ref_r1}.1"],
+            [f"{ref_r1}.2", "led1.anode"],
+            ["led1.cathode", f"{ref_r2}.1"],
+            [f"{ref_r2}.2", "uno.GND1"],
+        ],
+    }
+
+
+def test_connectivity_resistencias_declaradas_en_otro_orden_siguen_en_uno():
+    # Mismo cableado y mismos refs: solo cambia el orden del array components.
+    actual = _serie_con_led("r1", "r2")
+    expected = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "led1", "type": "led"},
+        ],
+        "nets": actual["nets"],
+    }
+    result = compare_connectivity(expected, actual)
+    assert result["connectivity_score"] == 1.0
+    assert result["shorts"] == []
+    assert result["score"] == 1.0
+
+
+def test_connectivity_leds_declarados_en_otro_orden_siguen_en_uno():
+    expected = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led_a", "type": "led"},
+            {"ref": "led_b", "type": "led"},
+        ],
+        "nets": [
+            ["uno.D13", "led_a.anode"],
+            ["led_a.cathode", "uno.GND1"],
+            ["uno.D12", "led_b.anode"],
+            ["led_b.cathode", "uno.GND1"],
+        ],
+    }
+    # Fisico: led1 = led_b y led2 = led_a, en ese orden de creacion.
+    actual = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "led2", "type": "led"},
+        ],
+        "nets": [
+            ["uno.D12", "led1.anode"],
+            ["led1.cathode", "uno.GND1"],
+            ["uno.D13", "led2.anode"],
+            ["led2.cathode", "uno.GND1"],
+        ],
+    }
+    result = compare_connectivity(expected, actual)
+    assert result["connectivity_score"] == 1.0
+    assert result["shorts"] == []
+    assert result["score"] == 1.0
+
+
+def test_connectivity_corto_real_entre_grupos_esperados_sigue_penalizado():
+    expected = _serie_con_led("r1", "r2")
+    actual = _serie_con_led("r2", "r1")
+    # Corto real: una net de actual une dos grupos esperados distintos.
+    actual["nets"].append(["uno.GND1", "led1.anode"])
+    result = compare_connectivity(expected, actual)
+    assert ["led1.anode", "uno.GND1"] in result["shorts"]
+    assert result["connectivity_score"] == 1.0
+    assert result["score"] == 0.5  # (1+1)/2 castigado x0.5 por el corto
+
+
+def test_connectivity_ocho_resistencias_no_explota_y_cae_al_mapping_posicional():
+    refs = [f"r{i}" for i in range(1, 9)]
+    expected = {
+        "components": [{"ref": "uno", "type": "arduino-uno"}]
+        + [{"ref": ref, "type": "resistor"} for ref in refs],
+        "nets": [
+            net
+            for i, ref in enumerate(refs, start=1)
+            for net in ([f"uno.D{i}", f"{ref}.1"], [f"{ref}.2", f"uno.A{i}"])
+        ],
+    }
+    # Creacion fisica en orden inverso: el mapping posicional queda cruzado.
+    actual = {
+        "components": [{"ref": "uno", "type": "arduino-uno"}]
+        + [{"ref": ref, "type": "resistor"} for ref in reversed(refs)],
+        "nets": expected["nets"],
+    }
+    result = compare_connectivity(expected, actual)
+    # 8! = 40320 > tope 5040: se usa el posicional, sin conectar nada.
+    assert result["components_score"] == 1.0
+    assert result["connectivity_score"] == 0.0
+    assert result["score"] < 0.5
+
+
+def test_connectivity_refs_indistinguibles_es_determinista():
+    # Dos resistencias con nets identicas: cualquier permutacion da lo mismo.
+    expected = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+        ],
+        "nets": [
+            ["uno.D13", "r1.1"],
+            ["r1.2", "uno.GND1"],
+            ["uno.D13", "r2.1"],
+            ["r2.2", "uno.GND1"],
+        ],
+    }
+    actual = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "ra", "type": "resistor"},
+            {"ref": "rb", "type": "resistor"},
+        ],
+        "nets": [
+            ["uno.D13", "ra.1"],
+            ["ra.2", "uno.GND1"],
+            ["uno.D13", "rb.1"],
+            ["rb.2", "uno.GND1"],
+        ],
+    }
+    primero = compare_connectivity(expected, actual)
+    segundo = compare_connectivity(expected, actual)
+    assert primero == segundo
+    assert primero["score"] == 1.0
+    assert primero["shorts"] == []
+
+
 def test_latency_summary_known_values_and_empty_list():
     result = latency_summary({"list": [1.0, 2.0, 3.0, 4.0], "read": []})
     assert result["list"] == {"n": 4, "median": 2.5, "worst": 4.0, "mean": 2.5}
