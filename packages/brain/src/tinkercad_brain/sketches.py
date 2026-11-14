@@ -648,6 +648,91 @@ def lcd_temp_sketch(
     return "\n".join(lines) + "\n"
 
 
+# El default 130.0 cm sale de medir la escena real: el objeto del simulador queda a
+# ~112 cm, asi que con umbrales tipo 20 la alarma nunca se enciende y la demo no
+# muestra nada. Con 130 el circuito arranca con la alarma ENCENDIDA, observable.
+def lcd_distance_sketch(
+    trig: int = 7,
+    echo: int = 6,
+    buzzer: int = 8,
+    rs: int = 12,
+    en: int = 11,
+    d4: int = 5,
+    d5: int = 4,
+    d6: int = 3,
+    d7: int = 2,
+    threshold_cm: float = 130.0,
+    period_ms: int = 300,
+) -> str:
+    pins = (trig, echo, buzzer, rs, en, d4, d5, d6, d7)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(
+            "pines repetidos en medidor LCD: "
+            f"trig={trig}, echo={echo}, buzzer={buzzer}, "
+            f"rs={rs}, en={en}, d4={d4}, d5={d5}, d6={d6}, d7={d7}"
+        )
+    _validate_threshold_cm(threshold_cm)
+    _validate_period_range("period_ms", period_ms, _LCD_PERIOD_MIN, _LCD_PERIOD_MAX)
+    threshold_text = _format_threshold(threshold_cm)
+
+    lines = [
+        "// Medidor de distancia HC-SR04 en LCD 16x2 (modo 4 bits) con alarma sonora.",
+        "// Contraste (VO) a GND en este montaje del simulador: con el potenciometro",
+        "// en su posicion por defecto la pantalla queda en blanco.",
+        "// Umbral por defecto 130 cm: la escena del simulador mide ~112 cm, asi el",
+        "// circuito arranca en un estado observable (alarma encendida).",
+        "#include <LiquidCrystal.h>",
+        "#include <stdio.h>",
+        "#include <stdlib.h>",
+        "",
+        f"LiquidCrystal lcd({rs}, {en}, {d4}, {d5}, {d6}, {d7});",
+        "",
+        "void setup() {",
+        f"  pinMode({trig}, OUTPUT);",
+        f"  pinMode({echo}, INPUT);",
+        "  Serial.begin(9600);",
+        "  lcd.begin(16, 2);",
+        "  lcd.clear();",
+        "  lcd.setCursor(0, 0);",
+        '  lcd.print("Distancia");',
+        '  Serial.println("TEST:LCD=LISTO");',
+        "}",
+        "",
+        "void loop() {",
+        f"  digitalWrite({trig}, LOW);",
+        "  delayMicroseconds(2);",
+        f"  digitalWrite({trig}, HIGH);",
+        "  delayMicroseconds(10);",
+        f"  digitalWrite({trig}, LOW);",
+        f"  long duracion = pulseIn({echo}, HIGH);",
+        "  float distancia = duracion * 0.034 / 2;",
+        "  char dist_txt[8];",
+        "  dtostrf(distancia, 0, 1, dist_txt);",
+        "  char linea[17];",
+        '  snprintf(linea, sizeof(linea), "D=%s cm", dist_txt);',
+        "  for (int i = strlen(linea); i < 16; i++) {",
+        "    linea[i] = ' ';",
+        "  }",
+        "  linea[16] = '\\0';",
+        "  lcd.setCursor(0, 1);",
+        "  lcd.print(linea);",
+        '  Serial.print("TEST:DIST=");',
+        "  Serial.println(dist_txt);",
+        f"  if (distancia < {threshold_text}) {{",
+        f"    tone({buzzer}, 1000);",
+        '    Serial.println("TEST:ALARMA=ON");',
+        "  } else {",
+        f"    noTone({buzzer});",
+        '    Serial.println("TEST:ALARMA=OFF");',
+        "  }",
+        f"  delay({period_ms});",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}

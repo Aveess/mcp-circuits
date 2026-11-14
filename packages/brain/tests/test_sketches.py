@@ -9,6 +9,7 @@ from tinkercad_brain.sketches import (
     button_led_sketch,
     buzzer_button_sketch,
     lcd_counter_sketch,
+    lcd_distance_sketch,
     lcd_temp_sketch,
     ldr_led_sketch,
     motor_driver_sketch,
@@ -994,6 +995,209 @@ def test_lcd_temp_rejects_out_of_range_periods(period_ms):
 
 def test_lcd_temp_is_deterministic():
     assert lcd_temp_sketch() == lcd_temp_sketch()
+
+
+# --- lcd_distance ---
+
+
+def test_lcd_distance_default_contains_key_content():
+    sketch = lcd_distance_sketch()
+    assert "#include <LiquidCrystal.h>" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" in sketch
+    assert "pinMode(7, OUTPUT)" in sketch
+    assert "pinMode(6, INPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert "lcd.begin(16, 2)" in sketch
+    assert "lcd.clear()" in sketch
+    assert "lcd.setCursor(0, 0)" in sketch
+    assert 'lcd.print("Distancia")' in sketch
+    assert 'Serial.println("TEST:LCD=LISTO")' in sketch
+    assert "delayMicroseconds(2)" in sketch
+    assert "delayMicroseconds(10)" in sketch
+    assert "pulseIn(6, HIGH)" in sketch
+    assert 'Serial.print("TEST:DIST=");' in sketch
+    assert "TEST:ALARMA=ON" in sketch
+    assert "TEST:ALARMA=OFF" in sketch
+    assert "delay(300)" in sketch
+
+
+def test_lcd_distance_uses_the_same_distance_formula_as_ultrasonic_sketch():
+    sketch = lcd_distance_sketch()
+    reference = ultrasonic_sketch()
+    pattern = re.compile(r"float distancia = ([^;]+);")
+    assert pattern.search(reference).group(1) == pattern.search(sketch).group(1)
+    for line in (
+        "long duracion = pulseIn(6, HIGH);",
+        "float distancia = duracion * 0.034 / 2;",
+    ):
+        assert line in reference
+        assert line in sketch
+
+
+def test_lcd_distance_computes_distance_before_anything_is_written():
+    sketch = lcd_distance_sketch()
+    distance = sketch.index("float distancia = duracion * 0.034 / 2;")
+    assert distance < sketch.index("dtostrf(distancia, 0, 1, dist_txt);")
+    assert distance < sketch.index("lcd.print(linea);")
+    assert distance < sketch.index('Serial.print("TEST:DIST=");')
+    assert distance < sketch.index("tone(8, 1000)")
+    assert distance < sketch.index("noTone(8)")
+
+
+def _lcd_distance_branch_for_distance(sketch, distancia):
+    match = re.search(r"if \(distancia ([<>]) ([\d.]+)\) \{", sketch)
+    op, umbral = match.group(1), float(match.group(2))
+    dentro = distancia < umbral if op == "<" else distancia > umbral
+    if dentro:
+        return sketch[match.end() : sketch.index("} else {")]
+    return sketch[sketch.index("} else {") : sketch.index("delay(300)")]
+
+
+def test_lcd_distance_alarm_trace_lives_in_the_sound_branches():
+    sketch = lcd_distance_sketch()
+    on_branch = _lcd_distance_branch_for_distance(sketch, 112.0)
+    assert "tone(8, 1000)" in on_branch
+    assert 'Serial.println("TEST:ALARMA=ON")' in on_branch
+    assert "noTone(8)" not in on_branch
+    assert "TEST:ALARMA=OFF" not in on_branch
+
+    off_branch = _lcd_distance_branch_for_distance(sketch, 200.0)
+    assert "noTone(8)" in off_branch
+    assert 'Serial.println("TEST:ALARMA=OFF")' in off_branch
+    assert "tone(8, 1000)" not in off_branch
+    assert "TEST:ALARMA=ON" not in off_branch
+
+
+def test_lcd_distance_default_threshold_sounds_the_alarm_in_the_measured_scene():
+    # La escena real mide ~112 cm; con el default 130 la alarma arranca ENCENDIDA.
+    sketch = lcd_distance_sketch()
+    assert "if (distancia < 130.0)" in sketch
+    assert 112 < 130.0
+    for distancia in (0, 112.0, 129.9):
+        assert "TEST:ALARMA=ON" in _lcd_distance_branch_for_distance(sketch, distancia)
+    for distancia in (130.0, 200.0, 400.0):
+        assert "TEST:ALARMA=OFF" in _lcd_distance_branch_for_distance(sketch, distancia)
+
+
+def test_lcd_distance_trace_prints_the_same_value_as_the_display():
+    sketch = lcd_distance_sketch()
+    assert sketch.count("dtostrf(") == 1
+    assert "dtostrf(distancia, 0, 1, dist_txt);" in sketch
+    assert 'snprintf(linea, sizeof(linea), "D=%s cm", dist_txt);' in sketch
+    assert "lcd.print(linea);" in sketch
+    assert "Serial.println(dist_txt);" in sketch
+    assert sketch.count("float distancia =") == 1
+    assert "Serial.println(distancia" not in sketch
+    assert sketch.index("lcd.print(linea);") < sketch.index('Serial.print("TEST:DIST=");')
+
+
+def test_lcd_distance_pads_the_display_line_to_16_columns():
+    sketch = lcd_distance_sketch()
+    assert "char linea[17];" in sketch
+    assert "for (int i = strlen(linea); i < 16; i++) {" in sketch
+    assert "linea[i] = ' ';" in sketch
+
+
+def test_lcd_distance_documents_contrast_and_default_threshold():
+    sketch = lcd_distance_sketch()
+    assert "VO" in sketch
+    assert "GND" in sketch
+    assert "blanco" in sketch
+    assert "112" in sketch
+    assert "observable" in sketch
+
+
+def test_lcd_distance_custom_pins_are_literal():
+    sketch = lcd_distance_sketch(
+        trig=4, echo=5, buzzer=9, rs=8, en=10, d4=13, d5=12, d6=11, d7=3
+    )
+    assert "LiquidCrystal lcd(8, 10, 13, 12, 11, 3);" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" not in sketch
+    assert "pinMode(4, OUTPUT)" in sketch
+    assert "pinMode(5, INPUT)" in sketch
+    assert "pulseIn(5, HIGH)" in sketch
+    assert "tone(9, 1000)" in sketch
+    assert "noTone(9)" in sketch
+    assert "pinMode(7, OUTPUT)" not in sketch
+    assert "pinMode(6, INPUT)" not in sketch
+
+
+def test_lcd_distance_custom_threshold_and_period():
+    sketch = lcd_distance_sketch(threshold_cm=35.5, period_ms=250)
+    assert "if (distancia < 35.5)" in sketch
+    assert "delay(250)" in sketch
+
+
+@pytest.mark.parametrize("threshold_cm", [2, 400])
+def test_lcd_distance_accepts_boundary_thresholds(threshold_cm):
+    assert f"if (distancia < {float(threshold_cm)}" in lcd_distance_sketch(
+        threshold_cm=threshold_cm
+    )
+
+
+@pytest.mark.parametrize("threshold_cm", [1.9, 401, 0, 400.1, 1000.0])
+def test_lcd_distance_rejects_out_of_range_thresholds(threshold_cm):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(threshold_cm=threshold_cm)
+
+
+@pytest.mark.parametrize("threshold_cm", [True, False, "130", None])
+def test_lcd_distance_rejects_non_numeric_thresholds(threshold_cm):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(threshold_cm=threshold_cm)
+
+
+@pytest.mark.parametrize(
+    "name", ["trig", "echo", "buzzer", "rs", "en", "d4", "d5", "d6", "d7"]
+)
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_lcd_distance_rejects_unusable_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize(
+    "name", ["trig", "echo", "buzzer", "rs", "en", "d4", "d5", "d6", "d7"]
+)
+@pytest.mark.parametrize("pin", [True, False])
+def test_lcd_distance_rejects_bool_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"echo": 7},
+        {"buzzer": 7},
+        {"rs": 7},
+        {"en": 7},
+        {"d4": 7},
+        {"d5": 7},
+        {"d6": 7},
+        {"d7": 7},
+        {"trig": 2},
+        {"buzzer": 8, "d4": 8},
+    ],
+)
+def test_lcd_distance_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("period_ms", [100, 60000])
+def test_lcd_distance_accepts_boundary_periods(period_ms):
+    assert f"delay({period_ms})" in lcd_distance_sketch(period_ms=period_ms)
+
+
+@pytest.mark.parametrize("period_ms", [99, 60001, 0, -1, 100.5, "300", None, True])
+def test_lcd_distance_rejects_out_of_range_periods(period_ms):
+    with pytest.raises(ValueError):
+        lcd_distance_sketch(period_ms=period_ms)
+
+
+def test_lcd_distance_is_deterministic():
+    assert lcd_distance_sketch() == lcd_distance_sketch()
 
 
 # --- pin_of_fixture ---
