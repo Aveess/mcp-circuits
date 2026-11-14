@@ -342,6 +342,153 @@ def button_led_sketch(button_pin: int = 2, led_pin: int = 13) -> str:
     return "\n".join(lines) + "\n"
 
 
+def buzzer_button_sketch(button_pin: int = 2, buzzer_pin: int = 8) -> str:
+    _validate_pin(button_pin)
+    _validate_pin(buzzer_pin)
+    if button_pin == buzzer_pin:
+        raise ValueError(f"button_pin y buzzer_pin deben ser distintos: {button_pin!r}")
+
+    lines = [
+        "void setup() {",
+        f"  pinMode({button_pin}, INPUT_PULLUP);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int estado = digitalRead({button_pin});",
+        "  if (estado == LOW) {",
+        f"    tone({buzzer_pin}, 880);",
+        '    Serial.println("TEST:PRESSED");',
+        "  } else {",
+        f"    noTone({buzzer_pin});",
+        '    Serial.println("TEST:SILENCIO");',
+        "  }",
+        "  delay(50);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+_LDR_THRESHOLD_MIN, _LDR_THRESHOLD_MAX = 0, 1023
+
+
+def _validate_ldr_threshold(threshold: int) -> None:
+    if (
+        not isinstance(threshold, int)
+        or isinstance(threshold, bool)
+        or not _LDR_THRESHOLD_MIN <= threshold <= _LDR_THRESHOLD_MAX
+    ):
+        raise ValueError(
+            f"threshold fuera de {_LDR_THRESHOLD_MIN}..{_LDR_THRESHOLD_MAX}: {threshold!r}"
+        )
+
+
+def _validate_analog_pin(name: str, pin: str) -> None:
+    if pin not in _ANALOG_PINS:
+        raise ValueError(f"{name} fuera de A0..A5: {pin!r}")
+
+
+def ldr_led_sketch(ldr_pin: str = "A0", led_pin: int = 13, threshold: int = 500) -> str:
+    _validate_analog_pin("ldr_pin", ldr_pin)
+    _validate_pin(led_pin)
+    _validate_ldr_threshold(threshold)
+
+    lines = [
+        "// Divisor: 5V -> LDR -> A0 -> resistencia 10k -> GND.",
+        "// Mas luz = menos resistencia en el LDR = mas tension en A0 = lectura mas alta.",
+        "void setup() {",
+        f"  pinMode({led_pin}, OUTPUT);",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int luz = analogRead({ldr_pin});",
+        f"  if (luz > {threshold}) {{",
+        f"    digitalWrite({led_pin}, HIGH);",
+        '    Serial.println("TEST:LED=ON");',
+        "  } else {",
+        f"    digitalWrite({led_pin}, LOW);",
+        '    Serial.println("TEST:LED=OFF");',
+        "  }",
+        '  Serial.print("TEST:LUX=");',
+        "  Serial.println(luz);",
+        "  delay(200);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def parking_servo_sketch(
+    trig: int = 7,
+    echo: int = 6,
+    servo_pin: int = 9,
+    red: int = 10,
+    green: int = 11,
+    blue: int = 3,
+    threshold_cm: float = 20.0,
+) -> str:
+    pins = (trig, echo, servo_pin, red, green, blue)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(
+            "pines repetidos en barrera: "
+            f"trig={trig}, echo={echo}, servo_pin={servo_pin}, red={red}, green={green}, blue={blue}"
+        )
+    _validate_threshold_cm(threshold_cm)
+    threshold_text = _format_threshold(threshold_cm)
+
+    lines = [
+        "#include <Servo.h>",
+        "",
+        "Servo servo;",
+        "",
+        "void setup() {",
+        f"  pinMode({trig}, OUTPUT);",
+        f"  pinMode({echo}, INPUT);",
+        f"  pinMode({red}, OUTPUT);",
+        f"  pinMode({green}, OUTPUT);",
+        f"  pinMode({blue}, OUTPUT);",
+        f"  servo.attach({servo_pin});",
+        "  Serial.begin(9600);",
+        '  Serial.println("READY");',
+        "}",
+        "",
+        "void loop() {",
+        f"  digitalWrite({trig}, LOW);",
+        "  delayMicroseconds(2);",
+        f"  digitalWrite({trig}, HIGH);",
+        "  delayMicroseconds(10);",
+        f"  digitalWrite({trig}, LOW);",
+        f"  long duracion = pulseIn({echo}, HIGH);",
+        "  float distancia = duracion * 0.034 / 2;",
+        '  Serial.print("TEST:DIST=");',
+        "  Serial.println(distancia);",
+        "  int angulo;",
+        f"  if (distancia < {threshold_text}) {{",
+        "    angulo = 90;",
+        f"    digitalWrite({green}, HIGH);",
+        f"    digitalWrite({red}, LOW);",
+        f"    digitalWrite({blue}, LOW);",
+        '    Serial.println("TEST:ESTADO=ABIERTO");',
+        "  } else {",
+        "    angulo = 0;",
+        f"    digitalWrite({red}, HIGH);",
+        f"    digitalWrite({green}, LOW);",
+        f"    digitalWrite({blue}, LOW);",
+        '    Serial.println("TEST:ESTADO=CERRADO");',
+        "  }",
+        "  servo.write(angulo);",
+        '  Serial.print("TEST:SERVO=");',
+        "  Serial.println(angulo);",
+        "  delay(200);",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}

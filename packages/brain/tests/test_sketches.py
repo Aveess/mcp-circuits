@@ -7,8 +7,11 @@ import pytest
 from tinkercad_brain.sketches import (
     blink_sketch,
     button_led_sketch,
+    buzzer_button_sketch,
+    ldr_led_sketch,
     motor_driver_sketch,
     motor_sketch,
+    parking_servo_sketch,
     pin_of_fixture,
     rgb_cycle_sketch,
     servo_knob_sketch,
@@ -431,6 +434,243 @@ def test_button_led_rejects_unusable_pins(kwargs):
 def test_button_led_rejects_same_pins():
     with pytest.raises(ValueError):
         button_led_sketch(button_pin=5, led_pin=5)
+
+
+# --- buzzer_button ---
+
+
+def test_buzzer_button_default_contains_key_content():
+    sketch = buzzer_button_sketch()
+    assert "pinMode(2, INPUT_PULLUP)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "digitalRead(2)" in sketch
+    assert "if (estado == LOW)" in sketch
+    assert "tone(8, 880)" in sketch
+    assert "noTone(8)" in sketch
+    assert 'Serial.println("TEST:PRESSED")' in sketch
+    assert 'Serial.println("TEST:SILENCIO")' in sketch
+    assert "delay(50)" in sketch
+
+
+def test_buzzer_button_custom_pins_are_literal():
+    sketch = buzzer_button_sketch(button_pin=4, buzzer_pin=12)
+    assert "pinMode(4, INPUT_PULLUP)" in sketch
+    assert "digitalRead(4)" in sketch
+    assert "tone(12, 880)" in sketch
+    assert "noTone(12)" in sketch
+    assert "pinMode(2" not in sketch
+
+
+def test_buzzer_button_silence_is_the_else_branch():
+    sketch = buzzer_button_sketch()
+    pressed = sketch.index("tone(8, 880)")
+    silence = sketch.index("noTone(8)")
+    assert pressed < sketch.index("} else {") < silence
+
+
+@pytest.mark.parametrize("kwargs", [{"button_pin": 0}, {"button_pin": 14}, {"buzzer_pin": 1}, {"buzzer_pin": 14}])
+def test_buzzer_button_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        buzzer_button_sketch(**kwargs)
+
+
+def test_buzzer_button_rejects_same_pins():
+    with pytest.raises(ValueError):
+        buzzer_button_sketch(button_pin=6, buzzer_pin=6)
+
+
+# --- ldr_led ---
+
+
+def test_ldr_led_default_contains_key_content():
+    sketch = ldr_led_sketch()
+    assert "pinMode(13, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "int luz = analogRead(A0)" in sketch
+    assert "if (luz > 500)" in sketch
+    assert _digital_writes(sketch) == [(13, "HIGH"), (13, "LOW")]
+    assert 'Serial.println("TEST:LED=ON")' in sketch
+    assert 'Serial.println("TEST:LED=OFF")' in sketch
+    assert 'Serial.print("TEST:LUX=");' in sketch
+    assert "Serial.println(luz);" in sketch
+    assert "delay(200)" in sketch
+
+
+def test_ldr_led_documents_voltage_divider():
+    sketch = ldr_led_sketch()
+    assert "10k" in sketch
+    assert "mas luz" in sketch.lower()
+
+
+def test_ldr_led_custom_pins_and_threshold_are_literal():
+    sketch = ldr_led_sketch(ldr_pin="A3", led_pin=8, threshold=700)
+    assert "analogRead(A3)" in sketch
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "if (luz > 700)" in sketch
+    assert _digital_writes(sketch) == [(8, "HIGH"), (8, "LOW")]
+
+
+def test_ldr_led_accepts_boundary_thresholds():
+    assert "if (luz > 0)" in ldr_led_sketch(threshold=0)
+    assert "if (luz > 1023)" in ldr_led_sketch(threshold=1023)
+
+
+@pytest.mark.parametrize("threshold", [-1, 1024, 5000])
+def test_ldr_led_rejects_out_of_range_thresholds(threshold):
+    with pytest.raises(ValueError):
+        ldr_led_sketch(threshold=threshold)
+
+
+@pytest.mark.parametrize("threshold", [True, False, 500.5, "500", None])
+def test_ldr_led_rejects_non_integer_thresholds(threshold):
+    with pytest.raises(ValueError):
+        ldr_led_sketch(threshold=threshold)
+
+
+@pytest.mark.parametrize("ldr_pin", ["A6", "13", "a0", "", "D0"])
+def test_ldr_led_rejects_unusable_analog_pins(ldr_pin):
+    with pytest.raises(ValueError):
+        ldr_led_sketch(ldr_pin=ldr_pin)
+
+
+@pytest.mark.parametrize("led_pin", [0, 1, 14, -1])
+def test_ldr_led_rejects_unusable_led_pins(led_pin):
+    with pytest.raises(ValueError):
+        ldr_led_sketch(led_pin=led_pin)
+
+
+# --- parking_servo ---
+
+
+def test_parking_servo_default_contains_key_content():
+    sketch = parking_servo_sketch()
+    assert "#include <Servo.h>" in sketch
+    assert "Servo servo;" in sketch
+    assert "servo.attach(9)" in sketch
+    assert "pinMode(7, OUTPUT)" in sketch
+    assert "pinMode(6, INPUT)" in sketch
+    assert "pinMode(10, OUTPUT)" in sketch
+    assert "pinMode(11, OUTPUT)" in sketch
+    assert "pinMode(3, OUTPUT)" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert 'Serial.println("READY")' in sketch
+    assert "delayMicroseconds(2)" in sketch
+    assert "delayMicroseconds(10)" in sketch
+    assert "pulseIn(6, HIGH)" in sketch
+    assert "duracion * 0.034 / 2" in sketch
+    assert 'Serial.print("TEST:DIST=");' in sketch
+    assert "if (distancia < 20.0)" in sketch
+    assert 'Serial.println("TEST:ESTADO=ABIERTO")' in sketch
+    assert 'Serial.println("TEST:ESTADO=CERRADO")' in sketch
+    assert 'Serial.print("TEST:SERVO=");' in sketch
+    assert "delay(200)" in sketch
+
+
+def test_parking_servo_open_branch_drives_servo_green_and_state():
+    sketch = parking_servo_sketch()
+    open_branch = sketch[sketch.index("if (distancia < 20.0) {") : sketch.index("} else {")]
+    assert "angulo = 90" in open_branch
+    assert "digitalWrite(11, HIGH)" in open_branch
+    assert "digitalWrite(10, LOW)" in open_branch
+    assert "digitalWrite(3, LOW)" in open_branch
+    assert 'Serial.println("TEST:ESTADO=ABIERTO")' in open_branch
+
+
+def test_parking_servo_closed_branch_drives_servo_red_and_state():
+    sketch = parking_servo_sketch()
+    closed_branch = sketch[sketch.index("} else {") : sketch.index("servo.write(angulo)")]
+    assert "angulo = 0" in closed_branch
+    assert "digitalWrite(10, HIGH)" in closed_branch
+    assert "digitalWrite(11, LOW)" in closed_branch
+    assert "digitalWrite(3, LOW)" in closed_branch
+    assert 'Serial.println("TEST:ESTADO=CERRADO")' in closed_branch
+
+
+def test_parking_servo_computes_distance_before_driving_outputs():
+    sketch = parking_servo_sketch()
+    distance = sketch.index("float distancia = duracion * 0.034 / 2;")
+    assert distance < sketch.index("servo.write(angulo)")
+    assert distance < sketch.index("digitalWrite(11, HIGH)")
+    assert distance < sketch.index("digitalWrite(10, HIGH)")
+    assert distance < sketch.index("if (distancia < 20.0)")
+
+
+def test_parking_servo_prints_distance_before_state():
+    sketch = parking_servo_sketch()
+    assert sketch.index('Serial.print("TEST:DIST=");') < sketch.index('Serial.println("TEST:ESTADO=ABIERTO")')
+    assert sketch.index("Serial.println(distancia);") < sketch.index("if (distancia < 20.0)")
+
+
+def test_parking_servo_custom_pins_are_literal():
+    sketch = parking_servo_sketch(trig=4, echo=5, servo_pin=6, red=12, green=8, blue=2, threshold_cm=35.5)
+    assert "pinMode(4, OUTPUT)" in sketch
+    assert "pinMode(5, INPUT)" in sketch
+    assert "pulseIn(5, HIGH)" in sketch
+    assert "servo.attach(6)" in sketch
+    assert "pinMode(12, OUTPUT)" in sketch
+    assert "pinMode(8, OUTPUT)" in sketch
+    assert "pinMode(2, OUTPUT)" in sketch
+    assert "if (distancia < 35.5)" in sketch
+    assert "pinMode(7, OUTPUT)" not in sketch
+
+
+def test_parking_servo_accepts_boundary_thresholds():
+    assert "if (distancia < 2.0)" in parking_servo_sketch(threshold_cm=2)
+    assert "if (distancia < 400.0)" in parking_servo_sketch(threshold_cm=400)
+
+
+@pytest.mark.parametrize("threshold_cm", [1.9, 0, -1, 401, 400.1, 1000.0])
+def test_parking_servo_rejects_out_of_range_thresholds(threshold_cm):
+    with pytest.raises(ValueError):
+        parking_servo_sketch(threshold_cm=threshold_cm)
+
+
+@pytest.mark.parametrize("threshold_cm", [True, False, "20", None])
+def test_parking_servo_rejects_non_numeric_thresholds(threshold_cm):
+    with pytest.raises(ValueError):
+        parking_servo_sketch(threshold_cm=threshold_cm)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"trig": 0},
+        {"trig": 14},
+        {"echo": 1},
+        {"echo": 14},
+        {"servo_pin": 0},
+        {"servo_pin": 14},
+        {"red": 1},
+        {"green": 14},
+        {"blue": 0},
+    ],
+)
+def test_parking_servo_rejects_unusable_pins(kwargs):
+    with pytest.raises(ValueError):
+        parking_servo_sketch(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"trig": 6},
+        {"echo": 7},
+        {"servo_pin": 7},
+        {"red": 11},
+        {"green": 10},
+        {"blue": 9},
+        {"trig": 8, "echo": 8},
+    ],
+)
+def test_parking_servo_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        parking_servo_sketch(**kwargs)
+
+
+def test_parking_servo_is_deterministic():
+    assert parking_servo_sketch() == parking_servo_sketch()
 
 
 # --- pin_of_fixture ---
