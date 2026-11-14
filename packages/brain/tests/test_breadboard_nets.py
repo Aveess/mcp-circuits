@@ -699,6 +699,61 @@ def test_lcd_insert_wire_pin_names_map_to_the_sixteen_terminals():
     assert ["lcd1.VDD", "r1.2", "uno.5V"] in [sorted(n) for n in nets]
 
 
+def test_lcd_free_module_wires_derive_same_terminals_without_holes():
+    """LCD como modulo libre: los cables van de terminal a terminal (sin
+    protoboard de por medio) y aun llegan con nombres humanos (Ground,
+    Power, Contrast, Register Select, Read/Write, Enable, LED Anode,
+    LED Cathode). Los alias por tipo deben seguir derivando los 16
+    terminales reales (GND, VDD, VO, ...), no gnd/vcc."""
+    uno = ("Arduino Uno R3", "uno1")
+    lcd = ("LCD 16 x 2", "lcd_a")
+    r = ("Resistor", "r_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    wires = [
+        # Alimentacion y resistor de backlight, directo del UNO al LCD.
+        _wire(e(uno, "5V"), e(lcd, "Power")),
+        _wire(e(lcd, "Power"), e(r, "Terminal 1")),
+        _wire(e(r, "Terminal 2"), e(lcd, "LED Anode")),
+        # Contraste y lectura a tierra: terminal a terminal del LCD.
+        _wire(e(lcd, "Ground"), e(uno, "GND")),
+        _wire(e(lcd, "Contrast"), e(lcd, "Ground")),
+        _wire(e(lcd, "Read/Write"), e(lcd, "Ground")),
+        _wire(e(lcd, "LED Cathode"), e(lcd, "Ground")),
+        # Control y bus de datos de 4 bits.
+        _wire(e(uno, "D12"), e(lcd, "Register Select")),
+        _wire(e(uno, "D11"), e(lcd, "Enable")),
+        _wire(e(uno, "D5"), e(lcd, "DB4")),
+        _wire(e(uno, "D4"), e(lcd, "DB5")),
+        _wire(e(uno, "D3"), e(lcd, "DB6")),
+        _wire(e(uno, "D2"), e(lcd, "DB7")),
+    ]
+    data = {
+        "components": [_comp(*uno), _comp(*lcd), _comp(*r)],
+        "wires": wires,
+    }
+
+    nets = derive_nets(data)
+
+    assert nets == [
+        ["lcd1.DB4", "uno.D5"],
+        ["lcd1.DB5", "uno.D4"],
+        ["lcd1.DB6", "uno.D3"],
+        ["lcd1.DB7", "uno.D2"],
+        ["lcd1.E", "uno.D11"],
+        ["lcd1.GND", "lcd1.LED-", "lcd1.RW", "lcd1.VO", "uno.GND1"],
+        ["lcd1.LED+", "r1.2"],
+        ["lcd1.RS", "uno.D12"],
+        ["lcd1.VDD", "r1.1", "uno.5V"],
+    ]
+    flat = {endpoint for net in nets for endpoint in net}
+    # Ni un terminal en minuscula: el alias generico GND/VDD no gana.
+    assert "lcd1.gnd" not in flat
+    assert "lcd1.vcc" not in flat
+
+
 def test_lcd_refs_match_normalize_circuit_for_same_instance_ids():
     from tinkercad_brain.fase0.normalize import normalize_circuit
 

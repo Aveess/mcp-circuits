@@ -880,9 +880,12 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
     assert calls == []
 
 
-# LCD 16x2 (did 113878, type real "LCD 16 x 2"): 16 terminales en UNA
-# fila, ancla "GND" en <c>j y el resto a +1..+15 columnas, angle 0.
+# LCD 16x2 (did 113878, type real "LCD 16 x 2"): modulo LIBRE sobre la
+# placa, sin huecos. Los cables terminan en sus 16 terminales reales.
 # Verificado en vivo (circuito ib98EAPoqPP, modo 4 bits).
+_LCD_FREE = {"x": 870, "y": -230, "angle": 0}
+# Rama de compatibilidad: LCD montado en la placa, ancla "GND" en <c>j y
+# el resto a +1..+15 columnas, angle 0.
 _LCD_ANCHOR = "1j"
 _LCD_PIN_OFFSETS = {
     "GND": 0, "VDD": 1, "VO": 2, "RS": 3, "RW": 4, "E": 5,
@@ -890,14 +893,16 @@ _LCD_PIN_OFFSETS = {
     "DB4": 10, "DB5": 11, "DB6": 12, "DB7": 13,
     "LED+": 14, "LED-": 15,
 }
+_LCD_TERMINALS = tuple(_LCD_PIN_OFFSETS)
 
 
 def _force_lcd_placement(monkeypatch):
-    """Inyecta el placement del LCD si el layout aun no lo emite.
+    """Fuerza el LCD a modulo libre, este o no ya colocado por el layout.
 
-    Contrato verificado en vivo: ancla "GND" en "1j" con angle 0. Si
-    plan_layout ya lo coloca asi (merge del layout), el parche no altera
-    nada.
+    Contrato decidido por el orquestador y verificado en vivo: el LCD deja
+    de montarse en la protoboard y se emite {"free": {...}}. El layout
+    (otro agente) pasara a emitirlo asi; forzarlo aqui mantiene el test
+    determinista antes y despues del merge.
     """
     real_plan_layout = builder_module.plan_layout
 
@@ -905,21 +910,168 @@ def _force_lcd_placement(monkeypatch):
         layout = real_plan_layout(fixture)
         placements = dict(layout["placements"])
         type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
-        unplaced = []
-        for ref in layout["unplaced"]:
-            if type_by_ref.get(ref) == "lcd-16x2":
-                placements[ref] = {"at": _LCD_ANCHOR, "pin": "GND", "angle": 0}
-            else:
-                unplaced.append(ref)
+        unplaced = [
+            ref
+            for ref in layout["unplaced"]
+            if type_by_ref.get(ref) != "lcd-16x2"
+        ]
+        for ref, ctype in type_by_ref.items():
+            if ctype == "lcd-16x2":
+                placements[ref] = {"free": dict(_LCD_FREE)}
         return {"placements": placements, "unplaced": unplaced}
 
     monkeypatch.setattr(builder_module, "plan_layout", patched)
 
 
-def test_lcd_contador_real_fixture_parts_and_wires(monkeypatch):
+def _force_lcd_at_placement(monkeypatch, pin="GND"):
+    """Rama de compatibilidad: fuerza el LCD montado con ancla en "1j"."""
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = [
+            ref
+            for ref in layout["unplaced"]
+            if type_by_ref.get(ref) != "lcd-16x2"
+        ]
+        for ref, ctype in type_by_ref.items():
+            if ctype == "lcd-16x2":
+                placements[ref] = {"at": _LCD_ANCHOR, "pin": pin, "angle": 0}
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def test_lcd_contador_free_module_parts_and_terminal_wires(monkeypatch):
     fixture = _fixture("lcd-contador")
     _force_lcd_placement(monkeypatch)
     r1_at = builder_module.plan_layout(fixture)["placements"]["r1"]["at"]
+
+    result = fixture_to_model_call(fixture)
+
+    parts = {p["ref"]: p for p in result["parts"]}
+    # Libre: coordenadas, sin pin de ancla ni hueco.
+    assert parts["lcd1"] == {
+        "ref": "lcd1", "did": 113878, "free": _LCD_FREE,
+    }
+    assert "pin" not in parts["lcd1"]
+    assert "at" not in parts["lcd1"]
+    assert parts["r1"]["did"] == 53184
+    assert parts["r1"]["at"] == r1_at
+
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    # Bus de datos en modo 4 bits y control: terminales reales.
+    assert ("uno.D12", "lcd1.RS") in pairs
+    assert ("uno.D11", "lcd1.E") in pairs
+    assert ("uno.D5", "lcd1.DB4") in pairs
+    assert ("uno.D4", "lcd1.DB5") in pairs
+    assert ("uno.D3", "lcd1.DB6") in pairs
+    assert ("uno.D2", "lcd1.DB7") in pairs
+    # Alimentacion, contraste/lectura y backlight.
+    assert ("uno.5V", "lcd1.VDD") in pairs
+    assert ("lcd1.VDD", r1_at) in pairs
+    assert (_shift(r1_at, 4), "lcd1.LED+") in pairs
+    assert ("lcd1.GND", "lcd1.VO") in pairs
+    assert ("lcd1.VO", "lcd1.RW") in pairs
+    assert ("lcd1.RW", "lcd1.LED-") in pairs
+    assert ("lcd1.LED-", "uno.GND1") in pairs
+    # Ni un solo extremo del LCD queda como hueco de protoboard.
+    lcd_ends = {
+        end
+        for wire in result["wires"]
+        for end in (wire["from"], wire["to"])
+        if end.startswith("lcd1.")
+    }
+    assert lcd_ends == {
+        "lcd1.RS", "lcd1.E", "lcd1.DB4", "lcd1.DB5", "lcd1.DB6",
+        "lcd1.DB7", "lcd1.VDD", "lcd1.LED+", "lcd1.GND", "lcd1.VO",
+        "lcd1.RW", "lcd1.LED-",
+    }
+    # 9 nets: la de 3 extremos da 2 cables y la de 5 extremos da 4.
+    assert len(result["wires"]) == 13
+
+    colors = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
+    assert colors[("lcd1.LED-", "uno.GND1")] == "black"
+    assert colors[("uno.5V", "lcd1.VDD")] == "red"
+
+
+def test_lcd_temperatura_free_lcd_keeps_tmp36_holes(monkeypatch):
+    fixture = _fixture("lcd-temperatura")
+    # El TMP36 sigue montado en la placa (3 pines en fila c); se inyecta
+    # primero para que el parche del LCD envuelva al de 3 pines.
+    _ensure_3pin_placements(monkeypatch)
+    _force_lcd_placement(monkeypatch)
+    placements = builder_module.plan_layout(fixture)["placements"]
+    tmp_at = placements["tmp1"]["at"]
+    r1_at = placements["r1"]["at"]
+
+    result = fixture_to_model_call(fixture)
+
+    parts = {p["ref"]: p for p in result["parts"]}
+    assert parts["lcd1"] == {
+        "ref": "lcd1", "did": 113878, "free": _LCD_FREE,
+    }
+    assert parts["tmp1"] == {
+        "ref": "tmp1", "did": 112324, "at": tmp_at,
+        "pin": "Vcc", "angle": placements["tmp1"]["angle"],
+    }
+
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    # LCD por terminal real.
+    assert ("uno.D12", "lcd1.RS") in pairs
+    assert ("uno.D2", "lcd1.DB7") in pairs
+    # La net de tierra del LCD encadena GND->VO->RW->LED- y de ahi al
+    # TMP36, que sigue traduciendo a huecos.
+    assert ("lcd1.GND", "lcd1.VO") in pairs
+    assert ("lcd1.RW", "lcd1.LED-") in pairs
+    assert ("lcd1.LED-", _shift(tmp_at, 2)) in pairs
+    assert (_shift(tmp_at, 2), "uno.GND1") in pairs
+    # TMP36 sin cambios: 5V -> VDD -> r1.1 -> tmp1.vcc (hueco del ancla).
+    assert ("lcd1.VDD", r1_at) in pairs
+    assert (r1_at, tmp_at) in pairs
+    assert (_shift(tmp_at, 1), "uno.A0") in pairs
+    tmp_ends = {
+        end
+        for wire in result["wires"]
+        for end in (wire["from"], wire["to"])
+        if end.startswith("tmp1.")
+    }
+    assert tmp_ends == set()
+
+
+def test_lcd_free_accepts_every_real_terminal(monkeypatch):
+    fixture = _fixture("lcd-contador")
+    _force_lcd_placement(monkeypatch)
+
+    for terminal in _LCD_TERMINALS:
+        fixture["nets"] = [["uno.D12", f"lcd1.{terminal}"]]
+        result = fixture_to_model_call(fixture)
+        assert result["wires"] == [
+            {
+                "from": "uno.D12",
+                "to": f"lcd1.{terminal}",
+                "color": "blue",
+            }
+        ]
+
+
+def test_lcd_free_unknown_pin_raises_build_error(monkeypatch):
+    _force_lcd_placement(monkeypatch)
+
+    bad_pin = _fixture("lcd-contador")
+    bad_pin["nets"] = [["uno.D12", "lcd1.DB9"]]
+    with pytest.raises(BuildError) as excinfo:
+        fixture_to_model_call(bad_pin)
+    assert "lcd1.DB9" in str(excinfo.value)
+
+
+def test_lcd_at_placement_still_translates_to_holes(monkeypatch):
+    # Compatibilidad: un layout viejo con `at` sigue dando huecos y un
+    # part con at/pin/angle.
+    fixture = _fixture("lcd-contador")
+    _force_lcd_at_placement(monkeypatch)
 
     result = fixture_to_model_call(fixture)
 
@@ -931,51 +1083,20 @@ def test_lcd_contador_real_fixture_parts_and_wires(monkeypatch):
         "pin": "GND",  # nombre real = nombre de fixture (identidad)
         "angle": 0,
     }
-    assert parts["r1"]["did"] == 53184
-    assert parts["r1"]["at"] == r1_at
 
     def hole(pin):
         return _shift(_LCD_ANCHOR, _LCD_PIN_OFFSETS[pin])
 
     pairs = {(w["from"], w["to"]) for w in result["wires"]}
-    # Bus de datos en modo 4 bits y control.
     assert ("uno.D12", hole("RS")) in pairs
-    assert ("uno.D11", hole("E")) in pairs
     assert ("uno.D5", hole("DB4")) in pairs
-    assert ("uno.D4", hole("DB5")) in pairs
-    assert ("uno.D3", hole("DB6")) in pairs
-    assert ("uno.D2", hole("DB7")) in pairs
-    # Alimentacion, contraste/lectura y backlight.
     assert ("uno.5V", hole("VDD")) in pairs
-    assert (hole("VDD"), r1_at) in pairs
-    assert (_shift(r1_at, 4), hole("LED+")) in pairs
-    assert (hole("GND"), hole("VO")) in pairs
-    assert (hole("VO"), hole("RW")) in pairs
     assert (hole("LED-"), "uno.GND1") in pairs
 
-    colors = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
-    assert colors[(hole("LED-"), "uno.GND1")] == "black"
-    assert colors[("uno.5V", hole("VDD"))] == "red"
 
+def test_lcd_at_placement_non_gnd_anchor_raises_build_error(monkeypatch):
+    _force_lcd_at_placement(monkeypatch, pin="VDD")
 
-def test_lcd_unknown_pin_and_non_gnd_anchor_raise_build_error(monkeypatch):
-    _force_lcd_placement(monkeypatch)
-
-    bad_pin = _fixture("lcd-contador")
-    bad_pin["nets"] = [["uno.D12", "lcd1.DB9"]]
-    with pytest.raises(BuildError) as excinfo:
-        fixture_to_model_call(bad_pin)
-    assert "lcd1.DB9" in str(excinfo.value)
-
-    forced = builder_module.plan_layout
-
-    def bad_anchor(fixture):
-        layout = forced(fixture)
-        placements = dict(layout["placements"])
-        placements["lcd1"] = {**placements["lcd1"], "pin": "VDD"}
-        return {"placements": placements, "unplaced": layout["unplaced"]}
-
-    monkeypatch.setattr(builder_module, "plan_layout", bad_anchor)
     with pytest.raises(BuildError) as excinfo:
         fixture_to_model_call(_fixture("lcd-contador"))
     message = str(excinfo.value)
