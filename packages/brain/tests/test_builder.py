@@ -134,10 +134,11 @@ def _ensure_3pin_placements(monkeypatch):
         layout = real_plan_layout(fixture)
         placements = dict(layout["placements"])
         type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        # Los placements `free` (p. ej. el LCD como modulo) no tienen `at`.
         used_columns = {
             int(re.match(r"([0-9]+)c", p["at"]).group(1))
             for p in placements.values()
-            if re.fullmatch(r"[0-9]+c", p["at"])
+            if re.fullmatch(r"[0-9]+c", p.get("at") or "")
         }
         unplaced = []
         column = 1
