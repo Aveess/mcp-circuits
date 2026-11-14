@@ -230,7 +230,8 @@ def test_r13_parts_del_lcd_son_libres_y_conservan_el_did():
     assert parts["lcd1"] == {
         "ref": "lcd1",
         "did": 113878,
-        "free": {"x": 870, "y": -230, "angle": 0},
+        "free": {"x": 870, "y": -230},
+        "angle": 0,
     }
     # Ni hueco ni ancla: el puente lo coloca por coordenadas.
     assert "at" not in parts["lcd1"]
@@ -429,7 +430,11 @@ def test_r13_dos_lcd_se_apilan_arriba_y_ninguno_queda_sin_colocar():
     parts = {p["ref"]: p for p in fixture_to_model_call(fixture)["parts"]}
     for ref in ("lcd1", "lcd2"):
         assert "at" not in parts[ref] and "pin" not in parts[ref]
-        assert parts[ref]["free"] == result["placements"][ref]["free"]
+        # Contrato del puente: `free` es {x, y} y el angulo va a nivel de
+        # part. El placement interno del layout lo lleva dentro de `free`.
+        placement_free = dict(result["placements"][ref]["free"])
+        assert placement_free.pop("angle", None) == parts[ref].get("angle")
+        assert parts[ref]["free"] == placement_free
 
 
 def test_r13_con_lcd_led_y_resistencia_todo_se_coloca_sin_compartir_hueco():
@@ -520,7 +525,8 @@ def test_r13_el_lcd_convive_con_las_partes_libres_sin_pisar_su_posicion():
     parts = {p["ref"]: p for p in fixture_to_model_call(fixture)["parts"]}
     for ref in ("lcd1", "motor1", "bat1"):
         assert "at" not in parts[ref] and "pin" not in parts[ref]
-    assert parts["lcd1"]["free"] == LCD_FREE_ABOVE["free"]
+    assert parts["lcd1"]["free"] == {"x": 870, "y": -230}
+    assert parts["lcd1"]["angle"] == 0
 
 
 def test_r13_model_call_del_lcd_es_por_terminal_y_los_huecos_son_validos():
@@ -530,7 +536,8 @@ def test_r13_model_call_del_lcd_es_por_terminal_y_los_huecos_son_validos():
     # El LCD no trae hueco ni ancla: se coloca por coordenadas.
     assert "at" not in parts["lcd1"]
     assert "pin" not in parts["lcd1"]
-    assert parts["lcd1"]["free"] == {"x": 870, "y": -230, "angle": 0}
+    assert parts["lcd1"]["free"] == {"x": 870, "y": -230}
+    assert parts["lcd1"]["angle"] == 0
 
     holes = set()
     lcd_terminals = set()

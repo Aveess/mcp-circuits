@@ -400,7 +400,8 @@ def test_r14_parts_del_termometro_lcd_libre_y_pines_reales():
     assert parts["lcd1"] == {
         "ref": "lcd1",
         "did": 113878,
-        "free": {"x": 870, "y": -230, "angle": 0},
+        "free": {"x": 870, "y": -230},
+        "angle": 0,
     }
     assert "at" not in parts["lcd1"] and "pin" not in parts["lcd1"]
     # El TMP36 sigue en la placa con su ancla real "Vcc" en la fila c.
@@ -454,12 +455,14 @@ def test_r14_cada_cable_al_tmp36_y_a_la_resistencia_va_por_hueco():
     vcc, vout, gnd = anchor, _shift(anchor, 1), _shift(anchor, 2)
     pairs = _pairs(call)
     assert (vcc, vout) not in pairs and (vcc, gnd) not in pairs  # no inventa uniones
-    # 5V -> VDD del LCD -> pata 1 de la resistencia (1g) -> vcc del TMP36.
-    assert ("lcd1.VDD", "1g") in pairs
-    assert ("1g", vcc) in pairs
+    # Contrato fase 22: las nets de 3+ extremos cuelgan en estrella del hub
+    # (uno.5V / uno.GND1), no en cadena. Por eso cada pata va directo al Uno.
+    assert ("uno.5V", "lcd1.VDD") in pairs
+    assert ("uno.5V", "1g") in pairs
+    assert ("uno.5V", vcc) in pairs
     # vout a la analogica, gnd a la tierra comun.
     assert (vout, "uno.A0") in pairs
-    assert (gnd, "uno.GND1") in pairs
+    assert ("uno.GND1", gnd) in pairs
     # Backlight por la resistencia: LED+ a la pata 2 (5g).
     assert ("5g", "lcd1.LED+") in pairs
     # Y todos los huecos usados estan dentro de la placa.
@@ -483,7 +486,7 @@ def test_r14_el_model_call_del_lcd_no_inventa_ni_pierde_cables():
     # El cable que cierra la tierra al Uno va negro; el de 5V, rojo.
     colors = {(w["from"], w["to"]): w["color"] for w in call["wires"]}
     assert colors[("uno.5V", "lcd1.VDD")] == "red"
-    assert colors[("9c", "uno.GND1")] == "black"
+    assert colors[("uno.GND1", "9c")] == "black"
     # Todos los parts de la fixture estan, una sola vez, menos el Uno.
     refs = [p["ref"] for p in call["parts"]]
     assert sorted(refs) == ["lcd1", "r1", "tmp1"]
@@ -834,7 +837,7 @@ def test_r14_un_lcd_solo_no_rompe_el_layout_ni_el_model_call():
     call = fixture_to_model_call(alone)
     assert call["parts"] == [
         {"ref": "lcd1", "did": 113878,
-         "free": {"x": 870, "y": -230, "angle": 0}}
+         "free": {"x": 870, "y": -230}, "angle": 0}
     ]
     assert call["wires"] == []
     assert call["code"] is None
@@ -843,10 +846,12 @@ def test_r14_un_lcd_solo_no_rompe_el_layout_ni_el_model_call():
     assert fixture_to_model_call(dict(alone, nets=[]))["wires"] == []
     internal = dict(alone, nets=[["lcd1.GND", "lcd1.VO", "lcd1.RW"]])
     internal_call = fixture_to_model_call(internal)
+    # Una net interna de 3 terminales del display: estrella desde el primero.
     assert _pairs(internal_call) == [
-        ("lcd1.GND", "lcd1.VO"), ("lcd1.VO", "lcd1.RW"),
+        ("lcd1.GND", "lcd1.VO"), ("lcd1.GND", "lcd1.RW"),
     ]
-    assert internal_call["parts"][0]["free"] == LCD_FREE_ABOVE["free"]
+    assert internal_call["parts"][0]["free"] == {"x": 870, "y": -230}
+    assert internal_call["parts"][0]["angle"] == 0
 
 
 # -------------------------------------------- hallazgo LOW de la ronda

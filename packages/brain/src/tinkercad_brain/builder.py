@@ -438,9 +438,15 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
         if "free" in placement:
             # Modulos libres (motor DC, bateria 9V, LCD 16x2): sin hueco,
             # sin `pin` de ancla; el puente los coloca por coordenadas.
-            parts.append(
-                {"ref": ref, "did": did, "free": dict(placement["free"])}
-            )
+            # El puente lee la rotacion de `part.angle` (no de `free`), y
+            # `spec.validate_spec` exige `free` == {x, y}: el angulo del
+            # placement sale a nivel de part.
+            free = dict(placement["free"])
+            angle = free.pop("angle", None)
+            part = {"ref": ref, "did": did, "free": free}
+            if angle is not None:
+                part["angle"] = angle
+            parts.append(part)
             continue
         part_pin = placement["pin"]
         real_by_fixture = None

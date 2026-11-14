@@ -892,6 +892,8 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
 # placa, sin huecos. Los cables terminan en sus 16 terminales reales.
 # Verificado en vivo (circuito ib98EAPoqPP, modo 4 bits).
 _LCD_FREE = {"x": 870, "y": -230, "angle": 0}
+# El puente lee el angulo del part y el validador exige free == {x, y}.
+_LCD_PART = {"x": 870, "y": -230}
 # Rama de compatibilidad: LCD montado en la placa, ancla "GND" en <c>j y
 # el resto a +1..+15 columnas, angle 0.
 _LCD_ANCHOR = "1j"
@@ -962,7 +964,7 @@ def test_lcd_contador_free_module_parts_and_terminal_wires(monkeypatch):
     parts = {p["ref"]: p for p in result["parts"]}
     # Libre: coordenadas, sin pin de ancla ni hueco.
     assert parts["lcd1"] == {
-        "ref": "lcd1", "did": 113878, "free": _LCD_FREE,
+        "ref": "lcd1", "did": 113878, "free": _LCD_PART, "angle": 0,
     }
     assert "pin" not in parts["lcd1"]
     assert "at" not in parts["lcd1"]
@@ -1019,7 +1021,7 @@ def test_lcd_temperatura_free_lcd_keeps_tmp36_holes(monkeypatch):
 
     parts = {p["ref"]: p for p in result["parts"]}
     assert parts["lcd1"] == {
-        "ref": "lcd1", "did": 113878, "free": _LCD_FREE,
+        "ref": "lcd1", "did": 113878, "free": _LCD_PART, "angle": 0,
     }
     assert parts["tmp1"] == {
         "ref": "tmp1", "did": 112324, "at": tmp_at,
