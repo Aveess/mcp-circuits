@@ -11,6 +11,7 @@ TYPE_MAP: dict[str, str] = {
     "Ultrasonic Distance Sensor (4 Pin)": "ultrasonic-hcsr04",  # Verificado: nombre real ezhil en circuito 0W49xkaR18y (inspect_circuit).
     "Piezo": "buzzer",
     "Photoresistor": "photoresistor",
+    "Photoresistor (LDR)": "photoresistor",  # Verificado: type real ezhil en circuito cZcqbZ3eNlA (inspect_circuit).
     "DC Motor": "dc-motor",  # Supuesto: nombre visible del catálogo Tinkercad; ezhil exacto no verificado.
     "Motor DC": "dc-motor",  # Supuesto: variante con orden inverso; ezhil exacto no verificado.
     "NPN Transistor": "transistor-npn",  # Verificado: type con pines collector/base/emitter; colocación en vivo OK (did 58468).

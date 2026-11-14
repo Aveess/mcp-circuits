@@ -768,9 +768,102 @@ def test_build_circuit_non_json_model_output_stays_text():
     assert result["model_result"] == "plain-output"
 
 
+def _force_buzzer_ldr_placements(monkeypatch):
+    """Inyecta los placements de piezo/LDR si el layout aun no los emite.
+
+    Geometria verificada en vivo (cZcqbZ3eNlA): piezo con ancla "+" y
+    "-" a +5 columnas; LDR con ancla "terminal-1" y "terminal-2" a +1.
+    Se fuerza para que el test no dependa de las columnas del layout.
+    """
+    real_plan_layout = builder_module.plan_layout
+
+    def patched(fixture):
+        layout = real_plan_layout(fixture)
+        placements = dict(layout["placements"])
+        type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+        unplaced = []
+        for ref in layout["unplaced"]:
+            ctype = type_by_ref.get(ref)
+            if ctype == "buzzer":
+                placements[ref] = {"at": "20c", "pin": "positive", "angle": 0}
+            elif ctype == "photoresistor":
+                placements[ref] = {"at": "20c", "pin": "1", "angle": 0}
+            else:
+                unplaced.append(ref)
+        return {"placements": placements, "unplaced": unplaced}
+
+    monkeypatch.setattr(builder_module, "plan_layout", patched)
+
+
+def test_buzzer_activo_real_fixture_parts_and_wires(monkeypatch):
+    fixture = _fixture("buzzer-activo")
+    _force_buzzer_ldr_placements(monkeypatch)
+    placement = builder_module.plan_layout(fixture)["placements"]["buzzer1"]
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["buzzer1"] == {
+        "ref": "buzzer1",
+        "did": 114067,
+        "at": placement["at"],
+        "pin": "+",
+        "angle": placement["angle"],
+    }
+    assert parts_by_ref["btn1"]["did"] == 144786
+
+    anchor = placement["at"]
+    negative = _shift(anchor, 5)
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    assert ("uno.D8", anchor) in pairs  # senal al terminal "+"
+    assert (negative, "uno.GND1") in pairs  # "-" a 5 columnas a GND
+    by_pair = {(w["from"], w["to"]): w["color"] for w in result["wires"]}
+    assert by_pair[(negative, "uno.GND1")] == "black"
+    assert by_pair[("uno.D8", anchor)] not in ("red", "black")
+
+
+def test_ldr_divisor_real_fixture_offsets(monkeypatch):
+    fixture = _fixture("ldr-divisor")
+    _force_buzzer_ldr_placements(monkeypatch)
+    placements = builder_module.plan_layout(fixture)["placements"]
+    anchor = placements["ldr1"]["at"]
+
+    result = fixture_to_model_call(fixture)
+
+    parts_by_ref = {p["ref"]: p for p in result["parts"]}
+    assert parts_by_ref["ldr1"] == {
+        "ref": "ldr1",
+        "did": 116691,
+        "at": anchor,
+        "pin": "terminal-1",
+        "angle": placements["ldr1"]["angle"],
+    }
+    second = _shift(anchor, 1)
+    pairs = {(w["from"], w["to"]) for w in result["wires"]}
+    # Pin "2" del LDR traduce al hueco del ancla +1 columna.
+    assert ("uno.5V", anchor) in pairs
+    assert (second, "uno.A0") in pairs
+    assert ("uno.A0", placements["r1"]["at"]) in pairs
+
+
+def test_buzzer_and_ldr_unknown_pins_raise_build_error(monkeypatch):
+    _force_buzzer_ldr_placements(monkeypatch)
+
+    buzzer = _fixture("buzzer-activo")
+    buzzer["nets"] = [["buzzer1.piezo", "uno.GND1"]]
+    with pytest.raises(BuildError) as excinfo:
+        fixture_to_model_call(buzzer)
+    assert "buzzer1.piezo" in str(excinfo.value)
+
+    ldr = _fixture("ldr-divisor")
+    ldr["nets"] = [["ldr1.3", "uno.GND1"]]
+    with pytest.raises(BuildError) as excinfo:
+        fixture_to_model_call(ldr)
+    assert "ldr1.3" in str(excinfo.value)
+
+
 def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
     calls = []
-
     def fake_call_tool(tool, arguments):
         calls.append(tool)
         return "{}"

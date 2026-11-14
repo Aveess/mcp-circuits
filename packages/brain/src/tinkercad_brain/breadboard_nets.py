@@ -26,6 +26,9 @@ from tinkercad_brain.fase0.component_map import fixture_type
 _REF_PREFIX = {
     "led": "led",
     "resistor": "r",
+    # Halado por las fixtures (ldr1) y por normalize; sin esto saldria
+    # "photoresistor1".
+    "photoresistor": "ldr",
 }
 
 _PIN_ALIASES = {
@@ -112,6 +115,20 @@ _PIN_ALIASES_BY_TYPE = {
         "Trigger": "trig",
         "Echo": "echo",
         "Ground": "gnd",
+    },
+    # Acotado a buzzer: en vivo el Piezo reporta los terminales "+"/"-"
+    # (circuito cZcqbZ3eNlA); la fixture usa positive/negative.
+    "buzzer": {
+        "+": "positive",
+        "-": "negative",
+    },
+    # Acotado a photoresistor: el LDR real ("Photoresistor (LDR)") reporta
+    # "terminal-1"/"terminal-2"; la fixture usa 1/2.
+    "photoresistor": {
+        "terminal-1": "1",
+        "terminal-2": "2",
+        "Terminal 1": "1",
+        "Terminal 2": "2",
     },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo

@@ -131,3 +131,14 @@ def test_known_slugs_consistent_with_real_fixtures():
     # Todo slug del mapa presente en fixtures es un type real de fixtures o breadboard.
     for slug in slugs & fixture_types:
         assert slug in fixture_types or slug == "breadboard"
+
+
+def test_piezo_and_ldr_real_ezhil_names_resolve():
+    # Nombres reales ezhil verificados en vivo (circuito cZcqbZ3eNlA).
+    assert fixture_type("Piezo") == "buzzer"
+    assert fixture_type("Photoresistor (LDR)") == "photoresistor"
+    assert fixture_type("Photoresistor") == "photoresistor"
+    assert fixture_type("  photoresistor   (ldr) ") == "photoresistor"
+    assert "buzzer" in known_slugs()
+    assert "photoresistor" in known_slugs()
+    assert known_slugs().count("photoresistor") == 1
