@@ -174,3 +174,33 @@ def test_ruteo_con_cruce_nombra_el_cable_y_la_placa():
     )
     assert "## Ruteo" in doc
     assert "- uno.GND1 -> buzzer1.-: tramo horizontal en y=106 sobre la placa en x=870" in doc
+
+
+def test_un_build_que_no_se_aplico_lo_dice_arriba():
+    """El reporte de buzzer-activo decia '0 de 4 cables medidos' como si midiera.
+
+    Cuando el build falla, el circuito que queda en el editor es el anterior:
+    la fidelidad y el serial son de ese, y el ruteo no midio nada. Sin esta
+    linea el reporte se lee como un circuito sano con ruteo vacio.
+    """
+    doc = render_build_report(
+        "Build no aplicado", "https://example/c11", {"score": 1.0}, "ok", [],
+        route_violations=[], routes={"routed": 0, "measured": 0, "total": 4},
+        diagonal_violations=[], board_hop_diagonals=[], build_ok=False,
+    )
+    assert "**no se aplicó**" in doc
+    assert "circuito que ya estaba en el editor" in doc
+
+
+def test_un_build_ok_no_agrega_la_advertencia():
+    doc = render_build_report(
+        "Build aplicado", "https://example/c12", {"score": 1.0}, "ok", [],
+        route_violations=[], routes={"routed": 4, "measured": 4, "total": 4},
+        diagonal_violations=[], board_hop_diagonals=[], build_ok=True,
+    )
+    assert "no se aplicó" not in doc
+
+
+def test_sin_el_dato_de_build_no_inventa_la_advertencia():
+    doc = render_build_report("Build viejo", "https://example/c13", {"score": 1.0}, "ok", [])
+    assert "no se aplicó" not in doc

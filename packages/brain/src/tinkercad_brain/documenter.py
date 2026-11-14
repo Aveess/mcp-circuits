@@ -19,6 +19,7 @@ def render_build_report(
     routes: dict | None = None,
     diagonal_violations: list[dict] | None = None,
     board_hop_diagonals: list[dict] | None = None,
+    build_ok: bool | None = None,
 ) -> str:
     report = build_report(records)
 
@@ -44,6 +45,14 @@ def render_build_report(
     ]
     if detail_parts:
         lines.append("- " + " / ".join(detail_parts))
+    if build_ok is False:
+        # Un build que no se aplico deja el circuito anterior en el editor: la
+        # fidelidad y el serial son de ese circuito, y el ruteo no midio nada
+        # aunque diga "0 de 4 cables". Decirlo evita leer un reporte mentiroso.
+        lines.append(
+            "- Build: **no se aplicó** (ver Fallos); lo que sigue mide el "
+            "circuito que ya estaba en el editor, no uno nuevo."
+        )
     lines.append(f"- Simulación: {sim_summary}")
     lines.append("")
     if route_violations is not None:

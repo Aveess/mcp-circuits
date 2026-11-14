@@ -145,9 +145,14 @@ y es lo que se usa masivamente para verificar.
 
 ## Pendientes conocidos
 
-- El contraste del LCD va con `VO` a GND: el potenciómetro en su posición por
-  defecto deja la pantalla en blanco en el simulador (y su cuerpo tapa el
-  display). Falta poder fijar el wiper por propiedad para usar pot real.
+- El contraste del LCD va con `VO` a GND, y **ya no es una deuda sino una
+  decisión medida**: el potenciómetro no se puede preajustar. Sonda en vivo
+  sobre un circuito desechable: el pot expone `setProperty` y
+  `getPropertyValue('resistance')` = 250000, pero `wiper`, `value`,
+  `position`, `rotation` y `knob` devuelven `null` — la posición del knob es
+  estado de simulación, no propiedad del modelo. Con el wiper al 50% el
+  divisor deja `VO` a 2,5 V y la pantalla se ve en blanco. Un pot que no se
+  puede ajustar es peor que un cable: entra, ocupa placa y no muestra nada.
 - El 7 segmentos directo no entra: 7 resistencias son 42 columnas para una
   placa de 30. Se resuelve con el 74HC595 (circuito 17) o con el banco en
   una segunda protoboard (circuito 28).

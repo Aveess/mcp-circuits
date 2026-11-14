@@ -274,6 +274,7 @@ def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DI
         routes=result.get("routes"),
         diagonal_violations=result.get("diagonal_violations"),
         board_hop_diagonals=result.get("board_hop_diagonals"),
+        build_ok=(result.get("checks") or {}).get("build_ok"),
     )
     # La misma documentacion que viaja dentro del circuito, para poder
     # leerla desde el repo sin abrir Tinkercad.
