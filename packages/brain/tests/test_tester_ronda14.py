@@ -791,9 +791,9 @@ def test_r14_el_benchmark_lista_los_circuitos_y_los_del_lcd():
         r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([A-Za-z0-9]+)\s*\|", text, re.M
     )
     numbers = [int(number) for number, _title, _cid in rows]
-    # La fase 29 agrega la fila 22 (carrusel 4017).
-    assert len(rows) == 22, (len(rows), numbers)
-    assert numbers == list(range(1, 23))
+    # La fase 30 agrega la fila 23 (faro con rele).
+    assert len(rows) == 23, (len(rows), numbers)
+    assert numbers == list(range(1, 24))
 
     ids = {cid: title for _number, title, cid in rows}
     assert "cpySiVSE9vr" in ids and "LCD" in ids["cpySiVSE9vr"]

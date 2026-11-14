@@ -267,6 +267,11 @@ FREE_SHIFT_REGISTER_Y = -230
 # En fila, el router reparte cada chip por el bus superior con una bajada
 # corta. 200 de paso deja aire entre cuerpos de 7 columnas.
 FREE_SHIFT_REGISTER_STEP_X = 200
+# Actuadores que tampoco se montan en la placa: el rele SPDT tiene dos
+# filas de terminales y la bombilla (Light bulb) se para con el vidrio
+# encima de la protoboard, tapando filas. Van en la misma fila de las
+# partes libres, continuando despues de los integrados.
+FREE_PERIPHERAL_TYPES = ("relay-spdt", "light-bulb")
 
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
@@ -369,6 +374,20 @@ def plan_layout(fixture: dict) -> dict:
     shift_count = 0
     for component in components:
         if component["type"] not in IC_STACK_TYPES:
+            continue
+        placements[component["ref"]] = {
+            "free": {
+                "x": FREE_SHIFT_REGISTER_X + shift_count * FREE_SHIFT_REGISTER_STEP_X,
+                "y": FREE_SHIFT_REGISTER_Y,
+                "angle": 0,
+            }
+        }
+        shift_count += 1
+
+    # Rele y bombilla continuan la fila: si hay integrados, arrancan despues
+    # del ultimo para que los cuerpos no se toquen.
+    for component in components:
+        if component["type"] not in FREE_PERIPHERAL_TYPES:
             continue
         placements[component["ref"]] = {
             "free": {

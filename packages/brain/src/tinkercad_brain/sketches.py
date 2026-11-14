@@ -1278,3 +1278,80 @@ def decade_counter_sketch(
             "",
         ]
     )
+
+
+def faro_ldr_relay_sketch(
+    ldr_pin: str = "A0",
+    coil_pin: int = 2,
+    sense_pin: str = "A1",
+    threshold: int = 300,
+    step_ms: int = 300,
+    cycles: int = 4,
+) -> str:
+    """Faro automatico: LDR decide, rele SPDT conmuta la bombilla.
+
+    El LDR va en divisor (5V -> LDR -> A0 -> R -> GND), asi que a oscuras la
+    lectura baja. El Uno no puede mover la bobina del rele: la maneja con un
+    NPN (base por resistencia 1k, emisor a GND, colector a COIL2) y un diodo
+    de recirculacion entre COIL1 y COIL2. El contacto COM1-R1 es el normal
+    abierto: al energizar la bobina cierra y alimenta la bombilla.
+
+    ``A1`` se cablea al nodo del contacto para tener oraculo: si el contacto
+    cierra, A1 ve 5 V; si abre, la bombilla lo baja a GND. Al final se apaga
+    la bobina y se vuelve a leer, de modo que el serial demuestra las dos
+    posiciones del contacto y no solo la de encendido.
+    """
+    _validate_analog_pin("ldr_pin", ldr_pin)
+    _validate_analog_pin("sense_pin", sense_pin)
+    _validate_pin(coil_pin)
+    _validate_ldr_threshold(threshold)
+    _validate_ms("step_ms", step_ms)
+    if sense_pin == ldr_pin:
+        raise ValueError(f"sense_pin y ldr_pin no pueden ser el mismo: {ldr_pin!r}")
+    if not isinstance(cycles, int) or isinstance(cycles, bool) or not 1 <= cycles <= 10:
+        raise ValueError(f"cycles debe ser un entero 1..10: {cycles!r}")
+    if step_ms < 30:
+        raise ValueError(f"step_ms debe ser >= 30: {step_ms!r}")
+
+    return "\n".join(
+        [
+            "// Faro: LDR en divisor -> A0. Rele por NPN desde D2 (base 1k).",
+            "// COM1-R1 es el contacto NA; A1 lee el nodo para confirmarlo.",
+            f"const byte COIL = {coil_pin};",
+            "",
+            "byte foco() {",
+            f"  return analogRead({sense_pin}) > 700 ? 1 : 0;",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(COIL, OUTPUT);",
+            "  digitalWrite(COIL, LOW);",
+            "  Serial.begin(9600);",
+            "  delay(100);",
+            '  Serial.println("TEST:FARO=LISTO");',
+            "}",
+            "",
+            "void loop() {",
+            f"  for (byte i = 0; i < {cycles}; i++) {{",
+            f"    int luz = analogRead({ldr_pin});",
+            f"    if (luz < {threshold}) digitalWrite(COIL, HIGH);",
+            "    else digitalWrite(COIL, LOW);",
+            f"    delay({step_ms});",
+            '    Serial.print("TEST:LUZ=");',
+            "    Serial.println(luz);",
+            '    Serial.print("TEST:RELE=");',
+            "    Serial.println(digitalRead(COIL) ? \"ON\" : \"OFF\");",
+            '    Serial.print("TEST:FOCO=");',
+            "    Serial.println(foco());",
+            "  }",
+            "  digitalWrite(COIL, LOW);",
+            f"  delay({step_ms});",
+            '  Serial.println("TEST:RELE=OFF");',
+            '  Serial.print("TEST:FOCO=");',
+            "  Serial.println(foco());",
+            '  Serial.println("TEST:FARO=FIN");',
+            "  while (true) { delay(1000); }",
+            "}",
+            "",
+        ]
+    )

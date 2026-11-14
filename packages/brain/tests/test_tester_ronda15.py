@@ -102,6 +102,8 @@ RAW_TYPE = {
     "capacitor": "Capacitor",
     "binary-counter": "4-Bit Binary Counter [74HC93]",
     "decade-counter": "Johnson Decade Counter [74HC4017]",
+    "relay-spdt": "Relay SPDT",
+    "light-bulb": "Light bulb",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -197,6 +199,14 @@ INSPECT_PIN = {
         "CP0": "Clock", "CP1n": "Clock Enable", "MR": "Reset",
         **{f"Q{i}": f"Output {i + 1}" for i in range(10)},
     },
+    # El guardado del rele usa la numeracion fisica Terminal 1..12
+    # (medido cableando cada pin una sola vez en bDUH17ymla2).
+    "relay-spdt": {
+        "COIL1": "Terminal 8", "COIL2": "Terminal 5",
+        "COM1": "Terminal 12", "R1": "Terminal 6",
+        "COM2": "Terminal 1", "R2": "Terminal 7",
+    },
+    "light-bulb": {"1": "Terminal 1", "2": "Terminal 2"},
 }
 
 POWER_ENDPOINTS = {"uno.5V", "uno.3V3", "uno.VIN"}
@@ -821,9 +831,9 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
     text = BENCHMARK_PATH.read_text(encoding="utf-8")
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
-    # La fase 29 agrega la fila 22 (carrusel 4017).
-    assert len(rows) == 22, rows
-    assert [int(number) for number in rows] == list(range(1, 23))
+    # La fase 30 agrega la fila 23 (faro con rele).
+    assert len(rows) == 23, rows
+    assert [int(number) for number in rows] == list(range(1, 24))
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

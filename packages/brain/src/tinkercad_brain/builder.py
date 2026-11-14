@@ -63,6 +63,10 @@ DID_BY_TYPE: dict[str, int] = {
     "binary-counter": 116728,
     # 74HC4017 (Johnson Decade Counter) verificado en vivo: did 129343.
     "decade-counter": 129343,
+    # Relay SPDT verificado en vivo: did 122167.
+    "relay-spdt": 122167,
+    # Bombilla (Light bulb) verificada en vivo: did 116693.
+    "light-bulb": 116693,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -241,13 +245,30 @@ _BINARY_COUNTER_REAL_PINS: dict[str, str] = {
 }
 # 74HC4017 (16 pines): contador Johnson de 10 salidas one-hot. CP0 sube,
 # CP1n habilita en bajo y MR resetea en alto. Q5-9n es el acarreo.
+# Relay SPDT: dos polos con contacto propio. COIL1/COIL2 excitan la bobina;
+# COM1-R1 es el contacto normalmente abierto y COM2-R2 el normalmente
+# cerrado (medido en vivo en bDUH17ymla2: con la bobina en alto enciende
+# la bombilla del polo 1, con la bobina en bajo la del polo 2).
+_RELAY_REAL_PINS: dict[str, str] = {
+    "COIL1": "COIL1", "COIL2": "COIL2",
+    "COM1": "COM1", "R1": "R1",
+    "COM2": "COM2", "R2": "R2",
+}
+# Bombilla: dos terminales sin polaridad, se cablea directo.
+_LIGHT_BULB_REAL_PINS: dict[str, str] = {"1": "1", "2": "2"}
+
 _DECADE_COUNTER_REAL_PINS: dict[str, str] = {
     "CP0": "CP0", "CP1n": "CP1n", "MR": "MR",
     "Q0": "Q0", "Q1": "Q1", "Q2": "Q2", "Q3": "Q3", "Q4": "Q4",
     "Q5": "Q5", "Q6": "Q6", "Q7": "Q7", "Q8": "Q8", "Q9": "Q9",
     "Q5-9n": "Q5-9n", "Vcc": "Vcc", "GND": "GND",
 }
-_FREE_LOGIC_PINS: dict[str, dict[str, str]] = {
+# Pines de las partes que van libres y se cablean a su terminal real (sin
+# geometria de huecos). Incluye integrados logicos y actuadores que no se
+# montan en la placa.
+_FREE_PART_PINS: dict[str, dict[str, str]] = {
+    "relay-spdt": _RELAY_REAL_PINS,
+    "light-bulb": _LIGHT_BULB_REAL_PINS,
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
@@ -401,7 +422,7 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
             )
         return f"{ref}.{terminal}"
-    logic_pins = _FREE_LOGIC_PINS.get(ctype)
+    logic_pins = _FREE_PART_PINS.get(ctype)
     if logic_pins is not None and "free" in placement:
         terminal = logic_pins.get(pin)
         if terminal is None:

@@ -99,6 +99,10 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "binary-counter": frozenset(
         {"CP0", "CP1", "MR1", "MR2", "Q0", "Q1", "Q2", "Q3", "Vcc", "GND"}
     ),
+    # Relay SPDT (did 122167): dos polos; COM1-R1 abierto, COM2-R2 cerrado.
+    "relay-spdt": frozenset({"COIL1", "COIL2", "COM1", "R1", "COM2", "R2"}),
+    # Bombilla (did 116693): dos terminales sin polaridad.
+    "light-bulb": frozenset({"1", "2"}),
     # 74HC4017 (did 129343): contador Johnson de 10 salidas. Q5-9n es el
     # acarreo; CP1n habilita en bajo y MR resetea en alto.
     "decade-counter": frozenset(

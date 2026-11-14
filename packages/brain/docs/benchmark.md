@@ -31,6 +31,7 @@ píxel del LED.
 | 20 | Temporizador 555 en astable (reloj de ~14 Hz) | abIk7XRpSR4 | 100% | `TEST:555=ALTO,73173` + `BAJO,427` + `FREQ,13.6` + `TEST:555=OK` |
 | 21 | Contador binario 4 bits 74HC93 con LEDs | fCB0eO8cBbn | 100% | `TEST:CONTADOR=1..15,0` + `FIN` (secuencia de 16 pulsos) |
 | 22 | Carrusel de 4 LEDs con 74HC4017 | ij6ypc8wB5x | 100% | `TEST:4017=1,2,3,0` ciclando + `LISTO` (Q4 -> MR hace la vuelta en 4 pasos) |
+| 23 | Faro automatico con rele SPDT, NPN y LDR | aF67dwSGoqC | 100% | `TEST:LUZ=6` + `TEST:RELE=ON` + `TEST:FOCO=1` y tras apagar `RELE=OFF` + `FOCO=0` |
 
 ## Qué agrega cada nivel
 
@@ -56,6 +57,11 @@ píxel del LED.
   en fila sobre la placa (`x=560+200*i`, `y=-230`): apilados en la misma `x`
   el mazo de cables sube en columna. La vuelta en anillo del 4017 es
   hardware puro (Q4 -> MR), el Uno solo relojea y lee.
+- **Nivel 7 (23):** conmutacion de carga. El rele SPDT lo mueve un NPN con
+  resistencia de base y diodo de recirculacion (un pin del Uno no puede con
+  la bobina), el contacto COM1-R1 alimenta una bombilla y A1 lee el nodo del
+  contacto: asi el serial demuestra las dos posiciones y no solo el
+  encendido. Rele y bombilla van libres en la fila de partes libres.
 - **Cableado:** las nets de 3+ extremos se emparejan en estrella desde el pin
   del Uno, no en cadena. Un cable hueco-hueco lo dibuja recto el simulador y
   cruzaba en diagonal por encima de los cuerpos; colgado del mismo extremo el

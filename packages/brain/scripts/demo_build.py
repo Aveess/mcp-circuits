@@ -76,6 +76,7 @@ _SKETCH_BY_FIXTURE = {
     "temporizador-555": "astable_555_sketch",
     "contador-binario": "binary_counter_sketch",
     "carrusel-4017": "decade_counter_sketch",
+    "faro-rele-ldr": "faro_ldr_relay_sketch",
 }
 
 

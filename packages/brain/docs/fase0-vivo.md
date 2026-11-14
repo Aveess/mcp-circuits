@@ -467,3 +467,37 @@ Lección: un contador con reset por realimentación de la última salida
 necesita saber cuántas salidas hay, sólo leer las que usa. Y las
 etiquetas del 4017 están numeradas 1..10, no 0..9: un alias corrido un
 paso convierte el anillo de 4 en uno de 3 o 5.
+
+## Fase 30: faro automático con relé SPDT y LDR (2026-11-14)
+
+Primer circuito que conmuta una carga: el LDR decide, un NPN mueve la
+bobina del relé y el contacto alimenta una bombilla.
+
+- Circuito: `faro-rele-ldr` (`aF67dwSGoqC`), 100% de fidelidad.
+- El pin del Uno **no** puede con la bobina: el driver es NPN con
+  resistencia de 1k en la base, emisor a GND y diodo de recirculación
+  entre `COIL1` y `COIL2`.
+- Contactos medidos en vivo (`bDUH17ymla2`): `COM1-R1` está **abierto**
+  en reposo y cierra al energizar; `COM2-R2` está **cerrado** en reposo
+  y abre al energizar. El faro usa el polo NA.
+- Oráculo de 16 líneas: `TEST:FARO=LISTO`, cuatro veces
+  `TEST:LUZ=6` / `TEST:RELE=ON` / `TEST:FOCO=1`, luego `TEST:RELE=OFF` /
+  `TEST:FOCO=0` y `TEST:FARO=FIN`. El `FOCO` no es una suposición: `A1`
+  está cableado al nodo del contacto, así que 1 significa que el
+  contacto cerró y 0 que abrió. Esa es la forma de tener oráculo serial
+  de un actuador que no habla.
+- Verificación visual: bombilla encendida (glow amarillo) en t=1 s.
+- Alias del guardado: el relé usa la numeración física `Terminal 1..12`
+  (COIL1=8, COIL2=5, COM1=12, R1=6, COM2=1, R2=7) y la bombilla
+  `Terminal 1/2`. Sin alias la conectividad se cae a 0.
+- Rele y bombilla van libres en la fila de partes libres (`x=560`,
+  `x=760`, `y=-230`): el relé tiene dos filas de terminales y el vidrio
+  de la bombilla taparía la placa.
+
+Pendiente que se ve en la captura: las nets de 5V y GND con tres o más
+extremos cruzan el lienzo de lado a lado. Un humano usaría los rieles de
+la protoboard.
+
+Lección: un actuador sin salida propia necesita un nodo sensado (aquí
+`A1` en el contacto) para que el serial pueda afirmar algo; el brillo
+del píxel no es oráculo.

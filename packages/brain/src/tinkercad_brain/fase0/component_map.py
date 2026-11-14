@@ -42,6 +42,8 @@ TYPE_MAP: dict[str, str] = {
     "4-Bit Binary Counter [74HC93]": "binary-counter",  # Verificado en vivo (did 116728, CP0/CP1/MR1/MR2/Q0..Q3).
     "Binary Counter": "binary-counter",  # Alias del buscador (add_component acepta "Binary Counter").
     "Johnson Decade Counter [74HC4017]": "decade-counter",  # Verificado en vivo (did 129343, Q0..Q9, CP0, CP1n, MR).
+    "Relay SPDT": "relay-spdt",  # Verificado en vivo (did 122167, 2 polos: COM1/R1 y COM2/R2).
+    "Light bulb": "light-bulb",  # Verificado en vivo (did 116693, dos terminales).
     "Decade Counter": "decade-counter",  # Alias del buscador.
 }
 

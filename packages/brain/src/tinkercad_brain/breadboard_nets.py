@@ -259,6 +259,20 @@ _PIN_ALIASES_BY_TYPE = {
         "Output Bit 2": "Q2",
         "Output Bit 3": "Q3",
     },
+    # Relay SPDT (descubierto en vivo en bDUH17ymla2): inspect devuelve
+    # COIL1/COIL2/COM1/COM2/R1/R2 pero el guardado usa "Terminal 1..12"
+    # (numeracion fisica del componente: hay terminales de anclaje sin pin
+    # logico). Medido cableando cada pin una sola vez.
+    "relay-spdt": {
+        "Terminal 8": "COIL1",
+        "Terminal 5": "COIL2",
+        "Terminal 12": "COM1",
+        "Terminal 6": "R1",
+        "Terminal 1": "COM2",
+        "Terminal 7": "R2",
+    },
+    # Bombilla: dos terminales, el guardado los numera.
+    "light-bulb": {"Terminal 1": "1", "Terminal 2": "2"},
     # 74HC4017 (descubierto en vivo en ij6ypc8wB5x): inspect devuelve
     # Q0..Q9/CP0/CP1n/MR, pero el guardado usa "Output 1".."Output 10"
     # (Q0 -> Output 1, Q4 -> Output 5), "Clock", "Clock Enable" y "Reset".
