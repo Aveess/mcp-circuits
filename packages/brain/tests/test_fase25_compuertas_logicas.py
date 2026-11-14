@@ -3,8 +3,8 @@
 Contrato de la fase:
 
 - el XOR da la SUMA y dos NAND en cascada dan el ACARREO (NAND + NOT);
-- las tres compuertas van libres en el apilado de integrados (x=560) y se
-  cablean a sus terminales reales, sin geometria de huecos;
+- las tres compuertas van libres en una fila sobre la placa (y=-230, de
+  200 en 200) y se cablean a sus terminales reales, sin geometria de huecos;
 - el Uno maneja A y B y LEE suma/acarreo, que tambien encienden un LED con
   su resistencia;
 - el oraculo serial imprime la tabla completa (a,b,suma,acarreo);
@@ -43,12 +43,14 @@ def test_la_fixture_tiene_xor_dos_nand_y_dos_leds_con_resistencia():
     assert tipos.count("resistor") == 2
 
 
-def test_las_tres_compuertas_van_libres_y_apiladas_de_200_en_200():
+def test_las_tres_compuertas_van_libres_en_una_fila_de_200_en_200():
     placements = plan_layout(_fixture())["placements"]
 
     assert placements["xor1"]["free"] == {"x": 560, "y": -230, "angle": 0}
-    assert placements["nand1"]["free"] == {"x": 560, "y": -430, "angle": 0}
-    assert placements["nand2"]["free"] == {"x": 560, "y": -630, "angle": 0}
+    assert placements["nand1"]["free"] == {"x": 760, "y": -230, "angle": 0}
+    assert placements["nand2"]["free"] == {"x": 960, "y": -230, "angle": 0}
+    # Fila horizontal: mismo y, x creciente en el orden de la fixture.
+    assert {p["free"]["y"] for p in placements.values() if "free" in p} == {-230}
     # Ninguna compuerta ocupa columnas de la placa.
     assert all("at" not in placements[ref] for ref in ("xor1", "nand1", "nand2"))
 

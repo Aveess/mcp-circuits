@@ -124,7 +124,10 @@ def _wire(ct, cid, pin, tt, tid, tpin):
 # --------------------------------------------------------------------------
 
 
-def test_r17_dos_595_apilan_el_segundo_200px_arriba():
+def test_r17_dos_595_van_en_fila_a_200px():
+    # Ronda 17 fijaba un apilado vertical; con dos o mas integrados la torre
+    # dejaba el mazo de cables en una columna y el lienzo torcido. Ahora van
+    # en fila horizontal sobre la placa (mismo y, 200 px de paso).
     fixture = {
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -137,11 +140,11 @@ def test_r17_dos_595_apilan_el_segundo_200px_arriba():
     placements = plan_layout(fixture)["placements"]
 
     assert placements["ic1"]["free"] == {"x": 560, "y": -230, "angle": 0}
-    assert placements["ic2"]["free"] == {"x": 560, "y": -430, "angle": 0}
-    # Paso de apilado propio del 595: 200 px, no comparten posicion.
-    assert placements["ic1"]["free"]["x"] == placements["ic2"]["free"]["x"]
+    assert placements["ic2"]["free"] == {"x": 760, "y": -230, "angle": 0}
+    # Mismo y y 200 px de paso: fila, no columna.
+    assert placements["ic1"]["free"]["y"] == placements["ic2"]["free"]["y"]
     assert (
-        placements["ic1"]["free"]["y"] - placements["ic2"]["free"]["y"] == 200
+        placements["ic2"]["free"]["x"] - placements["ic1"]["free"]["x"] == 200
     )
 
 
@@ -191,11 +194,12 @@ def test_r17_tres_595_dos_modulos_y_motor_bateria_todo_unico():
         coords.append((free["x"], free["y"]))
     assert len(coords) == len(set(coords)), dict(placements)
     assert layout["unplaced"] == []
-    assert [placements[f"ic{i}"]["free"]["y"] for i in (1, 2, 3)] == [
-        -230,
-        -430,
-        -630,
+    assert [placements[f"ic{i}"]["free"]["x"] for i in (1, 2, 3)] == [
+        560,
+        760,
+        960,
     ]
+    assert {placements[f"ic{i}"]["free"]["y"] for i in (1, 2, 3)} == {-230}
 
 
 def test_r17_el_595_no_desplaza_ni_tapa_huecos_de_la_placa():

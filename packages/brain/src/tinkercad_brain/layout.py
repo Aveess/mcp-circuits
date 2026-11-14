@@ -259,7 +259,11 @@ FREE_CAPACITOR_Y = -230
 FREE_CAPACITOR_STEP_Y = 150
 FREE_SHIFT_REGISTER_X = 560
 FREE_SHIFT_REGISTER_Y = -230
-FREE_SHIFT_REGISTER_STEP_Y = 200
+# Varios integrados van en fila horizontal (no en columna): apilados en la
+# misma x, el mazo de cables sube en una torre y el lienzo queda torcido.
+# En fila, el router reparte cada chip por el bus superior con una bajada
+# corta. 200 de paso deja aire entre cuerpos de 7 columnas.
+FREE_SHIFT_REGISTER_STEP_X = 200
 
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
@@ -357,15 +361,16 @@ def plan_layout(fixture: dict) -> dict:
 
     # Los integrados no comparten apilado con los displays: van a la
     # izquierda, a la altura del primero, para que sus cables no crucen el
-    # display. Varios integrados se apilan de 200 en 200.
+    # display. Varios integrados van en fila horizontal de 200 en 200 (no
+    # apilados: una torre de chips deja el mazo de cables en una columna).
     shift_count = 0
     for component in components:
         if component["type"] not in IC_STACK_TYPES:
             continue
         placements[component["ref"]] = {
             "free": {
-                "x": FREE_SHIFT_REGISTER_X,
-                "y": FREE_SHIFT_REGISTER_Y - shift_count * FREE_SHIFT_REGISTER_STEP_Y,
+                "x": FREE_SHIFT_REGISTER_X + shift_count * FREE_SHIFT_REGISTER_STEP_X,
+                "y": FREE_SHIFT_REGISTER_Y,
                 "angle": 0,
             }
         }

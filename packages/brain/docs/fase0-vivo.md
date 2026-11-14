@@ -415,3 +415,25 @@ Hallazgos en vivo:
 
 Con esto queda cubierta la familia del proyecto: compuertas, biestable,
 tiempo (555) y conteo.
+
+## Ajuste de layout: integrados libres en fila (2026-11-14)
+
+Los integrados que no caben en la placa iban apilados en la misma `x`
+(`y=-230, -430, -630`). Con tres compuertas eso deja una torre de chips y
+el mazo de cables sube en una columna: en la media suma se veía como un
+poste encima del hueco entre el Uno y la placa.
+
+- Tinkercad **no tiene** breadboard mediana ni grande: `Breadboard` y
+  `Breadboard Large` no existen en el drawer; solo `Breadboard Small`
+  (did 111211, 30 columnas). Por eso no se pueden montar los integrados
+  en placa sin sacrificar los LEDs.
+- Regla nueva: varios integrados van en **fila horizontal** sobre la placa
+  (`x=560 + 200*i`, `y=-230`). El router reparte cada chip por el bus
+  superior con una bajada corta, en peine.
+- Circuito afectado y reconstruido: `media-suma-logica` (`4z8ZkFcpmuC`),
+  100%, tabla de verdad completa (`TEST:HA=0,0,0,0` ... `1,1,0,1`).
+  Los circuitos de un solo integrado no cambian de posición.
+
+Lección: el apilado vertical solo funciona para dos piezas; de tres en
+adelante conviene una fila (o una rejilla) porque el cableado del puente
+vive en carriles horizontales.
