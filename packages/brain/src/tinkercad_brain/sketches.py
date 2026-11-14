@@ -493,6 +493,92 @@ def parking_servo_sketch(
     return "\n".join(lines) + "\n"
 
 
+_LCD_TITLE_MAX = 16
+_LCD_PERIOD_MIN, _LCD_PERIOD_MAX = 100, 60000
+
+
+def _validate_lcd_title(title: str) -> None:
+    if not isinstance(title, str):
+        raise ValueError(f"title debe ser str: {title!r}")
+    if not title:
+        raise ValueError("title no puede estar vacio")
+    if len(title) > _LCD_TITLE_MAX:
+        raise ValueError(f"title supera {_LCD_TITLE_MAX} caracteres: {title!r}")
+    for bad in ('"', "\\", "\n", "\r"):
+        if bad in title:
+            raise ValueError(f"title no puede contener comillas dobles, barras invertidas ni saltos: {title!r}")
+
+
+def _validate_lcd_period(period_ms: int) -> None:
+    if (
+        not isinstance(period_ms, int)
+        or isinstance(period_ms, bool)
+        or not _LCD_PERIOD_MIN <= period_ms <= _LCD_PERIOD_MAX
+    ):
+        raise ValueError(
+            f"period_ms fuera de {_LCD_PERIOD_MIN}..{_LCD_PERIOD_MAX} ms: {period_ms!r}"
+        )
+
+
+def lcd_counter_sketch(
+    rs: int = 12,
+    en: int = 11,
+    d4: int = 5,
+    d5: int = 4,
+    d6: int = 3,
+    d7: int = 2,
+    title: str = "Tinkercad LCD",
+    period_ms: int = 1000,
+) -> str:
+    pins = (rs, en, d4, d5, d6, d7)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(
+            "pines repetidos en LCD: "
+            f"rs={rs}, en={en}, d4={d4}, d5={d5}, d6={d6}, d7={d7}"
+        )
+    _validate_lcd_title(title)
+    _validate_lcd_period(period_ms)
+
+    lines = [
+        "// LCD 16x2 en modo 4 bits: RS, EN y D4..D7 al Arduino.",
+        "// Contraste (VO) a GND en este montaje del simulador: con el potenciometro",
+        "// en su posicion por defecto la pantalla queda en blanco.",
+        "#include <LiquidCrystal.h>",
+        "#include <stdio.h>",
+        "",
+        f"LiquidCrystal lcd({rs}, {en}, {d4}, {d5}, {d6}, {d7});",
+        "",
+        "unsigned long segundos = 0;",
+        "",
+        "void setup() {",
+        "  Serial.begin(9600);",
+        "  lcd.begin(16, 2);",
+        "  lcd.clear();",
+        "  lcd.setCursor(0, 0);",
+        f'  lcd.print("{title}");',
+        '  Serial.println("TEST:LCD=LISTO");',
+        "}",
+        "",
+        "void loop() {",
+        "  segundos = segundos + 1;",
+        "  char linea[17];",
+        '  snprintf(linea, sizeof(linea), "t=%lus", segundos);',
+        "  for (int i = strlen(linea); i < 16; i++) {",
+        "    linea[i] = ' ';",
+        "  }",
+        "  linea[16] = '\\0';",
+        "  lcd.setCursor(0, 1);",
+        "  lcd.print(linea);",
+        '  Serial.print("TEST:SEG=");',
+        "  Serial.println(segundos);",
+        f"  delay({period_ms});",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def pin_of_fixture(fixture: dict) -> dict:
     """Mapeo {ref_led: pin} segun la cadena uno.D<n> -> rX.1 / rX.2 -> led.anode."""
     pin_by_resistor: dict[str, int] = {}
