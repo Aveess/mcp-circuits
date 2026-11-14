@@ -776,5 +776,82 @@
       "setCursor",
       "Serial"
     ]
+  },
+  {
+    "id": "lcd-temperatura",
+    "title": "Termometro TMP36 en pantalla LCD 16x2 en modo 4 bits",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "tmp1",
+        "type": "tmp36"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1",
+        "tmp1.vcc"
+      ],
+      [
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "tmp1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.D12",
+        "lcd1.RS"
+      ],
+      [
+        "uno.D11",
+        "lcd1.E"
+      ],
+      [
+        "uno.D5",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.D4",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.D3",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.D2",
+        "lcd1.DB7"
+      ],
+      [
+        "tmp1.vout",
+        "uno.A0"
+      ]
+    ],
+    "code_features": [
+      "LiquidCrystal",
+      "analogRead",
+      "print",
+      "setCursor",
+      "Serial"
+    ]
   }
 ]

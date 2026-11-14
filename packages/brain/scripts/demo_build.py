@@ -61,6 +61,7 @@ _SKETCH_BY_FIXTURE = {
     "buzzer-activo": "buzzer_button_sketch",
     "ldr-divisor": "ldr_led_sketch",
     "lcd-contador": "lcd_counter_sketch",
+    "lcd-temperatura": "lcd_temp_sketch",
 }
 
 
