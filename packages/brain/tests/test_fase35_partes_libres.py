@@ -58,7 +58,7 @@ def test_el_servo_va_libre_a_la_derecha_de_la_placa():
     assert "at" not in layout["placements"]["sv1"]
     # El orden de la fila libre no depende del orden de las nets.
     assert layout["placements"]["kp1"]["free"] == {"x": 560, "y": -230, "angle": 0}
-    assert layout["placements"]["lcd1"]["free"] == {"x": 870, "y": -230, "angle": 0}
+    assert layout["placements"]["lcd1"]["free"] == {"x": 1100, "y": -230, "angle": 0}
     assert layout.get("unplaced") == []
 
 

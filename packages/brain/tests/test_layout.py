@@ -657,8 +657,11 @@ def test_rgb_backfills_first_free_window_when_cursor_already_passed():
     assert rgb_columns.isdisjoint(range(23, 26))
 
 
-LCD_FREE_ABOVE = {"free": {"x": 870, "y": -230, "angle": 0}}
-LCD_FREE_STACKED = {"free": {"x": 870, "y": -430, "angle": 0}}
+# El LCD vive en x=1100 desde la fase 36: sus terminales estan arriba y
+# el escape lateral necesita aire a la izquierda (en 870 le pasaba por
+# encima al teclado). El display de 7 segmentos sigue en 870.
+LCD_FREE_ABOVE = {"free": {"x": 1100, "y": -230, "angle": 0}}
+LCD_FREE_STACKED = {"free": {"x": 1100, "y": -430, "angle": 0}}
 
 
 def _pin_columns(result):

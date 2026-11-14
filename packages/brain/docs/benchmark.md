@@ -66,6 +66,12 @@ píxel del LED.
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.
+- **Fase 36 (sin circuito nuevo):** las cinco filas con LCD se
+  reconstruyeron con el cableado lateral. El LCD vive en `x=1100` y sus
+  cables salen de lado antes de bajar; el display de 7 segmentos sigue en
+  `870` porque sus terminales miran abajo. Los taps de alimentación buscan
+  la columna libre mas cercana, asi que el GND del LCD cae en `T-26..T-29`
+  junto a su parte y no al otro extremo del riel.
 - **Nivel 11 (27):** tres bloques integrados y **colocacion libre** de
   una parte grande. La fixture pide `"free_parts": ["sv1"]` y el servo
   deja de montarse: va a la derecha de la placa y a su altura, con sus

@@ -55,7 +55,9 @@ compuertas, un biestable D como divisor, un 555 como reloj, un contador
 binario 74HC93, un carrusel de LEDs con el contador Johnson 4017 y un faro
 automatico con rele SPDT movido por un NPN, una alarma de movimiento con
 PIR, una cerradura con teclado 4x4, una caja fuerte con teclado y LCD y un
-control de acceso con teclado, LCD y servo (servo en colocacion libre))
+control de acceso con teclado, LCD y servo (servo en colocacion libre). Los
+cables del LCD salen de lado antes de bajar, asi que no pasan por detras de
+su propio cuerpo)
 y los reportes individuales en `docs/reportes/`.
 
 ## Puesta en marcha

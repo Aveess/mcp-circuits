@@ -46,9 +46,11 @@ def test_el_teclado_y_el_lcd_van_libres_sin_taparse():
     layout = plan_layout(_fixture())
     placements = layout["placements"]
 
-    # 310 unidades de separacion entre centros: los cuerpos no se tocan.
+    # 540 unidades de separacion entre centros: el escape lateral de los
+    # cables del LCD (terminales arriba) pasa por delante del hueco, no
+    # sobre el cuerpo del teclado. Ver fase 36.
     assert placements["kp1"]["free"] == {"x": 560, "y": -230, "angle": 0}
-    assert placements["lcd1"]["free"] == {"x": 870, "y": -230, "angle": 0}
+    assert placements["lcd1"]["free"] == {"x": 1100, "y": -230, "angle": 0}
     assert placements["r1"] == {"at": "1g", "pin": "1", "angle": 90}
     assert layout.get("unplaced") == []
 
@@ -93,9 +95,10 @@ def test_la_alimentacion_baja_en_vertical_al_riel_de_arriba():
     # 5V: el Uno alimenta el riel y los dos consumos bajan por su columna.
     assert frozenset(("uno.5V", "T+1")) in puntas
     assert frozenset(("1g", "T+2")) in puntas
-    assert frozenset(("lcd1.VDD", "T+15")) in puntas
-    # GND: los cuatro terminales del LCD bajan al mismo riel.
-    for pin, column in (("GND", 15), ("LED-", 16), ("RW", 17), ("VO", 18)):
+    assert frozenset(("lcd1.VDD", "T+29")) in puntas
+    # GND: los cuatro terminales del LCD bajan al mismo riel, en columnas
+    # contiguas hacia la izquierda del VDD (x=1100 -> columna 29, tope).
+    for pin, column in (("GND", 29), ("LED-", 28), ("RW", 27), ("VO", 26)):
         assert frozenset((f"lcd1.{pin}", f"T-{column}")) in puntas
     assert frozenset(("uno.GND1", "T-1")) in puntas
     # Un solo riel por tipo: no hace falta puente de borde.

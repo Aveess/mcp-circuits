@@ -893,9 +893,9 @@ def test_build_circuit_unplaced_fixture_raises_before_any_tool_call():
 # LCD 16x2 (did 113878, type real "LCD 16 x 2"): modulo LIBRE sobre la
 # placa, sin huecos. Los cables terminan en sus 16 terminales reales.
 # Verificado en vivo (circuito ib98EAPoqPP, modo 4 bits).
-_LCD_FREE = {"x": 870, "y": -230, "angle": 0}
+_LCD_FREE = {"x": 1100, "y": -230, "angle": 0}
 # El puente lee el angulo del part y el validador exige free == {x, y}.
-_LCD_PART = {"x": 870, "y": -230}
+_LCD_PART = {"x": 1100, "y": -230}
 # Rama de compatibilidad: LCD montado en la placa, ancla "GND" en <c>j y
 # el resto a +1..+15 columnas, angle 0.
 _LCD_ANCHOR = "1j"

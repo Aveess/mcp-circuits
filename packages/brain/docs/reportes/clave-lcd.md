@@ -18,13 +18,11 @@
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 3.8 | 3.8 |
-| tinkercad_create_circuit | 1 | 10.1 | 10.1 |
-| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_list_circuits | 1 | 6.1 | 6.1 |
-| tinkercad_open_circuit | 1 | 8.7 | 8.7 |
-| tinkercad_read_serial_monitor | 1 | 1.1 | 1.1 |
-| tinkercad_set_code | 1 | 16.8 | 16.8 |
+| tinkercad_build_circuit_model | 1 | 5.5 | 5.5 |
+| tinkercad_inspect_circuit | 1 | 0.0 | 0.0 |
+| tinkercad_open_circuit | 2 | 9.7 | 10.6 |
+| tinkercad_read_serial_monitor | 1 | 1.2 | 1.2 |
+| tinkercad_set_code | 1 | 15.7 | 15.7 |
 | tinkercad_start_simulation | 1 | 5.4 | 5.4 |
 | tinkercad_stop_simulation | 1 | 1.3 | 1.3 |
 

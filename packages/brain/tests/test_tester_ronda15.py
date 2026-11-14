@@ -665,7 +665,7 @@ def test_r15_el_part_libre_del_lcd_lleva_el_angulo_a_nivel_de_part():
     assert lcd == {
         "ref": "lcd1",
         "did": DID_BY_TYPE["lcd-16x2"],
-        "free": {"x": 870, "y": -230},
+        "free": {"x": 1100, "y": -230},
         "angle": 0,
     }
     assert set(lcd) == {"ref", "did", "free", "angle"}
@@ -685,7 +685,7 @@ def test_r15_el_part_libre_del_lcd_lleva_el_angulo_a_nivel_de_part():
             "wires": [],
         }
     )
-    assert validated["parts"][0]["free"] == {"x": 870, "y": -230}
+    assert validated["parts"][0]["free"] == {"x": 1100, "y": -230}
 
 
 @pytest.mark.parametrize(

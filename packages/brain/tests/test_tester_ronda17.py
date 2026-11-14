@@ -162,7 +162,7 @@ def test_r17_595_lcd_y_display_no_comparten_coordenada():
     placements = plan_layout(fixture)["placements"]
 
     assert placements["seg"]["free"] == {"x": 870, "y": -230, "angle": 0}
-    assert placements["lcd"]["free"] == {"x": 870, "y": -430, "angle": 0}
+    assert placements["lcd"]["free"] == {"x": 1100, "y": -430, "angle": 0}
     assert placements["ic"]["free"] == {"x": 560, "y": -230, "angle": 0}
     coords = [
         (placement["free"]["x"], placement["free"]["y"])

@@ -60,8 +60,8 @@ LCD_TERMINALS = (
 )
 
 # Contrato de coordenadas del modulo libre.
-LCD_FREE_ABOVE = {"free": {"x": 870, "y": -230, "angle": 0}}
-LCD_FREE_STACKED = {"free": {"x": 870, "y": -430, "angle": 0}}
+LCD_FREE_ABOVE = {"free": {"x": 1100, "y": -230, "angle": 0}}
+LCD_FREE_STACKED = {"free": {"x": 1100, "y": -430, "angle": 0}}
 
 # Pines reales de los tipos que tocan la placa en este circuito (tabla
 # propia, no importada de breadboard_nets).
@@ -400,7 +400,7 @@ def test_r14_parts_del_termometro_lcd_libre_y_pines_reales():
     assert parts["lcd1"] == {
         "ref": "lcd1",
         "did": 113878,
-        "free": {"x": 870, "y": -230},
+        "free": {"x": 1100, "y": -230},
         "angle": 0,
     }
     assert "at" not in parts["lcd1"] and "pin" not in parts["lcd1"]
@@ -841,7 +841,7 @@ def test_r14_un_lcd_solo_no_rompe_el_layout_ni_el_model_call():
     call = fixture_to_model_call(alone)
     assert call["parts"] == [
         {"ref": "lcd1", "did": 113878,
-         "free": {"x": 870, "y": -230}, "angle": 0}
+         "free": {"x": 1100, "y": -230}, "angle": 0}
     ]
     assert call["wires"] == []
     assert call["code"] is None
@@ -854,7 +854,7 @@ def test_r14_un_lcd_solo_no_rompe_el_layout_ni_el_model_call():
     assert _pairs(internal_call) == [
         ("lcd1.GND", "lcd1.VO"), ("lcd1.GND", "lcd1.RW"),
     ]
-    assert internal_call["parts"][0]["free"] == {"x": 870, "y": -230}
+    assert internal_call["parts"][0]["free"] == {"x": 1100, "y": -230}
     assert internal_call["parts"][0]["angle"] == 0
 
 

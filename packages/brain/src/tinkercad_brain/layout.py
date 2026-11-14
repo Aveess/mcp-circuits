@@ -112,7 +112,13 @@ FREE_BATTERY_STEP_X = 120
 # sit on the same x and go upward in steps of 200, in fixture order, so
 # no two bodies can overlap even when a circuit uses both kinds.
 LCD_TYPE = "lcd-16x2"
+# El LCD va mas a la derecha que el display de 7 segmentos por una razon
+# medida: sus 16 terminales estan en el borde SUPERIOR, asi que sus cables
+# salen de lado y bajan. En x=870 el teclado (560) queda a 210 unidades y el
+# abanico de salida le pasa por encima al cuerpo del teclado; en x=1100 hay
+# 390 de aire a su izquierda y la salida lateral no toca nada.
 FREE_MODULE_X = 870
+LCD_FREE_X = 1100
 FREE_MODULE_Y = -230
 FREE_MODULE_STEP_Y = 200
 
@@ -366,20 +372,28 @@ def plan_layout(fixture: dict) -> dict:
     ldr_divider_resistors = set(ldr_to_resistor.values())
 
     # Displays are free modules above the board: they take no columns and
-    # hide nothing, so every other part is placed normally. They share a
-    # single stack (see FREE_MODULE_*) so an LCD and a 7-segment display in
-    # the same circuit never land on top of each other.
+    # hide nothing, so every other part is placed normally. Each kind has
+    # its own column (the LCD a bit further right, see LCD_FREE_X) and
+    # stacks upward in fixture order, so two displays of the same kind
+    # never land on top of each other.
     free_module_count = 0
+    display_xs = []
     for component in components:
-        if component["type"] not in FREE_MODULE_TYPES:
+        ctype = component["type"]
+        if ctype not in FREE_MODULE_TYPES:
             continue
+        # Cada tipo tiene su columna, pero el apilado es compartido: un LCD
+        # y un display de 7 segmentos en el mismo circuito nunca comparten
+        # altura, aunque ya no compartan x.
+        x = LCD_FREE_X if ctype == LCD_TYPE else FREE_MODULE_X
         placements[component["ref"]] = {
             "free": {
-                "x": FREE_MODULE_X,
+                "x": x,
                 "y": FREE_MODULE_Y - free_module_count * FREE_MODULE_STEP_Y,
                 "angle": 0,
             }
         }
+        display_xs.append(x)
         free_module_count += 1
 
     # Los integrados no comparten apilado con los displays: van a la
@@ -400,16 +414,20 @@ def plan_layout(fixture: dict) -> dict:
         shift_count += 1
 
     # Rele y bombilla continuan la fila: si hay integrados, arrancan despues
-    # del ultimo para que los cuerpos no se toquen.
+    # del ultimo para que los cuerpos no se toquen. Tambien saltan el hueco
+    # que ocupan los displays: los cuerpos son mas anchos que su paso de
+    # 200 y una parte libre debajo del LCD quedaria tapada por el.
     for component in components:
         if component["type"] not in FREE_PERIPHERAL_TYPES:
             continue
+        x = FREE_SHIFT_REGISTER_X + shift_count * FREE_SHIFT_REGISTER_STEP_X
+        # Un display ocupa ~290 unidades a partir de su ancla; si el hueco
+        # cae dentro, se corre un lugar para que el cuerpo no quede tapado.
+        while any(abs(x - anchor) < 300 for anchor in display_xs):
+            shift_count += 1
+            x = FREE_SHIFT_REGISTER_X + shift_count * FREE_SHIFT_REGISTER_STEP_X
         placements[component["ref"]] = {
-            "free": {
-                "x": FREE_SHIFT_REGISTER_X + shift_count * FREE_SHIFT_REGISTER_STEP_X,
-                "y": FREE_SHIFT_REGISTER_Y,
-                "angle": 0,
-            }
+            "free": {"x": x, "y": FREE_SHIFT_REGISTER_Y, "angle": 0}
         }
         shift_count += 1
 

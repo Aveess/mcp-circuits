@@ -695,18 +695,59 @@ placa sin quedar colgada en un sitio arbitrario.
   `ABIERTO`). Y si el sketch escribe la pantalla, el oráculo la exige: el
   display no se aprueba solo con la captura.
 
-**Deuda que sigue abierta (diagnosticada, no maquillada):** las 16
+**Deuda que sigue abierta al cerrar la fase (resuelta en la 36):** las 16
 terminales del LCD 16x2 miran hacia **arriba**, y el módulo va encima de la
-placa. El puente dibuja la bajada del terminal al riel en vertical, así que
-ese tramo pasa por detrás del cuerpo del display: los cables aparecen
-saliendo por el borde inferior en vez de nacer en su pin. Se ve igual en
-`lcd-contador`, `lcd-temperatura`, `lcd-distancia`, `clave-lcd` y aquí. El
-arreglo no es mover el display: es que el ruteo de una parte libre salga
-primero de lado (fuera de su cuerpo) y después baje. Eso toca el router del
-puente y hay que re-verificar los cinco circuitos con LCD; es una fase
-propia, no un retoque.
+placa. El puente dibujaba la bajada del terminal al riel en vertical, así
+que ese tramo pasaba por detrás del cuerpo del display: los cables
+aparecían saliendo por el borde inferior en vez de nacer en su pin. Se veía
+igual en `lcd-contador`, `lcd-temperatura`, `lcd-distancia`, `clave-lcd` y
+aquí. El arreglo no era mover el display solo: era que el ruteo de una
+parte libre salga primero de lado y después baje, y eso se hizo en la fase
+36 (abajo).
 
 Lección: una parte libre no se coloca "donde sobre sitio", se coloca donde
 su cable no cruce nada. Y el criterio hay que medirlo con el cuerpo real:
 los cuerpos son más altos que el paso de la fila, así que apilar de 200 en
 200 en la misma x no garantiza nada.
+
+## Fase 36: el LCD sale de lado (2026-11-14)
+
+Cierra la deuda de la fase 34/35. El arreglo tiene dos mitades, y las dos
+se midieron antes de escribirlas.
+
+- **Puente (`tinkercad-mcp`):** una parte libre con terminales arriba sale
+  primero **de lado** y después baja. La tabla `FREE_ESCAPE` (por `did`)
+  escribe el desplazamiento una sola vez en Python y se inyecta en el JS
+  que corre en la página, así que se puede testear sin abrir navegador.
+  El escape se mide desde el **origen** de la parte, no desde el pin: cada
+  pin daría una `x` distinta y el abanico cruzaría a los vecinos. Y se
+  escalona 8 unidades por carril para que dos cables no se dibujen uno
+  encima del otro.
+- **Layout:** el LCD pasa de `x=870` a `x=1100` (`LCD_FREE_X`). En 870 el
+  teclado de `clave-lcd` queda a 310 unidades y el abanico de salida le
+  pasa por encima al cuerpo; en 1100 hay ~390 de aire a su izquierda. El
+  display de 7 segmentos **no** se mueve (sus terminales miran abajo) y
+  sigue en 870. El apilado sigue siendo compartido entre tipos: un LCD y un
+  display en el mismo circuito nunca comparten altura, aunque ya no
+  compartan columna.
+- **Taps del riel:** el asignador busca la columna libre más cercana a la
+  propuesta (`proposed, +1, -1, +2, -2...`) en vez de avanzar solo a la
+  derecha y dar la vuelta al llegar al final. Antes, los cuatro GND del LCD
+  caían en `T-2..T-4`, al otro extremo del riel y con cables cruzando toda
+  la placa; ahora caen en `T-26..T-29`, junto a su parte. La columna 30
+  sigue reservada al puente de borde.
+- **Verificado en vivo:** los cinco circuitos con LCD reconstruidos al
+  100%: `lcd-contador` (`cpySiVSE9vr`), `lcd-temperatura` (`9hZJgbsYOC5`),
+  `lcd-distancia` (`blN5d8qCr2z`), `clave-lcd` (`9wyFlvHHzIo`) y
+  `control-acceso` (`cjjQKLuBQ2I`). En las capturas los cables nacen en el
+  borde superior del módulo, salen por la izquierda del cuerpo y bajan sin
+  pasar por detrás del display. Suite del cerebro 1786 verdes; puente 252.
+
+**Deuda que sigue abierta (medida, no diagnosticada):** en
+`lcd-distancia` un cable turquesa termina detrás del cuerpo del HC-SR04.
+Se comprobó que **no** lo causa el escape: reconstruir el circuito con
+`FREE_ESCAPE = {}` deja esa línea idéntica (misma captura). El cuerpo del
+sensor está sobre las filas altas y el cable llega desde arriba; hay que
+instrumentar los puntos de ruta por cable para saber a qué hueco va y
+decidir si el sensor se coloca con las terminales hacia el lado del cable
+o si el ruteo tiene que rodear su cuerpo. Es una fase propia.

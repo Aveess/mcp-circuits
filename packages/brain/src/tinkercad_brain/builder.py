@@ -439,14 +439,23 @@ def _rail_wires(taps, kind, uno_endpoint, placements):
     used = {}  # riel -> columnas ocupadas
 
     def _libre(side, proposed):
+        """Columna libre mas cercana a la propuesta, buscando a los lados.
+
+        Buscar solo hacia la derecha y dar la vuelta al llegar al final
+        mandaba los taps de un LCD a la columna 2: el cable cruzaba todo el
+        riel en vez de bajar junto a su parte. Se prueba proposed, +1, -1,
+        +2, -2... y la ultima columna queda reservada al puente de rieles.
+        """
         ocupadas = used.setdefault(side, set())
-        column = proposed
-        while column in ocupadas or column == _RAIL_BRIDGE_COLUMN:
-            column += 1
-            if column > _MAX_RAIL_COLUMN:
-                column = 1
-        ocupadas.add(column)
-        return column
+        for offset in range(_MAX_RAIL_COLUMN):
+            for column in (proposed + offset, proposed - offset):
+                if not 1 <= column < _RAIL_BRIDGE_COLUMN:
+                    continue
+                if column in ocupadas:
+                    continue
+                ocupadas.add(column)
+                return column
+        raise BuildError("no queda columna libre en el riel")
 
     feed_column = _libre(top, 1) if uno_endpoint is not None else None
     # Orden determinista: la columna de cada tap no puede depender del orden

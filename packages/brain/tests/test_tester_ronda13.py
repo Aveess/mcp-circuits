@@ -4,7 +4,8 @@ Contrato NUEVO de la fase 21 (verificado en vivo). El LCD 16x2 ya NO se
 monta en la protoboard: su cuerpo mide ~25 columnas y tapaba las filas
 f..c, asi que con el display puesto no se podia colocar junto a un sensor,
 un boton ni un divisor. Ahora se emite SIEMPRE como modulo libre arriba de
-la placa -- ``{"free": {"x": 870, "y": -230, "angle": 0}}``, el segundo en
+la placa -- ``{"free": {"x": 1100, "y": -230, "angle": 0}}`` (x=1100 desde
+la fase 36, para que el escape lateral no cruce el teclado), el segundo en
 y=-430 -- sin ``pin`` ni ``at``, y sus cables van por terminal real
 (``lcd1.RS``, ``lcd1.DB4``...) en vez de por huecos. Como consecuencia:
 no reserva columnas (el primer bloque de placa arranca en la columna 1) y
@@ -185,8 +186,8 @@ def test_r13_component_map_y_did_del_lcd():
 
 # ------------------------------------------------- LCD como modulo libre
 
-LCD_FREE_ABOVE = {"free": {"x": 870, "y": -230, "angle": 0}}
-LCD_FREE_STACKED = {"free": {"x": 870, "y": -430, "angle": 0}}
+LCD_FREE_ABOVE = {"free": {"x": 1100, "y": -230, "angle": 0}}
+LCD_FREE_STACKED = {"free": {"x": 1100, "y": -430, "angle": 0}}
 
 
 def test_r13_el_lcd_es_un_modulo_libre_y_no_consume_columnas_de_placa():
@@ -230,7 +231,7 @@ def test_r13_parts_del_lcd_son_libres_y_conservan_el_did():
     assert parts["lcd1"] == {
         "ref": "lcd1",
         "did": 113878,
-        "free": {"x": 870, "y": -230},
+        "free": {"x": 1100, "y": -230},
         "angle": 0,
     }
     # Ni hueco ni ancla: el puente lo coloca por coordenadas.
@@ -420,7 +421,7 @@ def test_r13_dos_lcd_se_apilan_arriba_y_ninguno_queda_sin_colocar():
         "lcd2": LCD_FREE_STACKED,
     }
     # Mismo x, escalonado en y, mismo angulo: los cuerpos no se pisan.
-    assert result["placements"]["lcd2"]["free"]["x"] == 870
+    assert result["placements"]["lcd2"]["free"]["x"] == 1100
     assert (
         result["placements"]["lcd1"]["free"]["y"]
         - result["placements"]["lcd2"]["free"]["y"]
@@ -525,7 +526,7 @@ def test_r13_el_lcd_convive_con_las_partes_libres_sin_pisar_su_posicion():
     parts = {p["ref"]: p for p in fixture_to_model_call(fixture)["parts"]}
     for ref in ("lcd1", "motor1", "bat1"):
         assert "at" not in parts[ref] and "pin" not in parts[ref]
-    assert parts["lcd1"]["free"] == {"x": 870, "y": -230}
+    assert parts["lcd1"]["free"] == {"x": 1100, "y": -230}
     assert parts["lcd1"]["angle"] == 0
 
 
@@ -536,7 +537,7 @@ def test_r13_model_call_del_lcd_es_por_terminal_y_los_huecos_son_validos():
     # El LCD no trae hueco ni ancla: se coloca por coordenadas.
     assert "at" not in parts["lcd1"]
     assert "pin" not in parts["lcd1"]
-    assert parts["lcd1"]["free"] == {"x": 870, "y": -230}
+    assert parts["lcd1"]["free"] == {"x": 1100, "y": -230}
     assert parts["lcd1"]["angle"] == 0
 
     holes = set()
@@ -624,7 +625,7 @@ def test_r13_en_el_camino_libre_un_pin_invalido_sigue_siendo_build_error():
     fixture = copy.deepcopy(_fixture("lcd-contador"))
     # El layout por defecto es el libre: no hay `at`, solo terminales.
     assert plan_layout(fixture)["placements"]["lcd1"] == {
-        "free": {"x": 870, "y": -230, "angle": 0}
+        "free": {"x": 1100, "y": -230, "angle": 0}
     }
     fixture["nets"] = [["uno.D12", "lcd1.DB9"]]
 
