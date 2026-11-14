@@ -543,3 +543,62 @@ def test_live6_artifact_blink_nets():
     nets = derive_nets(inspect_data)
     for expected in EXPECTED_BLINK:
         assert expected in nets
+
+
+def test_piezo_and_ldr_aliases_produce_fixture_pins():
+    # Nombres reales verificados en vivo (cZcqbZ3eNlA): Piezo reporta
+    # "+"/"-" y Photoresistor (LDR) reporta "terminal-1"/"terminal-2".
+    bb = ("Breadboard Small", "bb1")
+    uno = ("Arduino Uno R3", "uno1")
+    piezo = ("Piezo", "pz1")
+    ldr = ("Photoresistor (LDR)", "ldr_a")
+    r = ("Resistor", "r_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    wires = [
+        _wire(e(uno, "D8"), e(bb, "i1")),
+        _wire(e(piezo, "+"), e(bb, "i1")),
+        _wire(e(piezo, "-"), e(bb, "z3")),
+        _wire(e(uno, "GND"), e(bb, "z3")),
+        _wire(e(ldr, "terminal-2"), e(bb, "g5")),
+        _wire(e(r, "Terminal 1"), e(bb, "g5")),
+    ]
+    data = {
+        "components": [_comp(*uno), _comp(*bb), _comp(*piezo), _comp(*ldr), _comp(*r)],
+        "wires": wires,
+    }
+
+    assert derive_nets(data) == [
+        ["buzzer1.negative", "uno.GND1"],
+        ["buzzer1.positive", "uno.D8"],
+        ["ldr1.2", "r1.1"],
+    ]
+
+
+def test_ldr_aliases_are_type_scoped():
+    bb = ("Breadboard Small", "bb1")
+    ldr = ("Photoresistor (LDR)", "ldr_a")
+    r = ("Resistor", "r_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    wires = [
+        _wire(e(ldr, "Terminal 1"), e(bb, "g1")),
+        _wire(e(r, "Terminal 1"), e(bb, "g1")),
+        _wire(e(ldr, "Terminal 2"), e(bb, "g5")),
+        _wire(e(r, "Terminal 2"), e(bb, "g5")),
+    ]
+    data = {
+        "components": [_comp(*bb), _comp(*ldr), _comp(*r)],
+        "wires": wires,
+    }
+
+    # "Terminal 1"/"Terminal 2" del LDR son 1/2; en la resistencia siguen
+    # siendo 1/2 (el alias global ya existente, sin cambios).
+    assert derive_nets(data) == [
+        ["ldr1.1", "r1.1"],
+        ["ldr1.2", "r1.2"],
+    ]

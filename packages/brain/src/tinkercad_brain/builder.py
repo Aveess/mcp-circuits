@@ -42,6 +42,9 @@ DID_BY_TYPE: dict[str, int] = {
     "dc-motor": 114158,
     "l293d": 112326,
     "battery-9v": 116841,
+    # Verificados en vivo (circuito cZcqbZ3eNlA).
+    "buzzer": 114067,
+    "photoresistor": 116691,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -122,6 +125,22 @@ _LINEAR_PIN_PINS: dict[str, tuple[tuple[str, str], ...]] = {
     **_FOUR_PIN_PINS,
     **_RGB_PINS,
 }
+
+# Piezo (did 114067, verificado en vivo en cZcqbZ3eNlA): ancla "+" en un
+# hueco de fila cualquiera; angle 0 deja "-" 5 columnas a la derecha, misma
+# fila. Nombre real del terminal en Tinkercad: "+" y "-".
+_BUZZER_ANCHOR = "positive"
+_BUZZER_REAL_PINS: dict[str, str] = {"positive": "+", "negative": "-"}
+_BUZZER_NEGATIVE_OFFSET = 5
+
+# Photoresistor (did 116691, verificado en vivo en cZcqbZ3eNlA, type real
+# "Photoresistor (LDR)"): ancla "terminal-1" en un hueco de fila cualquiera;
+# angle 0 deja "terminal-2" 1 columna a la derecha, misma fila.
+_PHOTORESISTOR_ANCHOR = "1"
+_PHOTORESISTOR_REAL_PINS: dict[str, str] = {
+    "1": "terminal-1", "2": "terminal-2",
+}
+_PHOTORESISTOR_SECOND_OFFSET = 1
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
 
@@ -246,6 +265,36 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
             return at
         if pin == "2":
             return _shift_hole(at, 4, endpoint)
+    elif ctype == "buzzer":
+        # Geometria verificada en vivo: ancla "+" (angle 0) y "-" a +5.
+        if placement.get("pin") != _BUZZER_ANCHOR:
+            raise BuildError(
+                f"ancla inesperada para {endpoint!r} (type {ctype!r}): "
+                f"{placement.get('pin')!r} (se esperaba {_BUZZER_ANCHOR!r})"
+            )
+        if pin == "positive":
+            return at
+        if pin == "negative":
+            return _shift_hole(at, _BUZZER_NEGATIVE_OFFSET, endpoint)
+        raise BuildError(
+            f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+        )
+    elif ctype == "photoresistor":
+        # Geometria verificada en vivo: terminal-1 en el ancla y
+        # terminal-2 a +1 columna, misma fila.
+        if placement.get("pin") != _PHOTORESISTOR_ANCHOR:
+            raise BuildError(
+                f"ancla inesperada para {endpoint!r} (type {ctype!r}): "
+                f"{placement.get('pin')!r} "
+                f"(se esperaba {_PHOTORESISTOR_ANCHOR!r})"
+            )
+        if pin == "1":
+            return at
+        if pin == "2":
+            return _shift_hole(at, _PHOTORESISTOR_SECOND_OFFSET, endpoint)
+        raise BuildError(
+            f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+        )
     elif ctype in _LINEAR_PIN_PINS:
         for index, (fixture_pin, _real_pin) in enumerate(_LINEAR_PIN_PINS[ctype]):
             if pin == fixture_pin:
@@ -325,6 +374,10 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
             real_by_fixture = dict(_LINEAR_PIN_PINS[ctype])
         elif ctype == "l293d":
             real_by_fixture = _L293D_REAL_BY_FIXTURE
+        elif ctype == "buzzer":
+            real_by_fixture = _BUZZER_REAL_PINS
+        elif ctype == "photoresistor":
+            real_by_fixture = _PHOTORESISTOR_REAL_PINS
         if real_by_fixture is not None:
             if part_pin not in real_by_fixture:
                 raise BuildError(
