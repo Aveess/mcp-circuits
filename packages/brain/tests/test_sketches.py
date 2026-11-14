@@ -9,6 +9,7 @@ from tinkercad_brain.sketches import (
     button_led_sketch,
     buzzer_button_sketch,
     lcd_counter_sketch,
+    lcd_temp_sketch,
     ldr_led_sketch,
     motor_driver_sketch,
     motor_sketch,
@@ -867,6 +868,132 @@ def test_lcd_counter_rejects_out_of_range_periods(period_ms):
 
 def test_lcd_counter_is_deterministic():
     assert lcd_counter_sketch() == lcd_counter_sketch()
+
+
+# --- lcd_temp ---
+
+
+def test_lcd_temp_default_contains_key_content():
+    sketch = lcd_temp_sketch()
+    assert "#include <LiquidCrystal.h>" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" in sketch
+    assert "Serial.begin(9600)" in sketch
+    assert "lcd.begin(16, 2)" in sketch
+    assert "lcd.clear()" in sketch
+    assert "lcd.setCursor(0, 0)" in sketch
+    assert 'lcd.print("Temperatura")' in sketch
+    assert 'Serial.println("TEST:LCD=LISTO")' in sketch
+    assert "lcd.setCursor(0, 1)" in sketch
+    assert "delay(500)" in sketch
+
+
+def test_lcd_temp_uses_the_same_tmp36_formula_as_tmp36_sketch():
+    sketch = lcd_temp_sketch()
+    reference = tmp36_sketch()
+    for line in (
+        "float volts = lectura * 5.0/1023.0;",
+        "float temp = (volts - 0.5) * 100.0;",
+    ):
+        assert line in reference
+        assert line in sketch
+    assert "int lectura = analogRead(A0);" in sketch
+
+
+def test_lcd_temp_trace_prints_the_same_value_as_the_display():
+    sketch = lcd_temp_sketch()
+    assert sketch.count("dtostrf(") == 1
+    assert "dtostrf(temp, 0, 2, temp_txt);" in sketch
+    assert 'snprintf(linea, sizeof(linea), "T=%s C", temp_txt);' in sketch
+    assert "lcd.print(linea);" in sketch
+    assert "Serial.println(temp_txt);" in sketch
+    assert sketch.count("float temp =") == 1
+    assert "Serial.println(temp);" not in sketch
+    assert sketch.index("lcd.print(linea);") < sketch.index('Serial.print("TEST:TEMP=");')
+
+
+def test_lcd_temp_formats_two_decimals():
+    sketch = lcd_temp_sketch()
+    assert "dtostrf(temp, 0, 2, temp_txt);" in sketch
+    assert "char temp_txt[8];" in sketch
+
+
+def test_lcd_temp_pads_the_display_line_to_16_columns():
+    sketch = lcd_temp_sketch()
+    assert "char linea[17];" in sketch
+    assert "for (int i = strlen(linea); i < 16; i++) {" in sketch
+    assert "linea[i] = ' ';" in sketch
+
+
+def test_lcd_temp_documents_simulator_limits():
+    sketch = lcd_temp_sketch()
+    assert "24.8" in sketch
+    assert "VO" in sketch
+    assert "GND" in sketch
+    assert "blanco" in sketch
+
+
+def test_lcd_temp_custom_pins_are_literal():
+    sketch = lcd_temp_sketch(rs=8, en=9, d4=10, d5=11, d6=12, d7=13)
+    assert "LiquidCrystal lcd(8, 9, 10, 11, 12, 13);" in sketch
+    assert "LiquidCrystal lcd(12, 11, 5, 4, 3, 2);" not in sketch
+
+
+def test_lcd_temp_custom_sensor_pin_and_period():
+    sketch = lcd_temp_sketch(sensor_pin="A3", period_ms=250)
+    assert "analogRead(A3)" in sketch
+    assert "analogRead(A0)" not in sketch
+    assert "delay(250)" in sketch
+
+
+@pytest.mark.parametrize("name", ["rs", "en", "d4", "d5", "d6", "d7"])
+@pytest.mark.parametrize("pin", [0, 1, 14, -1])
+def test_lcd_temp_rejects_unusable_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_temp_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize("name", ["rs", "en", "d4", "d5", "d6", "d7"])
+@pytest.mark.parametrize("pin", [True, False])
+def test_lcd_temp_rejects_bool_pins(name, pin):
+    with pytest.raises(ValueError):
+        lcd_temp_sketch(**{name: pin})
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"rs": 11},
+        {"en": 12},
+        {"d5": 5},
+        {"d7": 3},
+        {"d4": 2},
+        {"rs": 2, "d7": 2},
+    ],
+)
+def test_lcd_temp_rejects_repeated_pins(kwargs):
+    with pytest.raises(ValueError):
+        lcd_temp_sketch(**kwargs)
+
+
+@pytest.mark.parametrize("sensor_pin", ["A6", "13", "A-1", "a0", "", 0, None, True])
+def test_lcd_temp_rejects_unusable_sensor_pins(sensor_pin):
+    with pytest.raises(ValueError):
+        lcd_temp_sketch(sensor_pin=sensor_pin)
+
+
+@pytest.mark.parametrize("period_ms", [200, 60000])
+def test_lcd_temp_accepts_boundary_periods(period_ms):
+    assert f"delay({period_ms})" in lcd_temp_sketch(period_ms=period_ms)
+
+
+@pytest.mark.parametrize("period_ms", [199, 60001, 0, -1, 200.5, "200", None, True])
+def test_lcd_temp_rejects_out_of_range_periods(period_ms):
+    with pytest.raises(ValueError):
+        lcd_temp_sketch(period_ms=period_ms)
+
+
+def test_lcd_temp_is_deterministic():
+    assert lcd_temp_sketch() == lcd_temp_sketch()
 
 
 # --- pin_of_fixture ---

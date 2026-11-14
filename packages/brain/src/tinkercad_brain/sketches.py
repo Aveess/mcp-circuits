@@ -510,14 +510,16 @@ def _validate_lcd_title(title: str) -> None:
 
 
 def _validate_lcd_period(period_ms: int) -> None:
+    _validate_period_range("period_ms", period_ms, _LCD_PERIOD_MIN, _LCD_PERIOD_MAX)
+
+
+def _validate_period_range(name: str, period_ms: int, low: int, high: int) -> None:
     if (
         not isinstance(period_ms, int)
         or isinstance(period_ms, bool)
-        or not _LCD_PERIOD_MIN <= period_ms <= _LCD_PERIOD_MAX
+        or not low <= period_ms <= high
     ):
-        raise ValueError(
-            f"period_ms fuera de {_LCD_PERIOD_MIN}..{_LCD_PERIOD_MAX} ms: {period_ms!r}"
-        )
+        raise ValueError(f"{name} fuera de {low}..{high} ms: {period_ms!r}")
 
 
 def lcd_counter_sketch(
@@ -573,6 +575,73 @@ def lcd_counter_sketch(
         "  lcd.print(linea);",
         '  Serial.print("TEST:SEG=");',
         "  Serial.println(segundos);",
+        f"  delay({period_ms});",
+        "}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+_TEMP_PERIOD_MIN, _TEMP_PERIOD_MAX = 200, 60000
+
+
+def lcd_temp_sketch(
+    rs: int = 12,
+    en: int = 11,
+    d4: int = 5,
+    d5: int = 4,
+    d6: int = 3,
+    d7: int = 2,
+    sensor_pin: str = "A0",
+    period_ms: int = 500,
+) -> str:
+    pins = (rs, en, d4, d5, d6, d7)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(
+            "pines repetidos en termometro LCD: "
+            f"rs={rs}, en={en}, d4={d4}, d5={d5}, d6={d6}, d7={d7}"
+        )
+    _validate_analog_pin("sensor_pin", sensor_pin)
+    _validate_period_range("period_ms", period_ms, _TEMP_PERIOD_MIN, _TEMP_PERIOD_MAX)
+
+    lines = [
+        "// Termometro TMP36 en LCD 16x2 (modo 4 bits): RS, EN y D4..D7 al Arduino.",
+        "// Realidad del simulador: el TMP36 arranca en ~24.8 C y no cambia, asi que la",
+        "// lectura es fija y la pantalla muestra siempre ese mismo valor.",
+        "// Contraste (VO) a GND en este montaje: con el potenciometro en su posicion",
+        "// por defecto la pantalla queda en blanco.",
+        "#include <LiquidCrystal.h>",
+        "#include <stdio.h>",
+        "#include <stdlib.h>",
+        "",
+        f"LiquidCrystal lcd({rs}, {en}, {d4}, {d5}, {d6}, {d7});",
+        "",
+        "void setup() {",
+        "  Serial.begin(9600);",
+        "  lcd.begin(16, 2);",
+        "  lcd.clear();",
+        "  lcd.setCursor(0, 0);",
+        '  lcd.print("Temperatura");',
+        '  Serial.println("TEST:LCD=LISTO");',
+        "}",
+        "",
+        "void loop() {",
+        f"  int lectura = analogRead({sensor_pin});",
+        "  float volts = lectura * 5.0/1023.0;",
+        "  float temp = (volts - 0.5) * 100.0;",
+        "  char temp_txt[8];",
+        "  dtostrf(temp, 0, 2, temp_txt);",
+        "  char linea[17];",
+        '  snprintf(linea, sizeof(linea), "T=%s C", temp_txt);',
+        "  for (int i = strlen(linea); i < 16; i++) {",
+        "    linea[i] = ' ';",
+        "  }",
+        "  linea[16] = '\\0';",
+        "  lcd.setCursor(0, 1);",
+        "  lcd.print(linea);",
+        '  Serial.print("TEST:TEMP=");',
+        "  Serial.println(temp_txt);",
         f"  delay({period_ms});",
         "}",
     ]
