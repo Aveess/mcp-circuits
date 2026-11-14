@@ -152,6 +152,11 @@ _PIN_ALIASES_BY_TYPE = {
         "LED+": "LED+", "LED-": "LED-",
         "gnd": "GND",
         "vcc": "VDD",
+        # Las patas de insercion al protoboard se etiquetan "Ground" y
+        # "Power" (insert wires del circuito cpySiVSE9vr); sin estas dos
+        # entradas caen al alias generico y salen como gnd/vcc.
+        "Ground": "GND",
+        "Power": "VDD",
         "Contrast": "VO",
         "Register Select": "RS",
         "Read/Write": "RW",

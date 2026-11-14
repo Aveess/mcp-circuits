@@ -647,6 +647,58 @@ def test_lcd_real_pin_names_keep_fixture_vocabulary():
     ]
 
 
+def test_lcd_insert_wire_pin_names_map_to_the_sixteen_terminals():
+    """En el circuito real cpySiVSE9vr las patas del LCD se insertan con
+    nombres humanos (Ground, Power, Contrast, Register Select, Read/Write,
+    Enable, LED Anode, LED Cathode). Todos deben caer en el terminal real
+    de inspect_circuit, no en el alias generico gnd/vcc."""
+    bb = ("Breadboard Small", "bb1")
+    uno = ("Arduino Uno R3", "uno1")
+    lcd = ("LCD 16 x 2", "lcd_a")
+
+    def e(comp, pin):
+        return _ep(comp[0], pin, comp[1])
+
+    r = ("Resistor", "r_a")
+    wires = [
+        _wire(e(lcd, "Ground"), e(bb, "z1")),
+        _wire(e(uno, "GND"), e(bb, "z1")),
+        _wire(e(lcd, "Power"), e(bb, "j9")),
+        _wire(e(uno, "5V"), e(bb, "j9")),
+        _wire(e(lcd, "Contrast"), e(bb, "j3")),
+        _wire(e(lcd, "Ground"), e(bb, "j3")),
+        _wire(e(lcd, "Read/Write"), e(bb, "j5")),
+        _wire(e(lcd, "Ground"), e(bb, "j5")),
+        _wire(e(lcd, "LED Cathode"), e(bb, "j16")),
+        _wire(e(lcd, "Ground"), e(bb, "j16")),
+        _wire(e(lcd, "LED Anode"), e(bb, "j15")),
+        _wire(e(r, "Terminal 1"), e(bb, "j15")),
+        _wire(e(r, "Terminal 2"), e(bb, "j20")),
+        _wire(e(uno, "5V"), e(bb, "j20")),
+        _wire(e(lcd, "Enable"), e(bb, "i2")),
+        _wire(e(uno, "D11"), e(bb, "i2")),
+        _wire(e(lcd, "Register Select"), e(bb, "i1")),
+        _wire(e(uno, "D12"), e(bb, "i1")),
+    ]
+    data = {
+        "components": [_comp(*uno), _comp(*bb), _comp(*lcd), _comp(*r)],
+        "wires": wires,
+    }
+
+    nets = derive_nets(data)
+    flat = {endpoint for net in nets for endpoint in net}
+    assert "lcd1.GND" in flat and "lcd1.gnd" not in flat
+    assert "lcd1.VDD" in flat and "lcd1.vcc" not in flat
+    ground = next(net for net in nets if "lcd1.GND" in net)
+    assert sorted(ground) == [
+        "lcd1.GND", "lcd1.LED-", "lcd1.RW", "lcd1.VO", "uno.GND1",
+    ]
+    assert ["lcd1.E", "uno.D11"] in [sorted(n) for n in nets]
+    assert ["lcd1.RS", "uno.D12"] in [sorted(n) for n in nets]
+    assert ["lcd1.LED+", "r1.1"] in [sorted(n) for n in nets]
+    assert ["lcd1.VDD", "r1.2", "uno.5V"] in [sorted(n) for n in nets]
+
+
 def test_lcd_refs_match_normalize_circuit_for_same_instance_ids():
     from tinkercad_brain.fase0.normalize import normalize_circuit
 
