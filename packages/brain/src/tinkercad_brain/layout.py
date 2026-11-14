@@ -55,6 +55,13 @@ PIEZO_WIDTH = 6
 # column 24 or later keeps the disc on the right edge; a cursor already
 # past 24 is respected. Same rule as ULTRASONIC_MIN_COLUMN.
 PIEZO_MIN_COLUMN = 24
+# HC-SR04 + piezo juntos (medido en vivo en lcd-distancia): el modulo del
+# sensor tambien se dibuja mucho mas ancho que sus pines. Con el sensor en
+# 18d su cuerpo llegaba al disco del piezo anclado en 24e y tapaba el
+# transductor derecho. Cuando ambos cuerpos grandes comparten placa, el
+# sensor cede la mitad derecha y arranca en la columna 10 (su cuerpo
+# termina antes del disco del piezo); un cursor ya pasado de 10 se respeta.
+ULTRASONIC_MIN_COLUMN_WITH_PIEZO = 10
 # Photoresistor/LDR (fixture slug "photoresistor", did 116691),
 # live-verified: anchoring pin "1" at <c>e with angle 0 puts pin "2" at
 # <c+1>e. Footprint 2 columns.
@@ -336,6 +343,7 @@ def plan_layout(fixture: dict) -> dict:
     units.sort(key=lambda unit: unit[0])
 
     occupied_columns = set()
+    has_piezo = any(component["type"] == PIEZO_TYPE for component in components)
 
     def skip_occupied(start, footprint_width):
         while any(
@@ -484,9 +492,12 @@ def plan_layout(fixture: dict) -> dict:
                 )
                 next_column += THREE_PIN_WIDTH
         elif ctype == "ultrasonic-hcsr04":
-            start = skip_occupied(
-                max(next_column, ULTRASONIC_MIN_COLUMN), ULTRASONIC_PINS
+            min_column = (
+                ULTRASONIC_MIN_COLUMN_WITH_PIEZO
+                if has_piezo
+                else ULTRASONIC_MIN_COLUMN
             )
+            start = skip_occupied(max(next_column, min_column), ULTRASONIC_PINS)
             if start + ULTRASONIC_PINS - 1 > MAX_COLUMN:
                 unplaced.append(ref)
             else:

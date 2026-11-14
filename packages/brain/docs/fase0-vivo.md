@@ -156,9 +156,9 @@ Hechos medidos en vivo:
    deja la pantalla EN BLANCO. Con `VO` a GND se lee perfecto. El circuito
    va sin potenciometro y el sketch lo documenta.
 3. El cuerpo del LCD mide ~25 columnas y tapa las filas f..c de la placa.
-   Regla: el LCD se coloca primero (columna 1, fila j, ocupando 18 columnas)
-   y los bloques que caerian debajo (piezo, LDR, ultrasonico, boton, 3 pines,
-   L293D) se rechazan con un error claro en vez de quedar ocultos.
+   Esa medicion llevo a ensartarlo en la fila j con reserva de columnas y
+   guarda de oclusion; **quedo superada en la fase 21** (ver abajo): hoy el
+   display va como modulo libre y no ocupa ni tapa nada de la placa.
 4. Los cables etiquetan los pines del LCD con nombres humanos (`Ground`,
    `Power`, `Contrast`, `Register Select`, `Read/Write`, `Enable`,
    `LED Anode`, `LED Cathode`) distintos de los de `inspect_circuit`
@@ -178,5 +178,26 @@ fuera de la placa, con cables de terminal a terminal), se cambio el contrato:
 - El builder emite el part sin `pin`/`at` y rutea los cables del LCD por
   terminal real (`lcd1.RS`, `lcd1.DB4`...). La rama con `at` queda solo por
   compatibilidad.
+- El `free` del part lleva solo `{x, y}` y el angulo va a nivel de part:
+  es lo que lee el puente y lo que exige `spec.validate_spec`.
 - Resultado: `lcd-contador` y `lcd-temperatura` (TMP36 + display, `9hZJgbsYOC5`)
   al 100%, con el display mostrando exactamente el valor del oraculo serial.
+
+## Fase 22: nivel 6 y cableado en estrella (2026-11-13/14)
+
+`lcd-distancia` (`blN5d8qCr2z`): HC-SR04 + display + alarma sonora. Layout y
+builder lo resolvieron sin cambios; solo hizo falta el sketch
+(`TEST:DIST=110.1` + `TEST:ALARMA=ON`, mismo valor en pantalla).
+
+Dos defectos visuales que la conectividad al 100% no veia:
+
+1. Los cables de las nets de 4+ extremos se encadenaban (`a-b`, `b-c`, ...) y
+   un eslabon hueco-hueco lo dibuja recto el simulador: cruzaba en diagonal
+   sobre el TMP36 y el HC-SR04. Ahora cada net de 3+ extremos se empareja en
+   estrella desde su hub (el primer pin del Uno si esta en la net), y el
+   puente rutea todos esos cables por carriles. Las nets de 2 extremos se
+   dejan tal cual.
+2. Con dos cuerpos grandes en la misma placa, el disco del piezo tapaba el
+   transductor derecho del HC-SR04. Regla: si el piezo esta presente, el
+   sensor arranca en la columna 10 y el piezo conserva el extremo derecho
+   (24e).

@@ -780,3 +780,24 @@ def test_fixture_without_lcd_keeps_first_block_on_column_one():
         },
         "unplaced": [],
     }
+
+
+def test_ultrasonico_y_piezo_comparten_placa_sin_taparse():
+    """Dos cuerpos grandes: el ultrasónico cede la mitad derecha al piezo.
+
+    Medido en vivo (blN5d8qCr2z): con el ultrasónico en 18d su cuerpo llega
+    hasta la columna del piezo y el disco de este tapa el transductor derecho
+    del sensor. Con ambos presentes el sensor arranca en la columna 10 y el
+    piezo conserva el extremo derecho (24e).
+    """
+    result = plan_layout(_fixture("lcd-distancia"))
+
+    assert result["placements"]["us1"] == {"at": "10d", "pin": "vcc", "angle": 0}
+    assert result["placements"]["buzzer1"] == {
+        "at": "24e", "pin": "positive", "angle": 0,
+    }
+    assert result["unplaced"] == []
+
+    used = _pin_columns(result)
+    assert used["us1"].isdisjoint(used["buzzer1"])
+    assert max(used["us1"]) < min(used["buzzer1"])

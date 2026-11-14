@@ -1,6 +1,6 @@
 # Benchmark — circuitos construidos y verificados en Tinkercad
 
-Última pasada: 2026-11-13, todos reconstruidos con el runner (reutiliza el
+Última pasada: 2026-11-14, todos reconstruidos con el runner (reutiliza el
 circuito por título y construye con reemplazo limpio). Fidelidad = score de
 `compare_connectivity` (componentes + equivalencia eléctrica). El oráculo de
 comportamiento es siempre el serial instrumentado en simulación, nunca el
@@ -22,6 +22,7 @@ píxel del LED.
 | 12 | Barrera de parking (HC-SR04 + servo + RGB) | 2xxjwQBZuOH | 100% | `TEST:DIST=112` + `TEST:ESTADO=ABIERTO` + `TEST:SERVO=90` |
 | 13 | LCD 16x2 en modo 4 bits (contador) | cpySiVSE9vr | 100% | `TEST:LCD=LISTO` + `TEST:SEG=N` (mismo valor que muestra la pantalla) |
 | 14 | Termómetro TMP36 en LCD 16x2 | 9hZJgbsYOC5 | 100% | `TEST:TEMP=24.78` (mismo valor que muestra la pantalla) |
+| 15 | Medidor de distancia con LCD y alarma | blN5d8qCr2z | 100% | `TEST:DIST=110.1` + `TEST:ALARMA=ON` (mismo valor en pantalla) |
 
 ## Qué agrega cada nivel
 
@@ -34,12 +35,17 @@ píxel del LED.
 - **Nivel 4 (10-12):** componentes con geometría no trivial (piezo de 5
   columnas, fotorresistencia de 1 columna) y un circuito de integración con
   tres subsistemas: sensor de distancia, actuador (servo) e indicador (RGB).
-- **Nivel 5 (13-14):** bus de 4 bits y salida de texto. El LCD 16x2 va como
+- **Nivel 5 (13-15):** bus de 4 bits y salida de texto. El LCD 16x2 va como
   módulo fuera de la placa (`free`, arriba de la placa): 16 terminales en una
   fila y un cuerpo de ~25 columnas que taparía las filas f..c, así que se
   monta con cables en vez de ensartarlo en la protoboard. Eso deja la placa
-  entera para el sensor y permite combinaciones sensor + display (el 14 mide
-  temperatura con un TMP36 y la muestra).
+  entera para el sensor y permite combinaciones sensor + display: el 14 mide
+  temperatura con un TMP36 y el 15 integra sensado, umbral y actuador
+  (HC-SR04, display y alarma sonora) con dos cuerpos grandes conviviendo.
+- **Cableado:** las nets de 3+ extremos se emparejan en estrella desde el pin
+  del Uno, no en cadena. Un cable hueco-hueco lo dibuja recto el simulador y
+  cruzaba en diagonal por encima de los cuerpos; colgado del mismo extremo el
+  puente lo rutea por carriles.
 
 ## Latencias
 
@@ -56,6 +62,9 @@ y es lo que se usa masivamente para verificar.
   display).
 - El 7 segmentos directo no entra: 7 resistencias son 42 columnas para una
   placa de 30. Necesita 74HC595 o una placa más grande.
+- Dos cuerpos grandes (HC-SR04 + piezo) comparten placa: el sensor cede la
+  mitad derecha (arranca en la columna 10) porque su módulo se dibuja mucho
+  más ancho que sus cuatro pines.
 
 - Sin herramienta de borrado en el puente: los circuitos de exploración se
   renombran `BORRAR - ...` y se eliminan desde el dashboard.
