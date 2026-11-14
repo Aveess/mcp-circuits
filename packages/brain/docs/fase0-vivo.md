@@ -251,3 +251,32 @@ directo, sin listar ni buscar por título, y lo reemplaza en limpio. Si el id
 ya no existe, cae al match por título de siempre. Verificado en vivo:
 `siete-segmentos` reconstruido al 100% en `gfgLntRuWJv` sin crear diseño
 nuevo (el dashboard siguió con 19 diseños).
+
+## Fase 24: 74HC595 + display 7 segmentos (2026-11-14)
+
+Contador 0-9 en el mismo display, pero los 7 segmentos ya no cuelgan de 7
+pines del Uno: los maneja un 74HC595 (`kBGbtwAbFlz`, 100%) con tres pines
+(DS, SHCP, STCP). Oráculo: `TEST:595=LISTO` + `TEST:DIGITO=0..9`.
+
+Hallazgos en vivo:
+
+- **El integrado también puede ir libre**: did 116695, 16 terminales
+  (`Q0..Q7`, `Q7S`, `DS`, `SHCP`, `STCP`, `OE`, `MR`, `Vcc`, `GND`). Se
+  coloca en `x=560, y=-230`, a la izquierda del display y a la misma altura,
+  y se cablea directo a sus terminales. No hace falta montarlo en la placa
+  ni resolver su geometría de huecos.
+- **Nombres de pin**: `inspect` dice `Q0`, `DS`, `SHCP`, `STCP`, `OE`, `MR`,
+  `Vcc`, `GND`; el cableado guardado usa nombres humanos (`Output 1`... por
+  `Q0`, `Input` por `DS`, `Shift Register Clock` por `SHCP`, `Output Register
+  Clock` por `STCP`, `Output Enable` por `OE`, `Shift Register Clear` por
+  `MR`, `Power`, `Ground`). Sin esos alias la conectividad medida fue 40%
+  aunque el circuito ya funcionaba en simulación.
+- **`Vcc` no puede caer al alias genérico**: el alias general convierte
+  `Vcc` en `vcc` y la net deja de coincidir con la fixture. El tipo
+  `shift-register` fija `Vcc` -> `Vcc`.
+- **Anodo comun otra vez**: la tabla del sketch se emite ya invertida
+  (`0x40` para el 0, `0x00` para el 8) y se manda con
+  `shiftOut(DS, SHCP, MSBFIRST, ...)` + pulso de latch en STCP.
+- Verificación visual: el display mostró 4 mientras el serial emitía
+  `TEST:DIGITO=4`; en la corrida por MCP se vieron 3, 6 y 9 con su serial
+  correspondiente.

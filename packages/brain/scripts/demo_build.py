@@ -64,6 +64,7 @@ _SKETCH_BY_FIXTURE = {
     "lcd-temperatura": "lcd_temp_sketch",
     "lcd-distancia": "lcd_distance_sketch",
     "siete-segmentos": "seven_seg_sketch",
+    "desplazador-595": "shift_register_sketch",
 }
 
 

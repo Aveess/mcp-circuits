@@ -66,6 +66,11 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "seven-segment": frozenset(
         {"a", "b", "c", "d", "e", "f", "g", "dp", "com1", "com2"}
     ),
+    # 74HC595 (did 116695): 8 salidas + 8 pines de control/alimentacion.
+    "shift-register": frozenset(
+        {"Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q7S",
+         "DS", "SHCP", "STCP", "OE", "MR", "Vcc", "GND"}
+    ),
     # LCD 16x2 (did 113878): 16 terminales en una fila.
     "lcd-16x2": frozenset(
         {"GND", "VDD", "VO", "RS", "RW", "E",

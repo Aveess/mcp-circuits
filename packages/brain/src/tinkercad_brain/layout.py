@@ -240,6 +240,14 @@ SEVEN_SEG_TYPE = "seven-segment"
 # que aparecen en la fixture.
 FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 
+# 74HC595 (did 116695): integrado de 16 pines que va libre, a la izquierda
+# del display y a la misma altura. Sus terminales se cablean directo, sin
+# huecos de protoboard.
+SHIFT_REGISTER_TYPE = "shift-register"
+FREE_SHIFT_REGISTER_X = 560
+FREE_SHIFT_REGISTER_Y = -230
+FREE_SHIFT_REGISTER_STEP_Y = 200
+
 def _first_free_window(occupied_columns, width):
     """First start column whose `width` columns are all free, or None."""
     for start in range(1, MAX_COLUMN - width + 2):
@@ -333,6 +341,22 @@ def plan_layout(fixture: dict) -> dict:
             }
         }
         free_module_count += 1
+
+    # El integrado 74HC595 no comparte apilado con los displays: va a la
+    # izquierda, a la altura del primero, para que sus cables no cruzen el
+    # display.
+    shift_count = 0
+    for component in components:
+        if component["type"] != SHIFT_REGISTER_TYPE:
+            continue
+        placements[component["ref"]] = {
+            "free": {
+                "x": FREE_SHIFT_REGISTER_X,
+                "y": FREE_SHIFT_REGISTER_Y - shift_count * FREE_SHIFT_REGISTER_STEP_Y,
+                "angle": 0,
+            }
+        }
+        shift_count += 1
 
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.

@@ -28,6 +28,8 @@ TYPE_MAP: dict[str, str] = {
     "9V Battery": "battery-9v",  # Verificado: nombre real ezhil (inspect_circuit).
     "LCD 16 x 2": "lcd-16x2",  # Verificado: type real ezhil (did 113878, circuito ib98EAPoqPP).
     "7 Segment Display": "seven-segment",  # Verificado en vivo (did 129710, pines a..g, dp, com1, com2).
+    "8-Bit Shift Register [74HC595]": "shift-register",  # Verificado en vivo (did 116695, pines Q0..Q7, DS, SHCP, STCP, OE, MR, Vcc, GND).
+    "Shift Register": "shift-register",  # Alias del buscador del catalogo ("Shift Register" es lo que hay que pedir en add_component).
 }
 
 

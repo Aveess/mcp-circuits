@@ -49,6 +49,8 @@ DID_BY_TYPE: dict[str, int] = {
     "lcd-16x2": 113878,
     # Display 7 segmentos (uno digito, catodo comun) verificado en vivo.
     "seven-segment": 129710,
+    # 74HC595 (8-Bit Shift Register) verificado en vivo: did 116695.
+    "shift-register": 116695,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -171,6 +173,17 @@ _LCD_PIN_OFFSETS: dict[str, int] = {
 _SEVEN_SEG_REAL_PINS: dict[str, str] = {
     "a": "a", "b": "b", "c": "c", "d": "d", "e": "e", "f": "f", "g": "g",
     "dp": "dp", "com1": "com1", "com2": "com2",
+}
+
+# 74HC595 (did 116695, type real "8-Bit Shift Register [74HC595]"): 16
+# terminales. Va libre fuera de la placa, como el display, y los cables
+# terminan en el pin real del integrado (ic.Q0, ic.STCP...). Los nombres de
+# la fixture son los del catalogo para no traducir nada.
+_SHIFT_REGISTER_REAL_PINS: dict[str, str] = {
+    "Q0": "Q0", "Q1": "Q1", "Q2": "Q2", "Q3": "Q3",
+    "Q4": "Q4", "Q5": "Q5", "Q6": "Q6", "Q7": "Q7",
+    "Q7S": "Q7S", "DS": "DS", "SHCP": "SHCP", "STCP": "STCP",
+    "OE": "OE", "MR": "MR", "Vcc": "Vcc", "GND": "GND",
 }
 
 _HOLE_RE = re.compile(r"([0-9]+)([a-j])")
@@ -305,6 +318,13 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
         return f"{ref}.{terminal}"
     if ctype == "seven-segment" and "free" in placement:
         terminal = _SEVEN_SEG_REAL_PINS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
+    if ctype == "shift-register" and "free" in placement:
+        terminal = _SHIFT_REGISTER_REAL_PINS.get(pin)
         if terminal is None:
             raise BuildError(
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"

@@ -848,3 +848,81 @@ def seven_seg_sketch(
             "",
         ]
     )
+
+
+def _seven_seg_mask(pattern) -> int:
+    """Byte de un digito con el bit i = segmento a+i encendido (logico)."""
+    mask = 0
+    for index, bit in enumerate(pattern):
+        if bit:
+            mask |= 1 << index
+    return mask
+
+
+def shift_register_sketch(
+    ds: int = 11,
+    shcp: int = 8,
+    stcp: int = 12,
+    hold_ms: int = 400,
+) -> str:
+    """Contador 0-9 con 74HC595 y display 7 segmentos de anodo comun.
+
+    El 595 recibe los bits por ``shiftOut`` (DS = datos, SHCP = reloj) y los
+    presenta en sus salidas con un pulso de STCP (latch). Q0..Q6 van a los
+    segmentos a..g pasando por su resistencia, y el comun del display va a
+    5V: como es anodo comun, el segmento enciende con el bit en 0, asi que
+    la tabla se emite ya invertida. ``hold_ms`` por defecto 400 para que el
+    ciclo completo quepa en la ventana de simulacion del runner.
+    """
+    pins = (ds, shcp, stcp)
+    for pin in pins:
+        _validate_pin(pin)
+    if len(set(pins)) != len(pins):
+        raise ValueError(f"pines repetidos en 74HC595: {pins}")
+    _validate_ms("hold_ms", hold_ms)
+
+    rows = []
+    for digit, pattern in enumerate(SEVEN_SEG_DIGITS):
+        mask = _seven_seg_mask(pattern)
+        byte = (~mask) & 0x7F  # anodo comun: 0 enciende
+        rows.append(f"  0x{byte:02X},  // {digit}")
+    table = "\n".join(rows)
+    return "\n".join(
+        [
+            "// Contador 0-9 con 74HC595 y display 7 segmentos de anodo comun.",
+            "// DS = datos, SHCP = reloj, STCP = latch. Q0..Q6 -> a..g con su",
+            "// resistencia; el comun del display va a 5V y el bit en 0 enciende.",
+            f"const byte DS = {ds};",
+            f"const byte SHCP = {shcp};",
+            f"const byte STCP = {stcp};",
+            "const byte DIGITOS[10] = {",
+            table,
+            "};",
+            "",
+            "void mostrar(byte digito) {",
+            "  digitalWrite(STCP, LOW);",
+            "  shiftOut(DS, SHCP, MSBFIRST, DIGITOS[digito]);",
+            "  digitalWrite(STCP, HIGH);",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(DS, OUTPUT);",
+            "  pinMode(SHCP, OUTPUT);",
+            "  pinMode(STCP, OUTPUT);",
+            "  digitalWrite(STCP, HIGH);",
+            "  Serial.begin(9600);",
+            '  Serial.println("TEST:595=LISTO");',
+            "  mostrar(0);",
+            "}",
+            "",
+            "void loop() {",
+            "  for (byte digito = 0; digito < 10; digito++) {",
+            "    mostrar(digito);",
+            '    Serial.print("TEST:DIGITO=");',
+            "    Serial.println(digito);",
+            f"    delay({hold_ms});",
+            "  }",
+            "}",
+            "",
+        ]
+    )

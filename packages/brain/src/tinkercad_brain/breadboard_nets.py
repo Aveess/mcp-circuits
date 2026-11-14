@@ -174,6 +174,24 @@ _PIN_ALIASES_BY_TYPE = {
         "Common 1": "com1",
         "Common 2": "com2",
     },
+    # 74HC595 (did 116695): inspect devuelve Q0..Q7, DS, SHCP, STCP, OE, MR,
+    # Vcc, GND; el cableado guardado usa nombres humanos. Q0 es "Output 1".
+    "shift-register": {
+        "Output 1": "Q0", "Output 2": "Q1", "Output 3": "Q2",
+        "Output 4": "Q3", "Output 5": "Q4", "Output 6": "Q5",
+        "Output 7": "Q6", "Output 8": "Q7",
+        "Serial Out": "Q7S",
+        "Input": "DS",
+        "Shift Register Clock": "SHCP",
+        "Output Register Clock": "STCP",
+        "Output Enable": "OE",
+        "Shift Register Clear": "MR",
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Vcc": "Vcc",
+        "VCC": "Vcc",
+        "GND": "GND",
+    },
     # Acotado a este tipo: "Red"/"Green"/"Blue" con mayuscula solo los
     # reporta el RGB en vivo (circuito 6CynuRekrD2); ningun otro tipo
     # entra aqui, asi que no afecta a LED/resistencia/etc.

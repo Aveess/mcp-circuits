@@ -94,6 +94,7 @@ RAW_TYPE = {
     "battery-9v": "9V Battery",
     "lcd-16x2": "LCD 16 x 2",
     "seven-segment": "7 Segment Display",
+    "shift-register": "8-Bit Shift Register [74HC595]",
 }
 LCD_TERMINALS = (
     "GND", "VDD", "VO", "RS", "RW", "E",
@@ -137,6 +138,12 @@ INSPECT_PIN = {
     "seven-segment": {
         "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F", "g": "G",
         "dp": "DP", "com1": "Common", "com2": "Common",
+    },
+    "shift-register": {
+        pin: pin for pin in (
+            "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q7S",
+            "DS", "SHCP", "STCP", "OE", "MR", "Vcc", "GND",
+        )
     },
 }
 

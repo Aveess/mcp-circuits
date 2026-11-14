@@ -24,6 +24,7 @@ píxel del LED.
 | 14 | Termómetro TMP36 en LCD 16x2 | 9hZJgbsYOC5 | 100% | `TEST:TEMP=24.78` (mismo valor que muestra la pantalla) |
 | 15 | Medidor de distancia con LCD y alarma | blN5d8qCr2z | 100% | `TEST:DIST=110.1` + `TEST:ALARMA=ON` (mismo valor en pantalla) |
 | 16 | Contador 0-9 en display 7 segmentos | gfgLntRuWJv | 100% | `TEST:DIGITO=0..9` y el display muestra el mismo dígito |
+| 17 | Contador 0-9 con 74HC595 y display 7 segmentos | kBGbtwAbFlz | 100% | `TEST:595=LISTO` + `TEST:DIGITO=0..9` (los bits salen por `shiftOut`) |
 
 ## Qué agrega cada nivel
 
