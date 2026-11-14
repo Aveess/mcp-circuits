@@ -22,6 +22,10 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from tinkercad_brain import sketches  # noqa: E402
+from tinkercad_brain.circuit_doc import (  # noqa: E402
+    documented_code,
+    render_circuit_doc_text,
+)
 from tinkercad_brain.documenter import render_build_report  # noqa: E402
 
 DEFAULT_FIXTURES_PATH = REPO_ROOT / "fixtures" / "fase0" / "circuits.json"
@@ -36,8 +40,13 @@ _PRESETS_BY_FIXTURE = {
         {"component": "Resistor", "property": "resistance", "value": 10, "unit": "k"},
         {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
     ],
-    "sensor-ultrasonico": [
-        {
+    # Mismo astable pero mas lento: 68k con 10uF da ~2 Hz (un digito cada
+    # medio segundo); con 10k el conteo pasa demasiado rapido para verlo.
+    "contador-555-compuertas": [
+        {"component": "Resistor", "property": "resistance", "value": 68, "unit": "k"},
+        {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
+    ],
+    "sensor-ultrasonico": [        {
             "component": "Ultrasonic Distance Sensor (4-pin)",
             "property": "Target Y",
             "value": -105,
@@ -81,6 +90,7 @@ _SKETCH_BY_FIXTURE = {
     "cerradura-teclado": "keypad_lock_sketch",
     "clave-lcd": "keypad_lcd_sketch",
     "control-acceso": "access_control_sketch",
+    "contador-555-compuertas": "gate_counter_sketch",
 }
 
 
@@ -254,6 +264,12 @@ def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DI
         sim_summary,
         _records_as_dicts(result.get("records")),
     )
+    # La misma documentacion que viaja dentro del circuito, para poder
+    # leerla desde el repo sin abrir Tinkercad.
+    report += (
+        "\n## Documentación embebida en el circuito\n\n"
+        "```\n" + render_circuit_doc_text(fixture) + "\n```\n"
+    )
     reports_dir = Path(reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
     path = reports_dir / f"{fixture['id']}.md"
@@ -285,6 +301,11 @@ def main(argv=None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    # Todo circuito guardado lleva su explicacion dentro: el bloque va como
+    # comentario al inicio del sketch, asi que se lee al abrir el editor de
+    # codigo del diseno.
+    code = documented_code(fixture, code)
 
     title = args.title or fixture.get("title") or args.fixture_id
     result = run_via_bridge(fixture, code, title, bridge_path=args.bridge)

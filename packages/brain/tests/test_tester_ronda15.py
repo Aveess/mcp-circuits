@@ -961,8 +961,8 @@ def test_r15_benchmark_lista_los_15_circuitos_y_explica_la_estrella():
 
     rows = re.findall(r"^\|\s*(\d+)\s*\|", text, re.M)
     # La fase 35 agrega la fila 27 (control de acceso con servo).
-    assert len(rows) == 27, rows
-    assert [int(number) for number in rows] == list(range(1, 28))
+    assert len(rows) == 28, rows  # fase 38: contador 555+compuertas
+    assert [int(number) for number in rows] == list(range(1, 29))  # fase 38: fila 28
 
     line = next(line for line in text.splitlines() if LDIST in line)
     assert "100%" in line, line

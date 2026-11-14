@@ -792,8 +792,8 @@ def test_r14_el_benchmark_lista_los_circuitos_y_los_del_lcd():
     )
     numbers = [int(number) for number, _title, _cid in rows]
     # La fase 35 agrega la fila 27 (control de acceso con servo).
-    assert len(rows) == 27, (len(rows), numbers)
-    assert numbers == list(range(1, 28))
+    assert len(rows) == 28, (len(rows), numbers)  # fase 38: contador 555+compuertas
+    assert numbers == list(range(1, 29))  # fase 38: fila 28
 
     ids = {cid: title for _number, title, cid in rows}
     assert "cpySiVSE9vr" in ids and "LCD" in ids["cpySiVSE9vr"]

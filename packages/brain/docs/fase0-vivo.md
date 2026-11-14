@@ -807,3 +807,91 @@ el piezo.
 **Lección:** si el carril lo decide un extremo, mover el otro extremo no
 cambia la ruta: hay que mover el cuerpo que estorba. Y una terminal con
 nombre `+` no es una fuente: el color tiene que mirar el tipo de parte.
+
+## Fase 38: documentación dentro del circuito y contador 555 con compuertas (2026-11-14)
+
+Dos entregas en una fase: el diseño guardado empieza a explicarse solo, y el
+circuito 28 junta cuatro piezas que hasta ahora vivían separadas (555,
+compuertas y display).
+
+### 38a · `circuit_doc`: la explicación viaja dentro del proyecto
+
+El circuito se puede reabrir en Tinkercad, pero la explicación vivía solo en
+`docs/reportes/`. Ahora `demo_build` le antepone al sketch un bloque de
+comentario generado **desde la propia fixture**: título, piezas, cableado net
+por net y el oráculo serial con el que se verifica. Al abrir el editor de
+código del diseño se lee qué hace y cómo está cableado, y como sale de la
+fixture no puede desincronizarse del dibujo.
+
+- `render_circuit_doc(fixture)` arma las líneas; `documented_code(fixture, code)`
+  las envuelve en `/* ... */` y deja el sketch intacto debajo.
+- Es idempotente (marca `/* === DOCUMENTACION DEL CIRCUITO ===` al inicio):
+  documentar dos veces no duplica.
+- `select_code` sigue devolviendo el sketch puro, así los tests que fijan el
+  texto exacto no cambian.
+- El reporte Markdown guarda el mismo bloque (`## Documentación embebida`),
+  para leerlo desde el repo sin abrir el navegador.
+- Campos nuevos y opcionales en la fixture: `doc` (párrafos), `oracle`
+  (líneas del oráculo), `notes` (advertencias). Sin ellos, el bloque se arma
+  con el título, las piezas y las nets: las 28 fixtures quedan documentadas.
+
+### 38b · Contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR
+
+`jApuXFjHQsc` (100%): `uno, t1 (555), r1, c1, u1 (74HC00), u2 (74HC86),
+btn1, seg (7 segmentos)`, con rieles.
+
+**Por qué el decodificador va en software.** Se probó el drawer con
+`Seven Segment Decoder`, `BCD to 7 segment decoder`, `7447`, `4511` y
+`7 segment decoder`: **no existen** en Tinkercad. Decodificar 3 bits a los 7
+segmentos con NAND cuesta ~50 compuertas (13 chips de 4), y con 13 cuerpos el
+lienzo deja de ser un circuito para volverse un peine de cables. La decisión
+honesta: las compuertas hacen trabajo real en la **cadena del pulso** (que es
+donde un AND y un OR tienen sentido) y la tabla del display queda en el
+sketch.
+
+**Cadena de reloj:**
+
+```
+555 OUT --+--> NAND(u1.1) --> XOR(u2.1, pata a 5V) = AND(reloj, MARCHA) = pulso
+          |                        |
+          |                        +--> NAND(u1.3) = NOT pulso
+          |                                            |
+btn1 -----+--------------------------> NAND(u1.4) = OR(pulso, boton) --> D2
+```
+
+- `MARCHA` (D8) en bajo congela el conteo: el AND lo corta.
+- El pulsador entra al OR y avanza un dígito a mano. Su nodo cuelga de
+  **D12 con `INPUT_PULLUP`**: el pull-up interno del micro hace de
+  resistencia del circuito.
+- El AND se arma con NAND + XOR (una XOR con una pata a 5V es un inversor) y
+  el OR con dos NAND: la forma clásica cuando solo hay NAND.
+
+**El bug que cazó la prueba de red.** El primer cableado metía la XOR también
+en el pulsador y el reposo quedaba invertido: D2 en alto sin nada apretado.
+Se vio antes de construir, evaluando las compuertas net a net para las 8
+combinaciones de `(reloj, MARCHA, botón)`
+(`tests/test_fase38_contador_compuertas.py`). La regla que queda: *una cadena
+de compuertas se prueba con tabla de verdad, no mirando el dibujo*.
+
+**Dos resistencias = preset ambiguo.** Con la resistencia del pull-up en la
+placa había dos `Resistor` y `set_component_property_model` responde
+`ambiguous component name`; el preset se perdía y el 555 quedaba con su valor
+por defecto. La herramienta resuelve por nombre exacto, no por ref, así que la
+salida fue sacar la resistencia: `INPUT_PULLUP`.
+
+**Layout: el display no comparte altura con la fila de integrados.** Con tres
+chips (560, 760, 960) el ancla 870 caía dentro del cuerpo del tercero. Regla
+nueva: si el ancla del display queda a menos de `IC_DISPLAY_CLEARANCE` (300)
+de un chip, el display se corre a `max(chip_x) + 300`. Con un solo chip no se
+mueve (595 en 560 → display en 870, 310 de aire, sin regresión).
+
+**Medido en vivo:**
+- Fidelidad 100% (componentes y conectividad), sin fallos de tools.
+- Oráculo `TEST:COMPUERTAS=LISTO` + `TEST:DIGITO=0..7` en ciclo. Con
+  `sim_wait_seconds: 20` la ventana del runner alcanza para el ciclo
+  completo; con la ventana de 5 s solo entraban dos dígitos.
+- Una corrida aparte de 25 s confirmó dos vueltas completas (0→7→0→5), o sea
+  que la vuelta a 0 la hace el sketch con `% 8`.
+- El pulso real queda en ~1,7 s por dígito (teórico 2 Hz con R=68k y C=10uF):
+  el simulador es más lento que la fórmula y el valor se ajustó midiendo, no
+  calculando.

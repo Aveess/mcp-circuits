@@ -280,7 +280,11 @@ def run_build(
         repair_ok = _build_persisted(repair_record.output)
         fidelity = _measure()
 
-    _run("tinkercad_start_simulation", {"wait_seconds": 5})
+    # La ventana de simulacion es 5 s por defecto; una fixture puede pedir
+    # mas con "sim_wait_seconds" cuando su oraculo necesita varios ciclos
+    # (p. ej. el contador de 2 Hz tarda en arrancar el simulador).
+    wait_seconds = fixture.get("sim_wait_seconds", 5)
+    _run("tinkercad_start_simulation", {"wait_seconds": wait_seconds})
     serial_record = _run("tinkercad_read_serial_monitor", {})
     serial = serial_record.output if serial_record.ok else ""
     _run("tinkercad_stop_simulation", {})

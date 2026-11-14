@@ -1866,3 +1866,96 @@ def access_control_sketch(
             "",
         ]
     )
+
+
+def gate_counter_sketch(
+    step_pin: int = 2,
+    run_pin: int = 8,
+    segments: tuple[int, ...] = (4, 5, 6, 7, 9, 10, 11),
+    button_pin: int = 12,
+) -> str:
+    """Contador 0-7 lento: el 555 da el pulso y las compuertas lo limpian.
+
+    La cadena es 555 (astable lento) -> AND(reloj, MARCHA) -> OR(boton) ->
+    D2. El Uno no genera el pulso: solo cuenta los flancos que llegan por
+    ``step_pin`` y pinta el digito en el display de anodo comun (segmento
+    en LOW). El AND se arma con NAND + XOR (el XOR con una entrada a 5V es
+    el inversor) y el OR con dos NAND, asi que las tres compuertas hacen
+    trabajo real y no son adorno.
+
+    ``button_pin`` no se lee en el sketch: el pulsador entra al OR por
+    hardware, y el pin solo existe para darle el pull-up interno a ese nodo.
+
+    El oraculo serial imprime ``TEST:DIGITO=<n>`` solo cuando cambia, de
+    0 a 7 en ciclo, para que la simulacion muestre el conteo completo.
+    """
+    pins = tuple(segments)
+    for pin in (step_pin, run_pin, button_pin) + pins:
+        _validate_pin(pin)
+    if len(pins) != 7:
+        raise ValueError(f"el display 7 segmentos necesita 7 pines: {pins}")
+    if len(set((step_pin, run_pin, button_pin) + pins)) != 10:
+        raise ValueError(
+            "pines repetidos en el contador de compuertas: "
+            f"{(step_pin, run_pin, button_pin) + pins}"
+        )
+
+    rows = []
+    for digit, pattern in enumerate(SEVEN_SEG_DIGITS[:8]):
+        values = ", ".join(str(bit) for bit in pattern)
+        rows.append(f"  {{{values}}},  // {digit}")
+    table = "\n".join(rows)
+    seg_list = ", ".join(str(pin) for pin in pins)
+    return "\n".join(
+        [
+            "// Contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR.",
+            "// 555 OUT -> AND(OUT, MARCHA) -> OR(reloj, boton) -> D2.",
+            "// El AND sale de NAND + XOR (XOR con una pata a 5V invierte) y el",
+            "// OR de dos NAND: las compuertas arman el pulso que cuenta el Uno.",
+            "// Display de anodo comun: el comun va a 5V y el segmento enciende",
+            "// con LOW (en la placa real, 220 ohmios por segmento).",
+            f"const byte PASO = {step_pin};   // pulso del 555 (via compuertas)",
+            f"const byte MARCHA = {run_pin}; // enable del AND: HIGH deja pasar",
+            f"const byte BOTON = {button_pin};  // pull-up del pulsador (no se lee)",
+            f"const byte PINES[7] = {{{seg_list}}};  // a, b, c, d, e, f, g",
+            "const byte DIGITOS[8][7] = {",
+            table,
+            "};",
+            "",
+            "byte digito = 0;",
+            "byte anterior = LOW;",
+            "",
+            "void mostrar(byte valor) {",
+            "  for (byte i = 0; i < 7; i++) {",
+            "    digitalWrite(PINES[i], !DIGITOS[valor][i]);",
+            "  }",
+            "}",
+            "",
+            "void setup() {",
+            "  pinMode(MARCHA, OUTPUT);",
+            "  digitalWrite(MARCHA, HIGH);",
+            "  pinMode(PASO, INPUT);",
+            "  pinMode(BOTON, INPUT_PULLUP);",
+            "  for (byte i = 0; i < 7; i++) {",
+            "    pinMode(PINES[i], OUTPUT);",
+            "  }",
+            "  Serial.begin(9600);",
+            '  Serial.println("TEST:COMPUERTAS=LISTO");',
+            "  mostrar(0);",
+            '  Serial.println("TEST:DIGITO=0");',
+            "  anterior = digitalRead(PASO);",
+            "}",
+            "",
+            "void loop() {",
+            "  byte ahora = digitalRead(PASO);",
+            "  if (ahora == HIGH && anterior == LOW) {",
+            "    digito = (digito + 1) % 8;",
+            "    mostrar(digito);",
+            '    Serial.print("TEST:DIGITO=");',
+            "    Serial.println(digito);",
+            "  }",
+            "  anterior = ahora;",
+            "}",
+            "",
+        ]
+    )

@@ -36,6 +36,7 @@ píxel del LED.
 | 25 | Cerradura con teclado 4x4 y dos LEDs | g3KZdQc0DFu | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` (LED de apertura) y `1111` + `CLAVE=FALLA` (LED de rechazo) |
 | 26 | Caja fuerte con teclado 4x4 y LCD 16x2 | 9wyFlvHHzIo | 100% | `TEST:KP=LISTO` + `TEST:CLAVE=ESPERANDO`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `PANTALLA=DENEGADO` |
 | 27 | Control de acceso con teclado, LCD y servo (servo libre) | cjjQKLuBQ2I | 100% | `TEST:KP=LISTO` + `CLAVE=ESPERANDO` + `SERVO=0`; con estimulo: `TECLA=1..4` + `CLAVE=OK` + `SERVO=90` + `PANTALLA=ABIERTO` y `1111` + `CLAVE=FALLA` + `SERVO=0` + `PANTALLA=DENEGADO` (asta del servo girada en la captura) |
+| 28 | Contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR | jApuXFjHQsc | 100% | `TEST:COMPUERTAS=LISTO` + `TEST:DIGITO=0..7..0` (un pulso cada ~0,5 s; la cadena AND/OR de compuertas arma el pulso que cuenta el Uno) |
 
 ## Qué agrega cada nivel
 
@@ -61,8 +62,13 @@ píxel del LED.
   en fila sobre la placa (`x=560+200*i`, `y=-230`): apilados en la misma `x`
   el mazo de cables sube en columna. La vuelta en anillo del 4017 es
   hardware puro (Q4 -> MR), el Uno solo relojea y lee.
-- **Rieles (opt-in, fase 31):** cuando una fixture declara
-  `"wiring": "rails"` y reparte 5V o GND en dos o más nets, cada terminal
+- **Nivel 7 (27-28):** combinaciones de chip + display. El 27 ya no monta el
+  servo en la placa (`"free_parts"`) y el 28 junta cuatro piezas que antes
+  vivían separadas: 555 como reloj lento, compuertas (74HC00 para el AND y el
+  OR, 74HC86 como inversor) armando el pulso, y display 7 segmentos. Con dos
+  o más integrados el display se corre a la derecha de la fila de chips para
+  que los cuerpos no se toquen (ver fase 38).
+- **Rieles (opt-in, fase 31):** cuando una fixture declara  `"wiring": "rails"` y reparte 5V o GND en dos o más nets, cada terminal
   baja al riel de la placa en su misma columna y el Uno alimenta el riel
   una sola vez; si se usan los dos rieles del mismo tipo se puentean en la
   columna 30. El default sigue siendo la estrella. Aplicado a `faro-rele-ldr`.

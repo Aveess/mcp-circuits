@@ -915,7 +915,7 @@ def test_r16_el_benchmark_lista_los_circuitos_y_el_display_al_100():
 
     # La fase 24 agrego la fila 17: el benchmark crece con cada fase.
     # La fase 35 suma la fila 27 (control de acceso con servo).
-    assert [int(number) for number in rows] == list(range(1, 28))
+    assert [int(number) for number in rows] == list(range(1, 29))  # fase 38: fila 28
     line = next(line for line in text.splitlines() if "gfgLntRuWJv" in line)
     assert "100%" in line
     assert "7 segmentos" in line

@@ -2132,5 +2132,166 @@
       "sv1"
     ],
     "tinkercad_id": "cjjQKLuBQ2I"
+  },
+  {
+    "id": "contador-555-compuertas",
+    "title": "Contador 0-7 lento: reloj 555 y compuertas AND/OR/XOR",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "u1",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "btn1",
+        "type": "pushbutton"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "u1.Vcc",
+        "u2.Vcc",
+        "seg.com1"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2",
+        "u1.GND",
+        "u2.GND",
+        "btn1.2"
+      ],
+      [
+        "r1.2",
+        "t1.DIS",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.OUT",
+        "u1.1A"
+      ],
+      [
+        "uno.D8",
+        "u1.1B"
+      ],
+      [
+        "u1.1Y",
+        "u2.1A"
+      ],
+      [
+        "u2.1B",
+        "uno.5V"
+      ],
+      [
+        "u2.1Y",
+        "u1.3A",
+        "u1.3B"
+      ],
+      [
+        "u1.3Y",
+        "u1.4A"
+      ],
+      [
+        "btn1.1",
+        "u1.4B",
+        "uno.D12"
+      ],
+      [
+        "u1.4Y",
+        "uno.D2"
+      ],
+      [
+        "uno.D4",
+        "seg.a"
+      ],
+      [
+        "uno.D5",
+        "seg.b"
+      ],
+      [
+        "uno.D6",
+        "seg.c"
+      ],
+      [
+        "uno.D7",
+        "seg.d"
+      ],
+      [
+        "uno.D9",
+        "seg.e"
+      ],
+      [
+        "uno.D10",
+        "seg.f"
+      ],
+      [
+        "uno.D11",
+        "seg.g"
+      ]
+    ],
+    "wiring": "rails",
+    "sim_wait_seconds": 20,
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "doc": [
+      "El 555 funciona como reloj (aprox. un pulso por segundo). Su salida no",
+      "va directo al Arduino: pasa por un AND con la senal MARCHA (D8), asi el",
+      "conteo se congela cuando MARCHA esta en bajo, y por un OR con un",
+      "pulsador, asi cada tecla avanzada un digito a mano. El Uno solo cuenta",
+      "los flancos que llegan a D2 y dibuja el digito 0..7 en el display de 7",
+      "segmentos, que vuelve a 0 despues del 7.",
+      "los flancos que llegan a D2 y dibuja el digito 0..7 en el display de 7",
+      "Las compuertas no son decorativas: el AND se arma con una NAND (u1) mas",
+      "una XOR (u2) usada como inversor, y el OR con dos NAND (u1). Esa es la",
+      "forma clasica de conseguir AND y OR cuando solo hay NAND."
+    ],
+    "oracle": [
+      "TEST:COMPUERTAS=LISTO al arrancar y TEST:DIGITO=0.",
+      "Cada pulso del 555 o del pulsador imprime TEST:DIGITO=1..7 y vuelve",
+      "a 0: en 5 s de simulacion se ve el ciclo completo."
+    ],
+    "notes": [
+      "El display es de anodo comun: comun a 5V y segmento en LOW. En el",
+      "simulador los segmentos van directo; en una placa real, 220 ohmios",
+      "por segmento.",
+      "El pulsador cuelga de D12 con INPUT_PULLUP: el nodo tambien entra al",
+      "OR, asi que el pull-up interno del micro hace de resistencia del",
+      "circuito. Sin el, la linea queda flotante y el paso manual no funciona.",
+      "R=68k y C=10uF dan el pulso lento; con 10k el conteo se ve borroso."
+    ],
+    "tinkercad_id": "jApuXFjHQsc"
   }
 ]

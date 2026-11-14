@@ -118,6 +118,11 @@ FREE_MODULE_X = 870
 LCD_FREE_X = 1100
 FREE_MODULE_Y = -230
 FREE_MODULE_STEP_Y = 200
+# Un display y un integrado no comparten altura: si el ancla del display cae
+# dentro del cuerpo de un chip, el display se corre a la derecha de la fila
+# de integrados. El corte es 300 (mismo radio que usa la regla de perifericos)
+# y con un solo chip en 560 el display se queda en 870: 310 de aire.
+IC_DISPLAY_CLEARANCE = 300
 
 
 class LayoutError(Exception):
@@ -373,6 +378,17 @@ def plan_layout(fixture: dict) -> dict:
     # its own column (the LCD a bit further right, see LCD_FREE_X) and
     # stacks upward in fixture order, so two displays of the same kind
     # never land on top of each other.
+    #
+    # La fila de integrados (555, compuertas, 595, contadores) ocupa la
+    # misma altura y arranca en 560: con dos o mas chips, el ancla 870 cae
+    # dentro de un cuerpo. Se cuenta primero la fila de chips y el display
+    # se corre a su derecha; con un solo chip no se mueve (310 de aire).
+    ic_xs = [
+        FREE_SHIFT_REGISTER_X + index * FREE_SHIFT_REGISTER_STEP_X
+        for index, component in enumerate(
+            c for c in components if c["type"] in IC_STACK_TYPES
+        )
+    ]
     free_module_count = 0
     display_xs = []
     for component in components:
@@ -383,6 +399,8 @@ def plan_layout(fixture: dict) -> dict:
         # y un display de 7 segmentos en el mismo circuito nunca comparten
         # altura, aunque ya no compartan x.
         x = LCD_FREE_X if ctype == LCD_TYPE else FREE_MODULE_X
+        if any(abs(x - ic_x) < IC_DISPLAY_CLEARANCE for ic_x in ic_xs):
+            x = max(ic_xs) + IC_DISPLAY_CLEARANCE
         placements[component["ref"]] = {
             "free": {
                 "x": x,

@@ -40,11 +40,14 @@ puente en producción.
    verificador evalúa. (La lectura de LED por píxel existe pero no
    calibra en headless: no se usa como verdad.)
 7. `documenter` genera el reporte Markdown del build en
-   `docs/reportes/`.
+   `docs/reportes/`. Antes de enviar el sketch, `circuit_doc` le antepone
+   un bloque de documentación generado desde la fixture (título, piezas,
+   cableado net por net y el oráculo serial), así que el diseño guardado
+   se explica solo al abrir el editor de código.
 
 ## Circuitos ya construidos y verificados
 
-Ver `docs/benchmark.md` (27 circuitos en once niveles, todos al 100% de
+Ver `docs/benchmark.md` (28 circuitos en doce niveles, todos al 100% de
 fidelidad: blink, semáforo, botón, servo, TMP36, ultrasónico, RGB, motor con
 transistor, motor con L293D y batería, buzzer con botón, LDR en luz nocturna,
 una barrera de parking con sensor + servo + RGB, un LCD 16x2 en modo 4 bits, un
@@ -55,7 +58,8 @@ compuertas, un biestable D como divisor, un 555 como reloj, un contador
 binario 74HC93, un carrusel de LEDs con el contador Johnson 4017 y un faro
 automatico con rele SPDT movido por un NPN, una alarma de movimiento con
 PIR, una cerradura con teclado 4x4, una caja fuerte con teclado y LCD y un
-control de acceso con teclado, LCD y servo (servo en colocacion libre). Los
+control de acceso con teclado, LCD y servo (servo en colocacion libre), y un
+contador 0-7 lento con reloj 555 y compuertas AND/OR/XOR. Los
 cables del LCD salen de lado antes de bajar, asi que no pasan por detras de
 su propio cuerpo; y cuando un piezo comparte circuito con el sensor
 ultrasonico el piezo va libre, para que su cuerpo no tape la placa)

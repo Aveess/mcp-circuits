@@ -661,8 +661,8 @@ def test_r17_cada_fixture_tiene_id_alfanumerico_y_coincide_su_reporte(fixture):
 def test_r17_los_ids_presentes_son_unicos():
     ids = [c["tinkercad_id"] for c in _fixtures() if c.get("tinkercad_id")]
     assert len(ids) == len(set(ids)), ids
-    # Fase 35 suma el control de acceso con servo libre: 27 fixtures.
-    assert len(_fixtures()) == 27
+    # Fase 38 suma el contador 0-7 con 555 y compuertas: 28 fixtures.
+    assert len(_fixtures()) == 28
 
 
 @pytest.mark.parametrize(
