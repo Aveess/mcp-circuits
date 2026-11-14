@@ -145,10 +145,13 @@ _PHOTORESISTOR_REAL_PINS: dict[str, str] = {
 _PHOTORESISTOR_SECOND_OFFSET = 1
 
 # LCD 16x2 (did 113878, type real "LCD 16 x 2", verificado en vivo en
-# ib98EAPoqPP): 16 terminales en UNA fila; ancla "GND" (angle 0) y el
-# resto a +1..+15 columnas, misma fila. Los nombres reales son los mismos
-# de la fixture (mapa identidad), pero se declaran explicitos para
-# rechazar pines desconocidos en vez de rutear un hueco inventado.
+# ib98EAPoqPP): 16 terminales en UNA fila. El display NO va montado en la
+# protoboard: el layout lo emite libre (`free`) sobre la placa y los
+# cables terminan en sus terminales reales (lcd1.RS, lcd1.DB4, ...). El
+# mapa de abajo se usa para validar el pin y, en la rama de compatibilidad
+# con `at`, para derivar huecos. Los nombres reales son los mismos de la
+# fixture (mapa identidad), pero se declaran explicitos para rechazar
+# pines desconocidos en vez de rutear un terminal inventado.
 _LCD_ANCHOR = "GND"
 _LCD_REAL_PINS: dict[str, str] = {
     "GND": "GND", "VDD": "VDD", "VO": "VO", "RS": "RS", "RW": "RW", "E": "E",
@@ -245,6 +248,15 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
                 f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
             )
         return f"{ref}.{terminal}"
+    if ctype == "lcd-16x2" and "free" in placement:
+        # Modulo libre: el cable termina en el terminal real del display,
+        # no en un hueco. Solo se valida el pin (y su nombre real).
+        terminal = _LCD_REAL_PINS.get(pin)
+        if terminal is None:
+            raise BuildError(
+                f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
+            )
+        return f"{ref}.{terminal}"
     at = placement["at"]
     # Geometria derivada de la receta de layout (ver layout.plan_layout):
     if ctype == "l293d":
@@ -314,8 +326,9 @@ def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
             f"pin sin terminal conocido: {endpoint!r} (type {ctype!r})"
         )
     elif ctype == "lcd-16x2":
-        # Geometria verificada en vivo: 16 terminales en una fila, ancla
-        # "GND" en el `at` y el resto a +1..+15 columnas (angle 0).
+        # Compatibilidad con fixtures/layouts viejos: si el placement trae
+        # `at` (LCD montado en la placa), 16 terminales en una fila con
+        # ancla "GND" en el `at` y el resto a +1..+15 columnas (angle 0).
         if placement.get("pin") != _LCD_ANCHOR:
             raise BuildError(
                 f"ancla inesperada para {endpoint!r} (type {ctype!r}): "
@@ -396,6 +409,8 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
                 f"type sin DID conocido para ref {ref!r}: {ctype!r}"
             )
         if "free" in placement:
+            # Modulos libres (motor DC, bateria 9V, LCD 16x2): sin hueco,
+            # sin `pin` de ancla; el puente los coloca por coordenadas.
             parts.append(
                 {"ref": ref, "did": did, "free": dict(placement["free"])}
             )
