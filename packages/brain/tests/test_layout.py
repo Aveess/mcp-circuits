@@ -441,7 +441,7 @@ def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
     from tinkercad_brain.fase0.fixtures import load_fixtures
 
     circuits = load_fixtures(REAL_FIXTURES)
-    assert len(circuits) == 11
+    assert len(circuits) == 12
     fixture = next(c for c in circuits if c["id"] == "motor-l293d-bateria")
 
     result = plan_layout(fixture)
@@ -500,3 +500,115 @@ def test_output_is_deterministic_and_anchors_are_unique():
     assert first == second
     anchors = [p["at"] for p in first["placements"].values()]
     assert len(anchors) == len(set(anchors))
+
+
+def _anchor_columns(result):
+    assert result["unplaced"] == []
+    columns = [int(p["at"][:-1]) for p in result["placements"].values()]
+    assert len(columns) == len(set(columns))
+    return columns
+
+
+def test_buzzer_real_fixture_places_positive_anchor_on_row_e_in_six_columns():
+    result = plan_layout(_fixture("buzzer-activo"))
+
+    assert result["placements"]["buzzer1"] == {"at": "1e", "pin": "+", "angle": 0}
+    buzzer_columns = set(range(1, 1 + 6))
+    button_column = int(result["placements"]["btn1"]["at"][:-1])
+    assert button_column not in buzzer_columns
+    assert result["unplaced"] == []
+
+    # Same fixture plus an LED block: the buzzer block must not land on it.
+    fixture = _fixture("buzzer-activo")
+    fixture["components"].extend(
+        [{"ref": "led1", "type": "led"}, {"ref": "r1", "type": "resistor"}]
+    )
+    fixture["nets"].extend([["r1.2", "led1.anode"]])
+    with_led = plan_layout(fixture)
+
+    led_column = int(with_led["placements"]["led1"]["at"][:-1])
+    led_block = set(range(led_column - 4, led_column + 2))
+    buzzer_column = int(with_led["placements"]["buzzer1"]["at"][:-1])
+    assert buzzer_column not in led_block
+    assert set(range(buzzer_column, buzzer_column + 6)).isdisjoint(led_block)
+
+
+def test_ldr_real_fixture_places_divider_resistor_three_columns_right_on_row_e():
+    result = plan_layout(_fixture("ldr-divisor"))
+
+    assert result["placements"]["ldr1"] == {"at": "7e", "pin": "1", "angle": 0}
+    assert result["placements"]["r1"] == {"at": "10e", "pin": "1", "angle": 90}
+    ldr_column = int(result["placements"]["ldr1"]["at"][:-1])
+    divider_column = int(result["placements"]["r1"]["at"][:-1])
+    assert divider_column - ldr_column == 3
+    # divider pin 2 lands 4 columns after pin 1, both inside the block.
+    assert set(range(ldr_column, ldr_column + 2)).isdisjoint(
+        range(divider_column, divider_column + 5)
+    )
+    _anchor_columns(result)
+
+
+def test_parking_real_fixture_places_rgb_first_servo_and_ultrasonic_without_overlap():
+    result = plan_layout(_fixture("parking-servo-ultrasonico-rgb"))
+
+    assert result["unplaced"] == []
+    assert result["placements"]["rgb1"] == {"at": "5i", "pin": "red", "angle": 0}
+    assert result["placements"]["r1"] == {"at": "1g", "pin": "1", "angle": 90}
+    assert result["placements"]["r2"] == {"at": "4h", "pin": "1", "angle": 90}
+    assert result["placements"]["r3"] == {"at": "3j", "pin": "1", "angle": 90}
+    ultrasonic_column = int(result["placements"]["us1"]["at"][:-1])
+    assert ultrasonic_column >= 18
+    _anchor_columns(result)
+
+
+def test_ldr_without_divider_resistor_is_placed_alone():
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "ldr1", "type": "photoresistor"},
+        ],
+        "nets": [["uno.5V", "ldr1.1"], ["ldr1.2", "uno.A0"]],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result == {
+        "placements": {"ldr1": {"at": "1e", "pin": "1", "angle": 0}},
+        "unplaced": [],
+    }
+
+
+def test_rgb_backfills_first_free_window_when_cursor_already_passed():
+    # LED block 1-6, ultrasonic forced to 18-21, servo 23-25: the cursor
+    # is at 27, so the RGB must not depend on being placed first.
+    fixture = {
+        "components": [
+            {"ref": "uno", "type": "arduino-uno"},
+            {"ref": "led1", "type": "led"},
+            {"ref": "r0", "type": "resistor"},
+            {"ref": "us1", "type": "ultrasonic-hcsr04"},
+            {"ref": "servo1", "type": "servo"},
+            {"ref": "rgb1", "type": "led-rgb-common-cathode"},
+            {"ref": "r1", "type": "resistor"},
+            {"ref": "r2", "type": "resistor"},
+            {"ref": "r3", "type": "resistor"},
+        ],
+        "nets": [
+            ["r0.2", "led1.anode"],
+            ["r1.2", "rgb1.red"],
+            ["r2.2", "rgb1.green"],
+            ["r3.2", "rgb1.blue"],
+        ],
+    }
+
+    result = plan_layout(fixture)
+
+    assert result["unplaced"] == []
+    assert result["placements"]["rgb1"] == {"at": "11i", "pin": "red", "angle": 0}
+    assert result["placements"]["r1"] == {"at": "7g", "pin": "1", "angle": 90}
+    assert result["placements"]["r2"] == {"at": "10h", "pin": "1", "angle": 90}
+    assert result["placements"]["r3"] == {"at": "9j", "pin": "1", "angle": 90}
+    rgb_columns = set(range(7, 15))
+    assert rgb_columns.isdisjoint(range(1, 7))
+    assert rgb_columns.isdisjoint(range(18, 22))
+    assert rgb_columns.isdisjoint(range(23, 26))

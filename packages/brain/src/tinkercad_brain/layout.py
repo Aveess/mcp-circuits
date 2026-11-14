@@ -40,6 +40,24 @@ RGB_RESISTOR_LAYOUT = {"red": (-4, "g"), "green": (-1, "h"), "blue": (-2, "j")}
 # Footprint from the leftmost resistor pin (B-4) to the last RGB pin
 # (B+3): 8 columns of cursor advance.
 RGB_WIDTH = 8
+# Piezo/buzzer (fixture slug "buzzer", did 114067), live-verified:
+# anchoring "+" at <c>e with angle 0 puts "-" exactly at <c+5>e.
+# Footprint 6 columns (5 of separation + 1 of clearance).
+PIEZO_TYPE = "buzzer"
+PIEZO_ANCHOR_PIN = "+"
+PIEZO_ROW = "e"
+PIEZO_WIDTH = 6
+# Photoresistor/LDR (fixture slug "photoresistor", did 116691),
+# live-verified: anchoring pin "1" at <c>e with angle 0 puts pin "2" at
+# <c+1>e. Footprint 2 columns.
+LDR_TYPE = "photoresistor"
+LDR_ANCHOR_PIN = "1"
+LDR_ROW = "e"
+LDR_WIDTH = 2
+# LDR divider resistor: angle 90 puts pin 2 four columns after pin 1, so
+# pin 1 at c+3 lands pin 2 at c+7. Whole block advances 8 columns.
+LDR_DIVIDER_OFFSET = 3
+LDR_BLOCK_WIDTH = 8
 # Diode on row g, angle 90 with pin "anode": live-verified that the
 # cathode lands 4 columns before the anode (opposite to a resistor),
 # so placing the anode at c+4 puts the cathode at c. Footprint c..c+4
@@ -138,6 +156,54 @@ def _rgb_color_resistors(components, nets):
     return mapping
 
 
+def _ldr_divider_resistors(components, nets, reserved):
+    """Map each LDR ref to the resistor on the same net as its pin "2".
+
+    That resistor is the divider's middle node and must travel with the
+    LDR, not as a standalone block. `reserved` are resistors already
+    claimed by the LED/RGB rules.
+    """
+    type_by_ref = {c["ref"]: c["type"] for c in components}
+    mapping = {}
+    used = set(reserved)
+    for component in components:
+        if component["type"] != LDR_TYPE:
+            continue
+        ldr_ref = component["ref"]
+        for net in nets or []:
+            endpoints = [_parse_endpoint(endpoint) for endpoint in net]
+            if not any(
+                ref == ldr_ref and pin in ("2", "terminal-2")
+                for ref, pin in endpoints
+            ):
+                continue
+            resistor_ref = next(
+                (
+                    ref
+                    for ref, _pin in endpoints
+                    if ref is not None
+                    and type_by_ref.get(ref) == "resistor"
+                    and ref not in used
+                ),
+                None,
+            )
+            if resistor_ref is not None:
+                mapping[ldr_ref] = resistor_ref
+                used.add(resistor_ref)
+                break
+    return mapping
+
+
+def _first_free_window(occupied_columns, width):
+    """First start column whose `width` columns are all free, or None."""
+    for start in range(1, MAX_COLUMN - width + 2):
+        if not any(
+            col in occupied_columns for col in range(start, start + width)
+        ):
+            return start
+    return None
+
+
 def plan_layout(fixture: dict) -> dict:
     if not isinstance(fixture, dict):
         raise LayoutError("fixture must be a dict")
@@ -199,6 +265,12 @@ def plan_layout(fixture: dict) -> dict:
             if ref not in unplaced:
                 unplaced.append(ref)
 
+    # LDR divider resistors are placed with their LDR, never standalone.
+    ldr_to_resistor = _ldr_divider_resistors(
+        components, nets, set(led_to_resistor.values()) | rgb_resistor_refs
+    )
+    ldr_divider_resistors = set(ldr_to_resistor.values())
+
     # Block units: each LED with its series resistor, plus standalone
     # resistors. Ordered by first appearance of any member in the fixture.
     units = []
@@ -216,6 +288,7 @@ def plan_layout(fixture: dict) -> dict:
             ctype == "resistor"
             and ref not in paired_resistors
             and ref not in rgb_resistor_refs
+            and ref not in ldr_divider_resistors
         ):
             units.append((order[ref], None, ref))
     units.sort(key=lambda unit: unit[0])
@@ -259,14 +332,19 @@ def plan_layout(fixture: dict) -> dict:
         if ctype == RGB_TYPE:
             if ref in unsupported_rgb:
                 continue
-            next_column = skip_occupied(next_column, RGB_WIDTH)
-            base = next_column + 4
-            if base - 4 < 1 or base + 3 > MAX_COLUMN:
+            start = skip_occupied(next_column, RGB_WIDTH)
+            if start + RGB_WIDTH - 1 > MAX_COLUMN:
+                # Cursor already passed the board or the tail does not
+                # fit: backfill the first free RGB window so placement
+                # does not depend on component order.
+                start = _first_free_window(occupied_columns, RGB_WIDTH)
+            if start is None:
                 unplaced.append(ref)
                 for resistor_ref in rgb_to_resistors[ref].values():
                     if resistor_ref not in unplaced:
                         unplaced.append(resistor_ref)
                 continue
+            base = start + 4
             placements[ref] = {"at": f"{base}i", "pin": "red", "angle": 0}
             for color, (offset, row) in RGB_RESISTOR_LAYOUT.items():
                 resistor_ref = rgb_to_resistors[ref][color]
@@ -276,9 +354,47 @@ def plan_layout(fixture: dict) -> dict:
                     "angle": 90,
                 }
             # Registers B..B+3 (and the resistor columns before them):
-            # the next block starts after the last RGB pin.
+            # the next block starts after the last RGB pin. A backfilled
+            # RGB never rewinds the shared cursor.
             occupied_columns.update(range(base - 4, base + 4))
-            next_column = base + 4
+            next_column = max(next_column, base + 4)
+        elif ctype == PIEZO_TYPE:
+            start = skip_occupied(next_column, PIEZO_WIDTH)
+            if start + PIEZO_WIDTH - 1 > MAX_COLUMN:
+                unplaced.append(ref)
+            else:
+                placements[ref] = {
+                    "at": f"{start}{PIEZO_ROW}",
+                    "pin": PIEZO_ANCHOR_PIN,
+                    "angle": 0,
+                }
+                occupied_columns.update(range(start, start + PIEZO_WIDTH))
+                next_column = start + PIEZO_WIDTH
+        elif ctype == LDR_TYPE:
+            divider_ref = ldr_to_resistor.get(ref)
+            width = LDR_BLOCK_WIDTH if divider_ref else LDR_WIDTH
+            start = skip_occupied(next_column, width)
+            if start + width - 1 > MAX_COLUMN:
+                unplaced.append(ref)
+                if divider_ref is not None:
+                    unplaced.append(divider_ref)
+            else:
+                placements[ref] = {
+                    "at": f"{start}{LDR_ROW}",
+                    "pin": LDR_ANCHOR_PIN,
+                    "angle": 0,
+                }
+                occupied_columns.update(range(start, start + LDR_WIDTH))
+                if divider_ref is not None:
+                    placements[divider_ref] = {
+                        "at": f"{start + LDR_DIVIDER_OFFSET}{LDR_ROW}",
+                        "pin": "1",
+                        "angle": 90,
+                    }
+                    occupied_columns.update(
+                        range(start, start + LDR_BLOCK_WIDTH)
+                    )
+                next_column = start + width
         elif ctype == "l293d":
             l293d_columns = set(range(L293D_START_COLUMN, L293D_END_COLUMN + 1))
             if l293d_columns & occupied_columns:
