@@ -489,32 +489,65 @@ def test_ldr_led_default_contains_key_content():
     assert "Serial.begin(9600)" in sketch
     assert 'Serial.println("READY")' in sketch
     assert "int luz = analogRead(A0)" in sketch
-    assert "if (luz > 500)" in sketch
+    assert "if (luz < 300)" in sketch
     assert _digital_writes(sketch) == [(13, "HIGH"), (13, "LOW")]
     assert 'Serial.println("TEST:LED=ON")' in sketch
     assert 'Serial.println("TEST:LED=OFF")' in sketch
-    assert 'Serial.print("TEST:LUX=");' in sketch
+    assert 'Serial.print("TEST:LUZ=");' in sketch
     assert "Serial.println(luz);" in sketch
     assert "delay(200)" in sketch
+
+
+def test_ldr_led_turns_on_when_dark():
+    sketch = ldr_led_sketch()
+    dark = sketch[sketch.index("if (luz < 300) {") : sketch.index("} else {")]
+    assert "digitalWrite(13, HIGH)" in dark
+    assert 'Serial.println("TEST:LED=ON")' in dark
+    lit = sketch[sketch.index("} else {") : sketch.index('Serial.print("TEST:LUZ=");')]
+    assert "digitalWrite(13, LOW)" in lit
+    assert 'Serial.println("TEST:LED=OFF")' in lit
+
+
+def _ldr_branch_for_luz(sketch, luz):
+    match = re.search(r"if \(luz ([<>]) (\d+)\) \{", sketch)
+    op, umbral = match.group(1), int(match.group(2))
+    en_oscuras = luz < umbral if op == "<" else luz > umbral
+    if en_oscuras:
+        return sketch[match.end() : sketch.index("} else {")]
+    return sketch[sketch.index("} else {") : sketch.index('Serial.print("TEST:LUZ=");')]
+
+
+def test_ldr_led_stays_on_with_low_light():
+    # La escena de Tinkercad arranca a oscuras: analogRead ~6 con umbral 300.
+    sketch = ldr_led_sketch()
+    for luz in (0, 6, 299):
+        branch = _ldr_branch_for_luz(sketch, luz)
+        assert "digitalWrite(13, HIGH)" in branch
+        assert 'Serial.println("TEST:LED=ON")' in branch
+    for luz in (300, 500, 1023):
+        branch = _ldr_branch_for_luz(sketch, luz)
+        assert "digitalWrite(13, LOW)" in branch
+        assert 'Serial.println("TEST:LED=OFF")' in branch
 
 
 def test_ldr_led_documents_voltage_divider():
     sketch = ldr_led_sketch()
     assert "10k" in sketch
     assert "mas luz" in sketch.lower()
+    assert "nocturna" in sketch.lower()
 
 
 def test_ldr_led_custom_pins_and_threshold_are_literal():
     sketch = ldr_led_sketch(ldr_pin="A3", led_pin=8, threshold=700)
     assert "analogRead(A3)" in sketch
     assert "pinMode(8, OUTPUT)" in sketch
-    assert "if (luz > 700)" in sketch
+    assert "if (luz < 700)" in sketch
     assert _digital_writes(sketch) == [(8, "HIGH"), (8, "LOW")]
 
 
 def test_ldr_led_accepts_boundary_thresholds():
-    assert "if (luz > 0)" in ldr_led_sketch(threshold=0)
-    assert "if (luz > 1023)" in ldr_led_sketch(threshold=1023)
+    assert "if (luz < 0)" in ldr_led_sketch(threshold=0)
+    assert "if (luz < 1023)" in ldr_led_sketch(threshold=1023)
 
 
 @pytest.mark.parametrize("threshold", [-1, 1024, 5000])
@@ -561,16 +594,44 @@ def test_parking_servo_default_contains_key_content():
     assert "pulseIn(6, HIGH)" in sketch
     assert "duracion * 0.034 / 2" in sketch
     assert 'Serial.print("TEST:DIST=");' in sketch
-    assert "if (distancia < 20.0)" in sketch
+    assert "if (distancia < 130.0)" in sketch
     assert 'Serial.println("TEST:ESTADO=ABIERTO")' in sketch
     assert 'Serial.println("TEST:ESTADO=CERRADO")' in sketch
     assert 'Serial.print("TEST:SERVO=");' in sketch
     assert "delay(200)" in sketch
 
 
+def test_parking_servo_default_threshold_opens_with_measured_scene_distance():
+    # La escena real mide ~112 cm; con el default 130 la barrera arranca ABIERTA.
+    sketch = parking_servo_sketch()
+    assert "if (distancia < 130.0)" in sketch
+    open_branch = sketch[sketch.index("if (distancia < 130.0) {") : sketch.index("} else {")]
+    assert "angulo = 90" in open_branch
+    assert "digitalWrite(11, HIGH)" in open_branch
+    assert 'Serial.println("TEST:ESTADO=ABIERTO")' in open_branch
+    assert 112 < 130.0
+
+
+def _parking_branch_for_distance(sketch, distancia):
+    match = re.search(r"if \(distancia ([<>]) ([\d.]+)\) \{", sketch)
+    op, umbral = match.group(1), float(match.group(2))
+    dentro = distancia < umbral if op == "<" else distancia > umbral
+    if dentro:
+        return sketch[match.end() : sketch.index("} else {")]
+    return sketch[sketch.index("} else {") : sketch.index("servo.write(angulo)")]
+
+
+def test_parking_servo_branch_matches_the_servo_comparison():
+    sketch = parking_servo_sketch()
+    assert 'TEST:ESTADO=ABIERTO' in _parking_branch_for_distance(sketch, 112.0)
+    assert 'TEST:ESTADO=ABIERTO' in _parking_branch_for_distance(sketch, 129.9)
+    assert 'TEST:ESTADO=CERRADO' in _parking_branch_for_distance(sketch, 130.0)
+    assert 'TEST:ESTADO=CERRADO' in _parking_branch_for_distance(sketch, 300.0)
+
+
 def test_parking_servo_open_branch_drives_servo_green_and_state():
     sketch = parking_servo_sketch()
-    open_branch = sketch[sketch.index("if (distancia < 20.0) {") : sketch.index("} else {")]
+    open_branch = sketch[sketch.index("if (distancia < 130.0) {") : sketch.index("} else {")]
     assert "angulo = 90" in open_branch
     assert "digitalWrite(11, HIGH)" in open_branch
     assert "digitalWrite(10, LOW)" in open_branch
@@ -594,13 +655,13 @@ def test_parking_servo_computes_distance_before_driving_outputs():
     assert distance < sketch.index("servo.write(angulo)")
     assert distance < sketch.index("digitalWrite(11, HIGH)")
     assert distance < sketch.index("digitalWrite(10, HIGH)")
-    assert distance < sketch.index("if (distancia < 20.0)")
+    assert distance < sketch.index("if (distancia < 130.0)")
 
 
 def test_parking_servo_prints_distance_before_state():
     sketch = parking_servo_sketch()
     assert sketch.index('Serial.print("TEST:DIST=");') < sketch.index('Serial.println("TEST:ESTADO=ABIERTO")')
-    assert sketch.index("Serial.println(distancia);") < sketch.index("if (distancia < 20.0)")
+    assert sketch.index("Serial.println(distancia);") < sketch.index("if (distancia < 130.0)")
 
 
 def test_parking_servo_custom_pins_are_literal():
