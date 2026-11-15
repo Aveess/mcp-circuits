@@ -99,6 +99,7 @@ RAW_TYPE = {
     "xor-gate": "Quad XOR gate [74HC86]",
     "nand-gate": "Quad NAND gate [74HC00]",
     "flip-flop-d": "Dual D Flip-Flop [74HC74]",
+    "flip-flop-jk": "Dual J-K Flip-Flop [74HC73]",
     "timer-555": "555 Timer",
     "capacitor": "Capacitor",
     "binary-counter": "4-Bit Binary Counter [74HC93]",
@@ -177,6 +178,17 @@ INSPECT_PIN = {
         **{f"{i}CP": f"Clock {i}" for i in range(1, 3)},
         **{f"{i}RD": f"Reset {i}" for i in range(1, 3)},
         **{f"{i}SD": f"Set {i}" for i in range(1, 3)},
+        **{f"{i}Q": f"Output {i}" for i in range(1, 3)},
+        **{f"{i}NQ": f"Inverted Output {i}" for i in range(1, 3)},
+    },
+    # El 74HC73 no tiene preset: el guardado escribe J/K/Clock/Reset/Output
+    # (medido en vivo el 2026-11-14 cableando los 14 pines).
+    "flip-flop-jk": {
+        "Vcc": "Power", "GND": "Ground",
+        **{f"{i}J": f"J {i}" for i in range(1, 3)},
+        **{f"{i}K": f"K {i}" for i in range(1, 3)},
+        **{f"{i}CP": f"Clock {i}" for i in range(1, 3)},
+        **{f"{i}R": f"Reset {i}" for i in range(1, 3)},
         **{f"{i}Q": f"Output {i}" for i in range(1, 3)},
         **{f"{i}NQ": f"Inverted Output {i}" for i in range(1, 3)},
     },

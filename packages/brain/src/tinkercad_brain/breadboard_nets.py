@@ -224,6 +224,18 @@ _PIN_ALIASES_BY_TYPE = {
         "Input 2": "2D", "Clock 2": "2CP", "Reset 2": "2RD",
         "Set 2": "2SD", "Output 2": "2Q", "Inverted Output 2": "2NQ",
     },
+    # 74HC73 (medido en vivo el 2026-11-14, sonda con los 14 pines cableados):
+    # el modelo nombra 1J/1K/1CP/1R/1Q/1NQ y el cableado guardado escribe
+    # "J 1", "K 1", "Clock 1", "Reset 1", "Output 1", "Inverted Output 1".
+    # Este chip no tiene preset: solo hay un pin de reset por mitad.
+    "flip-flop-jk": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "J 1": "1J", "K 1": "1K", "Clock 1": "1CP", "Reset 1": "1R",
+        "Output 1": "1Q", "Inverted Output 1": "1NQ",
+        "J 2": "2J", "K 2": "2K", "Clock 2": "2CP", "Reset 2": "2R",
+        "Output 2": "2Q", "Inverted Output 2": "2NQ",
+    },
     # 555 Timer (descubierto en vivo en abIk7XRpSR4): inspect devuelve
     # CTRL/Reset/OUT/THR/GND/DIS/TRIG/Vcc, pero el cableado guardado usa
     # "Power", "Reset", "Ground", "Discharge", "Threshold", "Trigger",

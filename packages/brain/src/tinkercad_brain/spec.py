@@ -88,6 +88,12 @@ PIN_TABLE: dict[str, frozenset[str]] = {
         {"1D", "1CP", "1RD", "1SD", "1Q", "1NQ",
          "2D", "2CP", "2RD", "2SD", "2Q", "2NQ", "Vcc", "GND"}
     ),
+    # 74HC73 (did 116723): dos biestables JK, reset asincrono activo en bajo
+    # (sin preset). Disparan en flanco de bajada (medido en vivo).
+    "flip-flop-jk": frozenset(
+        {"1J", "1K", "1CP", "1R", "1Q", "1NQ",
+         "2J", "2K", "2CP", "2R", "2Q", "2NQ", "Vcc", "GND"}
+    ),
     # 555 Timer (did 116689): 8 pines del DIP.
     "timer-555": frozenset(
         {"CTRL", "Reset", "OUT", "THR", "GND", "DIS", "TRIG", "Vcc"}

@@ -204,3 +204,25 @@ def test_un_build_ok_no_agrega_la_advertencia():
 def test_sin_el_dato_de_build_no_inventa_la_advertencia():
     doc = render_build_report("Build viejo", "https://example/c13", {"score": 1.0}, "ok", [])
     assert "no se aplicó" not in doc
+
+
+def test_el_serial_multilinea_va_en_su_propia_seccion():
+    """Un serial de 8 lineas inline es ilegible: va en bloque cercado."""
+    serial = "READY\nTEST:PERIODO=980\nTEST:RESET=OK\nTEST:FIN=OK"
+    doc = render_build_report(
+        "Contador 0-7", "https://example/c3", {"score": 1.0}, serial, []
+    )
+    assert "## Serial de la simulación" in doc
+    assert "```text" in doc
+    for linea in serial.splitlines():
+        assert linea in doc
+    # El resumen inline ya no repite el bloque entero.
+    assert "- Simulación: ver bloque" in doc
+
+
+def test_un_serial_de_una_linea_sigue_inline():
+    doc = render_build_report(
+        "Blink", "https://example/c4", {"score": 1.0}, "running, sin errores", []
+    )
+    assert "## Serial de la simulación" not in doc
+    assert "- Simulación: running, sin errores" in doc

@@ -42,6 +42,7 @@ _PRETTY_TYPE = {
     "binary-counter": "74HC93 (contador binario)",
     "decade-counter": "4017 (contador de decadas)",
     "flip-flop-d": "74HC74 (biestable D)",
+    "flip-flop-jk": "74HC73 (biestable JK)",
     "seven-segment": "display 7 segmentos",
     "lcd-16x2": "LCD 16x2",
     "servo": "micro servo",

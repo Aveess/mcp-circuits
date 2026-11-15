@@ -269,7 +269,7 @@ FREE_MODULE_TYPES = (LCD_TYPE, SEVEN_SEG_TYPE)
 # huecos de protoboard. Comparten un solo apilado en orden de fixture.
 SHIFT_REGISTER_TYPE = "shift-register"
 LOGIC_GATE_TYPES = (
-    "xor-gate", "nand-gate", "flip-flop-d", "binary-counter",
+    "xor-gate", "nand-gate", "flip-flop-d", "flip-flop-jk", "binary-counter",
     "decade-counter",
 )
 # El 555 (8 pines) y su capacitor tambien van libres en ese apilado: el

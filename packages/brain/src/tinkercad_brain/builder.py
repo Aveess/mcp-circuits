@@ -56,6 +56,8 @@ DID_BY_TYPE: dict[str, int] = {
     "nand-gate": 116696,
     # 74HC74 (Dual D Flip-Flop) verificado en vivo: did 116725.
     "flip-flop-d": 116725,
+    # 74HC73 (Dual J-K Flip-Flop) verificado en vivo: did 116723.
+    "flip-flop-jk": 116723,
     # 555 Timer (did 116689) y capacitor (did 57752) verificados en vivo.
     "timer-555": 116689,
     "capacitor": 57752,
@@ -231,6 +233,16 @@ _FLIP_FLOP_D_REAL_PINS: dict[str, str] = {
     "2Q": "2Q", "2NQ": "2NQ",
     "Vcc": "Vcc", "GND": "GND",
 }
+# 74HC73 (Dual J-K Flip-Flop, did 116723): dos biestables JK con reset
+# asincrono activo en bajo y sin preset. Medido en vivo el 2026-11-14:
+# dispara en flanco de bajada, J=K=1 bascula, R en bajo resetea.
+_JK_REAL_PINS: dict[str, str] = {
+    "1J": "1J", "1K": "1K", "1CP": "1CP", "1R": "1R",
+    "1Q": "1Q", "1NQ": "1NQ",
+    "2J": "2J", "2K": "2K", "2CP": "2CP", "2R": "2R",
+    "2Q": "2Q", "2NQ": "2NQ",
+    "Vcc": "Vcc", "GND": "GND",
+}
 # 555 Timer (8 pines, DIP): los nombres del catalogo son los de la fixture
 # (CTRL, Reset, OUT, THR, GND, DIS, TRIG, Vcc). Va libre como los integrados.
 _TIMER_555_REAL_PINS: dict[str, str] = {
@@ -296,6 +308,7 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "xor-gate": _XOR_REAL_PINS,
     "nand-gate": _NAND_REAL_PINS,
     "flip-flop-d": _FLIP_FLOP_D_REAL_PINS,
+    "flip-flop-jk": _JK_REAL_PINS,
     "timer-555": _TIMER_555_REAL_PINS,
     "capacitor": _CAPACITOR_REAL_PINS,
     "binary-counter": _BINARY_COUNTER_REAL_PINS,

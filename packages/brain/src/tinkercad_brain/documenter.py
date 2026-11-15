@@ -9,6 +9,24 @@ def _seconds(value) -> str:
     return f"{float(value):.1f}"
 
 
+def _sim_inline(sim_summary) -> str:
+    """Resumen de una linea para la seccion de verificacion.
+
+    Un serial de varias lineas metido en un bullet rompe la lista y se lee
+    mal; en ese caso la verificacion apunta al bloque y el texto va abajo.
+    """
+    text = "" if sim_summary is None else str(sim_summary)
+    return "ver bloque" if "\n" in text.strip() else text
+
+
+def _serial_block(sim_summary) -> list[str]:
+    """Seccion propia con el serial completo, cercado como ``text``."""
+    text = "" if sim_summary is None else str(sim_summary)
+    if "\n" not in text.strip():
+        return []
+    return ["## Serial de la simulación", "```text", text.strip("\n"), "```"]
+
+
 def render_build_report(
     title: str,
     circuit_url: str,
@@ -66,8 +84,12 @@ def render_build_report(
             "- Build: **no se aplicó** (ver Fallos); lo que sigue mide el "
             "circuito que ya estaba en el editor, no uno nuevo."
         )
-    lines.append(f"- Simulación: {sim_summary}")
+    lines.append(f"- Simulación: {_sim_inline(sim_summary)}")
     lines.append("")
+    serial_block = _serial_block(sim_summary)
+    if serial_block:
+        lines.extend(serial_block)
+        lines.append("")
     if oracle is not None:
         lines.append("## Oráculo")
         esperado = oracle.get("expected") or []

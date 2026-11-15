@@ -59,6 +59,18 @@ _PRESETS_BY_FIXTURE = {
             "value": -105,
         }
     ],
+    # Reloj del contador 0-7 con JK: R1=10k, R2=68k, C1=10uF (astable ~1 Hz)
+    # y C2=10nF en CTRL. Las siete 220 ohmios son la serie de cada segmento.
+    "contador-0-7-jk": [
+        {"component": "r1", "property": "resistance", "value": 10, "unit": "k"},
+        {"component": "r2", "property": "resistance", "value": 68, "unit": "k"},
+        {"component": "c1", "property": "capacitance", "value": 10, "unit": "u"},
+        {"component": "c2", "property": "capacitance", "value": 10, "unit": "n"},
+        *[
+            {"component": f"r{seg}", "property": "resistance", "value": 220}
+            for seg in ("a", "b", "c", "d", "e", "f", "g")
+        ],
+    ],
 }
 
 
@@ -98,6 +110,7 @@ _SKETCH_BY_FIXTURE = {
     "clave-lcd": "keypad_lcd_sketch",
     "control-acceso": "access_control_sketch",
     "contador-555-compuertas": "gate_counter_sketch",
+    "contador-0-7-jk": "contador_jk_sketch",
 }
 
 
