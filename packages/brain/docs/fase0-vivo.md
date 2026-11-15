@@ -1494,6 +1494,10 @@ vuelve a 0.
   intermitente, no del circuito.
 - Dashboard: **32 diseños** = 29 fixtures + 3 ajenos, sin duplicados por
   título (verificado por API).
+- **Documentación dentro del circuito:** el sketch guardado se reescribió con
+  el bloque de la fixture vigente y se comparó línea a línea con el que
+  genera el cerebro: **idéntico**, 424 líneas. Así lo que se lee en el
+  editor de código del diseño es lo mismo que el reporte del repo.
 
 ### 46e · Pendiente
 
