@@ -57,6 +57,7 @@ Sin fallos.
 ```
 CONTADOR / CIRCUITO: Contador 0-7 con 3 JK, reloj 555 y decodificador de compuertas
 Fixture del cerebro: contador-0-7-jk
+Diseno en Tinkercad: /things/4bJNKia4pfj/editel
 
 QUE HACE
  *   Taller 3 - Contador 0 a 7 con tres flip-flops JK.
@@ -101,9 +102,12 @@ QUE HACE
  *   3. EN=0 -> el numero se mantiene varios flancos; al volver EN a 1
  *   continua desde ese valor.
  *   4. RESET en un valor intermedio -> vuelve a 0.
- *   Cada lectura se toma con dos muestras iguales separadas 60 ms: el
- *   acarreo
- *   entre JK es asincrono y el display pasa por un transitorio.
+ *   Cada lectura se valida con una guarda: se lee Q, luego los segmentos
+ *   y
+ *   otra vez Q; si Q cambio en medio, el flanco del acarreo asincrono
+ *   cayo
+ *   dentro de la muestra y se descarta. La muestra valida se re-comprueba
+ *   5 ms despues antes de comparar con la tabla.
 
 COMPONENTES (ref  tipo  pieza)
   uno  arduino-uno        Arduino Uno R3
