@@ -111,6 +111,39 @@ def test_ninguna_net_comparte_media_columna_con_otro():
     assert column_conflicts(nets) == []
 
 
+def test_dos_patas_nunca_cuelgan_del_mismo_hueco():
+    # Un hueco con dos cables de pata se dibuja como un cable solo: la foto no
+    # lo delata y la simulacion pierde una conexion. Paso de verdad en la
+    # primera corrida de la v2: los dos capacitores libres colgaban los dos de
+    # `b1/45i`. Un cable de bus si puede terminar donde entra un cable de pata
+    # (asi se ve un tap de riel); lo que no se admite es dos PATAS en el mismo
+    # hueco. Con la fixture sintetica de arriba (un solo capacitor libre) el
+    # defecto no aparece: hace falta la real.
+    from tinkercad_brain.contador_jk_v2 import contador_jk_v2_fixture
+
+    fixture = contador_jk_v2_fixture()
+    nets = plan_nets_v2(fixture, plan_layout_v2(fixture)["placements"])
+
+    patas_por_hueco: dict[str, set] = {}
+    for wire in nets["wires"]:
+        frm, to = wire["from"], wire["to"]
+        if _is_hole(frm) and not _is_hole(to):
+            patas_por_hueco.setdefault(frm, set()).add(to)
+        elif _is_hole(to) and not _is_hole(frm):
+            patas_por_hueco.setdefault(to, set()).add(frm)
+
+    repetidos = {hueco: sorted(patas) for hueco, patas in patas_por_hueco.items()
+                 if len(patas) > 1}
+    assert repetidos == {}, repetidos
+
+    # Y ninguna pata de placa comparte media columna con otra: la placa las
+    # uniria sin que se vea un cable.
+    medias = {(b, col, half(row)) for (b, col, row) in nets["leg_holes"].values()}
+    assert len(medias) == len(nets["leg_holes"]), (
+        "dos patas comparten media columna: la placa las une sin querer"
+    )
+
+
 def test_los_puentes_son_cortos_y_no_saltan_de_placa():
     fixture = _fixture_v2()
     nets = plan_nets_v2(fixture, plan_layout_v2(fixture)["placements"])
