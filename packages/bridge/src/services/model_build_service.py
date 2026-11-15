@@ -16,6 +16,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ..browser.browser_manager import BrowserManager
 from ..config import logger
+from .editor_guard import (
+    EDITOR_READY_JS,
+    EDITOR_READY_TIMEOUT_S,
+    editor_guard_hit,
+    wait_for_editor,
+)
 
 UNO_DID = 132521
 BREADBOARD_DID = 111211
@@ -25,15 +31,10 @@ _PERSIST_TIMEOUT_S = 30.0
 _PERSIST_POLL_S = 0.3
 _PERSIST_REQUIRED_ZEROS = 3
 
-# El JS de build y de limpieza arrancan con `if (!ce || !ce.data) return
-# {errors: ['circuit_editor not available']}`. Si la pagina todavia no monto
-# el editor (o se esta re-renderizando), el build se reporta como fallido sin
-# que el circuito tenga nada malo: paso 1 de 28 en la regresion de la fase 41.
-_EDITOR_READY_JS = (
-    "() => !!(window.circuit_editor && window.circuit_editor.data "
-    "&& window.circuit_editor.data.devices)"
-)
-_EDITOR_READY_TIMEOUT_S = 15.0
+# La espera del editor vive en editor_guard para que build, limpieza y
+# propiedades usen la misma senal (fase 44: props se la habia olvidado).
+_EDITOR_READY_JS = EDITOR_READY_JS
+_EDITOR_READY_TIMEOUT_S = EDITOR_READY_TIMEOUT_S
 
 # Returns pending ShareJS ops; 0 when shareJsDoc/numberPending is unavailable
 # (nothing can be pending through that doc in that case).
@@ -941,31 +942,19 @@ class ModelBuildService:
         self.browser = browser or BrowserManager.get_instance()
 
     async def _wait_for_editor(self, page: Any) -> bool:
-        """Espera a que el editor exista en la pagina. Best-effort, no lanza.
+        """Espera a que el editor exista antes de tocar el modelo.
 
         El build y la limpieza corren dentro del modelo del editor; si la
         pagina aun no lo monto, ambos devuelven ``circuit_editor not
         available``. Eso no es culpa del circuito: se espera antes de
         evaluar y, si aun asi aparece la guarda, se reintenta una vez.
         """
-        try:
-            await page.wait_for_function(
-                _EDITOR_READY_JS, timeout=_EDITOR_READY_TIMEOUT_S * 1000
-            )
-            return True
-        except Exception as exc:  # timeout, page cerrada, js deshabilitado
-            logger.debug(f"editor ready wait failed: {exc}")
-            return False
+        return await wait_for_editor(page)
 
     @staticmethod
     def _editor_guard_hit(result: Any) -> bool:
         """True si el JS se corto en la guarda de `circuit_editor`."""
-        if not isinstance(result, dict):
-            return False
-        return any(
-            "circuit_editor not available" in str(e)
-            for e in (result.get("errors") or [])
-        )
+        return editor_guard_hit(result)
 
     async def _wait_for_persistence(self, page: Any) -> Tuple[bool, Optional[int]]:
         """Poll shareJsDoc.numberPending() until 0 x _PERSIST_REQUIRED_ZEROS.

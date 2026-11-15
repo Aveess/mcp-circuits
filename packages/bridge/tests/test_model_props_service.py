@@ -155,3 +155,72 @@ class TestModelPropsSetProperty(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestModelPropsEsperaElEditor(unittest.IsolatedAsyncioTestCase):
+    """Las propiedades no pueden correr con la página a medio montar.
+
+    Medido en la regresión de la fase 44: `set_component_property_model`
+    devolvía `circuit_editor not available` para el HC-SR04 y tumbaba el
+    build del sensor ultrasónico. Era una carrera, no el circuito.
+    """
+
+    def _service(self, sets):
+        mock_bm = MagicMock()
+        page = AsyncMock()
+        pending = iter([0, 0, 0, 0])
+        sets_iter = iter(sets)
+        orden = []
+        self._sets_args = []
+
+        async def _wait_for_function(*args, **kwargs):
+            orden.append("espera")
+
+        async def _evaluate(*args, **kwargs):
+            if len(args) >= 2 or "arg" in kwargs:
+                orden.append("set")
+                self._sets_args.append(args[1] if len(args) >= 2 else kwargs.get("arg"))
+                return next(sets_iter)
+            return next(pending, 0)
+
+        page.wait_for_function = AsyncMock(side_effect=_wait_for_function)
+        page.evaluate = AsyncMock(side_effect=_evaluate)
+        mock_bm.get_page = AsyncMock(return_value=page)
+        return ModelPropsService(mock_bm), page, orden
+
+    async def test_espera_al_editor_antes_de_tocar_el_modelo(self):
+        ok = {"status": "ok", "component": HC_SR04, "errors": []}
+        svc, page, orden = self._service([ok])
+
+        res = await svc.set_property("DIST1", "Target Y", -105)
+
+        self.assertTrue(res["success"])
+        page.wait_for_function.assert_awaited()
+        self.assertEqual(orden[0], "espera")
+
+    async def test_si_cae_en_la_guarda_reintenta_una_vez(self):
+        guarda = {"status": "error", "component": None, "candidates": [],
+                  "errors": ["circuit_editor not available"]}
+        ok = {"status": "ok", "component": HC_SR04, "errors": []}
+        svc, page, orden = self._service([guarda, ok])
+
+        res = await svc.set_property("DIST1", "Target Y", -105)
+
+        self.assertTrue(res["success"])
+        # dos esperas: antes del primer intento y antes del reintento
+        self.assertEqual(orden.count("espera"), 2)
+        self.assertEqual(orden.count("set"), 2)
+        # los argumentos no se pierden en el reintento
+        self.assertEqual(self._sets_args[0]["value"], -105)
+        self.assertEqual(self._sets_args[1]["value"], -105)
+
+    async def test_si_la_guarda_persiste_el_error_se_reporta(self):
+        guarda = {"status": "error", "component": None, "candidates": [],
+                  "errors": ["circuit_editor not available"]}
+        svc, _, _ = self._service([guarda, guarda])
+
+        res = await svc.set_property("DIST1", "Target Y", -105)
+
+        self.assertFalse(res["success"])
+        self.assertFalse(res["persisted"])
+        self.assertTrue(any("circuit_editor not available" in e for e in res["errors"]))

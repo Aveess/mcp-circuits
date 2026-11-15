@@ -21,6 +21,7 @@ from typing import Any, List, Optional
 
 from ..browser.browser_manager import BrowserManager
 from ..config import logger
+from .editor_guard import editor_guard_hit, wait_for_editor
 from .model_build_service import _PENDING_JS, _PERSIST_POLL_S, _PERSIST_REQUIRED_ZEROS, _PERSIST_TIMEOUT_S
 
 _SET_PROP_JS = r"""
@@ -143,15 +144,21 @@ class ModelPropsService:
             return {**base, "errors": ["property_name must be a non-empty string"]}
 
         page = await self.browser.get_page()
-        result = await page.evaluate(
-            _SET_PROP_JS,
-            {
-                "component_name": component_name,
-                "property_name": property_name,
-                "value": value,
-                "unit": unit,
-            },
-        )
+        args = {
+            "component_name": component_name,
+            "property_name": property_name,
+            "value": value,
+            "unit": unit,
+        }
+        # El JS de propiedades arranca con la guarda `circuit_editor not
+        # available`: si la pagina se esta montando, la tool fallaba sin que
+        # el circuito tuviera nada malo (regresion de la fase 44). Se espera
+        # al editor y, si aun asi aparece la guarda, se reintenta una vez.
+        await wait_for_editor(page)
+        result = await page.evaluate(_SET_PROP_JS, args)
+        if editor_guard_hit(result):
+            await wait_for_editor(page)
+            result = await page.evaluate(_SET_PROP_JS, args)
         if not isinstance(result, dict):
             return {**base, "errors": ["model setProperty returned invalid response"]}
 
