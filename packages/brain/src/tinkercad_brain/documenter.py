@@ -35,6 +35,11 @@ def render_build_report(
             f" — **no se pudo leer** el circuito en {fidelity.get('read_attempts', '?')} "
             f"intentos; este porcentaje no mide el cableado"
         )
+        if fidelity.get("read_reason") == "editor_not_mounted":
+            estado = (fidelity.get("editor_state") or {}).get("text") or "sin datos"
+            fidelity_line += (
+                f" (el editor no montó el diseño: la página quedó en «{estado}»)"
+            )
 
     detail_parts = []
     if "components_score" in fidelity:
@@ -143,6 +148,12 @@ def render_build_report(
     # El oráculo no es una tool que falle: si falta una marca o el serial
     # vino vacío, el motivo del OK: False tiene que estar aquí, no solo en la
     # sección de arriba.
+    if fidelity.get("read_reason") == "editor_not_mounted":
+        estado = (fidelity.get("editor_state") or {}).get("text") or "sin datos"
+        fallos.append(
+            f"- inspect: el editor no montó el diseño (página en «{estado}»); "
+            "no es el cableado"
+        )
     if oracle:
         faltan = oracle.get("missing") or []
         if faltan:

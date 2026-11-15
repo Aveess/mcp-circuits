@@ -183,3 +183,47 @@ def test_el_reporte_dice_que_no_se_pudo_leer_en_vez_de_acusar_al_cableado():
     )
     assert "no se pudo leer" in reporte
     assert "no mide el cableado" in reporte
+
+
+def _inspect_editor_atascado():
+    """Lo que devuelve el puente cuando el editor no monto (fase 45)."""
+    return {
+        "success": False,
+        "reason": "editor_not_mounted",
+        "components": [],
+        "wires": [],
+        "editor_state": {"editor": True, "data": False, "devices": 0,
+                         "canvas": False, "text": "Initializing"},
+    }
+
+
+def test_el_editor_atascado_se_nombra_como_causa_y_no_como_cableado(monkeypatch):
+    """Medido en vivo: la pagina quedo en 'Initializing' y el editor nunca monto.
+
+    El porcentaje no puede acusar al cableado; el reporte tiene que decir que
+    el problema es el editor, con la evidencia (el texto de la pagina).
+    """
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    result = _run([_inspect_editor_atascado()])
+
+    assert result["fidelity"]["read_failed"] is True
+    assert result["fidelity"]["read_reason"] == "editor_not_mounted"
+    assert result["checks"]["read_reason"] == "editor_not_mounted"
+    assert result["checks"]["fidelity_readable"] is False
+    assert result["ok"] is False
+
+    from tinkercad_brain.documenter import render_build_report
+
+    reporte = render_build_report(
+        TITLE,
+        f"https://www.tinkercad.com/things/{CIRCUIT_ID}/editel",
+        result["fidelity"],
+        result["serial"],
+        [],
+        build_ok=result["checks"]["build_ok"],
+        oracle=result.get("oracle"),
+    )
+    assert "el editor no montó" in reporte
+    assert "Initializing" in reporte
+    assert "no es el cableado" in reporte

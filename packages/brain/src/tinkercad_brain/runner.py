@@ -329,6 +329,8 @@ def run_build(
         expected_components = len(fixture.get("components") or []) if build_ok else 0
         attempts = 0
         read_failed = False
+        read_reason = None
+        read_editor_state = {}
         inspect_data = {}
         while True:
             attempts += 1
@@ -343,6 +345,12 @@ def run_build(
                 read_failed = True
                 break
             time.sleep(READ_RETRY_SLEEP)
+        # Si el editor no monto, el "vacio" tiene causa y hay que nombrarla:
+        # sin esto el reporte dice "no se pudo leer" y deja creer que el
+        # cableado esta mal.
+        if inspect_data.get("reason"):
+            read_reason = str(inspect_data["reason"])
+            read_editor_state = inspect_data.get("editor_state") or {}
         normalized = normalize_circuit(inspect_data, {"nets": []}, refs_by_name)
         actual = {
             "components": normalized.get("components", []),
@@ -351,6 +359,9 @@ def run_build(
         fidelity = compare_connectivity(fixture, actual)
         fidelity["read_attempts"] = attempts
         fidelity["read_failed"] = read_failed
+        if read_reason:
+            fidelity["read_reason"] = read_reason
+            fidelity["editor_state"] = read_editor_state
         return fidelity
 
     fidelity = _measure()
@@ -415,6 +426,7 @@ def run_build(
         # Una lectura vacia con partes esperadas es "no se pudo leer", no un
         # circuito mal armado: se nombra aparte para no reportar un cero mudo.
         "fidelity_readable": not fidelity.get("read_failed", False),
+        "read_reason": fidelity.get("read_reason"),
         "build_ok": build_ok,
         "repair_ok": repair_ok,
         "presets_ok": not preset_reported_failure,
