@@ -249,6 +249,9 @@ _PIN_ALIASES_BY_TYPE = {
         "Trigger": "TRIG",
         "Out": "OUT",
         "Control": "CTRL",
+        # Medido el 2026-11-14 en el contador 0-7: el mismo pin tambien se
+        # guarda con el nombre completo y la fidelidad perdia esa net.
+        "Control Voltage": "CTRL",
     },
     # Capacitor: inspect y guardado coinciden en "1"/"2"; "Terminal 1/2"
     # es lo que reportan los cables (canal compartido con el resistor).

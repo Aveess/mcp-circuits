@@ -2533,7 +2533,9 @@
         "u3.4A",
         "u4.3B",
         "x1.1B",
-        "x1.2B"
+        "x1.2B",
+        "ff2.1CP",
+        "uno.D3"
       ],
       [
         "ff2.1Q",
@@ -2542,7 +2544,9 @@
         "u2.2A",
         "u4.3A",
         "x1.2A",
-        "x1.3B"
+        "x1.3B",
+        "ff2.2CP",
+        "uno.D4"
       ],
       [
         "ff2.2Q",
@@ -2552,7 +2556,8 @@
         "u3.1B",
         "u4.4A",
         "x1.1A",
-        "x1.3A"
+        "x1.3A",
+        "uno.D5"
       ],
       [
         "u1.2Y",
@@ -2674,7 +2679,13 @@
         "ff2.2K"
       ],
       [
-        "u1.4Y",
+        "u5.4Y",
+        "ff1.1R",
+        "ff2.1R",
+        "ff2.2R"
+      ],
+      [
+        "u6.1Y",
         "ra.1",
         "uno.A0"
       ],
@@ -2683,7 +2694,7 @@
         "seg.a"
       ],
       [
-        "u2.1Y",
+        "u6.2Y",
         "rb.1",
         "uno.A1"
       ],
@@ -2692,7 +2703,7 @@
         "seg.b"
       ],
       [
-        "u2.4Y",
+        "u6.3Y",
         "rc.1",
         "uno.A2"
       ],
@@ -2701,7 +2712,7 @@
         "seg.c"
       ],
       [
-        "u4.1Y",
+        "u6.4Y",
         "rd.1",
         "uno.A3"
       ],
@@ -2710,7 +2721,7 @@
         "seg.d"
       ],
       [
-        "u3.3Y",
+        "u7.1Y",
         "re.1",
         "uno.A4"
       ],
@@ -2719,7 +2730,7 @@
         "seg.e"
       ],
       [
-        "u5.1Y",
+        "u7.2Y",
         "rf.1",
         "uno.A5"
       ],
@@ -2728,7 +2739,7 @@
         "seg.f"
       ],
       [
-        "u5.3Y",
+        "u7.3Y",
         "rg.1",
         "uno.D6"
       ],
@@ -2736,6 +2747,16 @@
         "rg.2",
         "seg.g"
       ]
+    ],
+    "oracle_serial": [
+      "TEST:PERIODO=",
+      "TEST:RESET=OK",
+      "TEST:CICLO=OK",
+      "TEST:EN0=OK",
+      "TEST:REANUDA=OK",
+      "TEST:RESET_MEDIO=OK",
+      "TEST:DECODER=OK",
+      "TEST:FIN=OK"
     ],
     "board2": [
       "ra",
@@ -2830,6 +2851,7 @@
       "- Si un segmento queda siempre apagado o siempre encendido, el problema",
       "  esta en su compuerta o en su resistencia serie, no en el contador: la",
       "  tabla de verdad impresa permite comparar segmento por segmento."
-    ]
+    ],
+    "tinkercad_id": "4bJNKia4pfj"
   }
 ]

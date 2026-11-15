@@ -38,8 +38,91 @@ def test_la_entrada_del_repositorio_es_la_que_genera_el_modulo():
     assert entrada is not None, "falta contador-0-7-jk en circuits.json"
     generada = _fixture()
     for clave in ("components", "nets", "wiring", "code_features", "doc",
-                  "oracle", "notes"):
+                  "oracle", "oracle_serial", "notes"):
         assert entrada.get(clave) == generada.get(clave), clave
+
+
+def test_ninguna_entrada_de_un_jk_queda_al_aire():
+    """Medido en vivo: sin las tres R cableadas el contador no pasaba de 3.
+
+    Una entrada CMOS al aire no es "0": es estado indefinido. Este test es el
+    que habria cazado esa net faltante antes de gastar una corrida.
+    """
+    fixture = _fixture()
+    entradas = {"1J", "1K", "1CP", "1R", "2J", "2K", "2CP", "2R"}
+    cableados: dict[str, set[str]] = {}
+    for net in fixture["nets"]:
+        for endpoint in net:
+            ref, pin = endpoint.split(".", 1)
+            if pin in entradas:
+                cableados.setdefault(ref, set()).add(pin)
+
+    for component in fixture["components"]:
+        if component["type"] != "flip-flop-jk":
+            continue
+        ref = component["ref"]
+        assert cableados.get(ref, set()) == entradas, (
+            f"{ref}: entradas sin cablear {sorted(entradas - cableados.get(ref, set()))}"
+        )
+
+
+def test_el_reset_llega_a_las_tres_r_por_el_inversor():
+    nets = _fixture()["nets"]
+    reset = next(net for net in nets if net[0] == "u5.4Y")
+    assert set(reset[1:]) == {"ff1.1R", "ff2.1R", "ff2.2R"}
+
+
+def test_el_reloj_de_cada_etapa_viene_del_bit_anterior():
+    """Q0 relojea la segunda etapa y Q1 la tercera.
+
+    Medido en vivo: sin estos dos cables el contador repite 0,1,2,3 porque
+    Q2 nunca bascula (el sintoma que el punto 6 manda diagnosticar).
+    """
+    nets = _fixture()["nets"]
+
+    def net_de(nodo):
+        return next(net for net in nets if net[0] == nodo)
+
+    assert "ff2.1CP" in net_de("ff1.1Q")
+    assert "ff2.2CP" in net_de("ff2.1Q")
+    # Y el Uno lee los tres bits para comprobar el conteo.
+    assert "uno.D3" in net_de("ff1.1Q")
+    assert "uno.D4" in net_de("ff2.1Q")
+    assert "uno.D5" in net_de("ff2.2Q")
+    # El reloj del 555 llega a la primera etapa y se lee en D2.
+    assert net_de("t1.OUT") == ["t1.OUT", "ff1.1CP", "uno.D2"]
+
+
+def test_cada_segmento_lo_mueve_el_inversor_no_la_salida_positiva():
+    """El display es de anodo comun: con la salida positiva nunca enciende.
+
+    Medido en vivo: leyendo la salida positiva el sketch recibia la mascara
+    complementada (0 -> 0x40 en vez de 0x3F), o sea que el display colgaba de
+    la compuerta equivocada.
+    """
+    fixture = _fixture()
+    inversores = {g.out: g for g in GATES if g.out.startswith("n")}
+    for seg in SEGMENT_OUTPUT:
+        gate = inversores[f"n{seg}"]
+        nodo = f"{gate.chip}.{gate.slot}Y"
+        net = next(n for n in fixture["nets"] if n[0] == nodo)
+        assert len(net) == 3, net
+        assert net[1] == f"r{seg}.1"
+        assert net[2].startswith("uno.")
+
+
+def test_el_oraculo_lleva_las_ocho_marcas_en_orden():
+    marcas = _fixture()["oracle_serial"]
+    assert marcas == [
+        "TEST:PERIODO=", "TEST:RESET=OK", "TEST:CICLO=OK", "TEST:EN0=OK",
+        "TEST:REANUDA=OK", "TEST:RESET_MEDIO=OK", "TEST:DECODER=OK",
+        "TEST:FIN=OK",
+    ]
+    codigo = __import__("importlib").import_module(
+        "tinkercad_brain.sketches"
+    ).contador_jk_sketch()
+    posiciones = [codigo.index(marca) for marca in marcas if marca != "TEST:PERIODO="]
+    assert posiciones == sorted(posiciones), "las marcas no estan en orden en el sketch"
 
 
 def test_cada_pin_existe_en_su_tipo():

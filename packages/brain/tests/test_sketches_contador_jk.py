@@ -69,6 +69,19 @@ def test_la_secuencia_esperada_es_la_del_contador():
     assert valores == list(range(8)) * 2 + [0]
 
 
+def test_el_decoder_se_lee_con_guarda_de_flanco():
+    """Medido: leer Q y los segmentos por separado hacia fallar el decoder.
+
+    Un flanco del reloj cae entre las dos lecturas (~60 ms) y la mascara no
+    corresponde al numero. La guarda exige Q igual antes y despues.
+    """
+    codigo = contador_jk_sketch()
+    assert "bool leeEstado(int *valor, byte *mascara)" in codigo
+    assert "if (antes != despues) return false;" in codigo
+    # Y deja evidencia de la mascara cuando no coincide.
+    assert "TEST:MASK=" in codigo
+
+
 def test_el_reset_es_activo_en_alto():
     """El taller pide RESET que devuelve a 000 sin flanco: el sketch lo pulsa."""
     codigo = contador_jk_sketch()

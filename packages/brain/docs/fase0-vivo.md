@@ -1405,3 +1405,103 @@ reporte no decía **por qué**.
 Lección: "no se pudo leer" a secas sigue siendo ambiguo; una caída del
 servicio tiene que tener nombre propio, no promediarse dentro de un
 porcentaje de fidelidad.
+
+## Fase 46 · Contador 0-7 con tres JK y decodificador de compuertas (2026-11-15)
+
+Circuito: https://www.tinkercad.com/things/4bJNKia4pfj/editel
+Fixture: `contador-0-7-jk` · Reporte: `docs/reportes/contador-0-7-jk.md`
+Captura del display en 4: `~/jarvis_data/logs/tinkercad-fase0/contador-0-7-jk-display-4.png`
+
+Taller 3, puntos 5 y 6: 555 astable de ~1 Hz, tres 74HC73 en cascada,
+EN y RESET manejados por el Uno, las siete funciones del punto 4 construidas
+con 27 NAND (7 x 74HC00) y 3 XOR (1 x 74HC86), y display de 7 segmentos de
+ánodo común. 23 partes, 140 cables.
+
+### 46a · El 74HC73, medido y no supuesto
+
+Sonda desechable (creada y borrada) con los 14 pines cableados a destinos
+distintos:
+
+- `did 116723`, tipo visible `Dual J-K Flip-Flop [74HC73]`.
+- Dispara en **flanco de bajada** (el taller también pide bajada).
+- `R` es **activo en bajo**; no tiene preset.
+- El modelo nombra `1J/1K/1CP/1R/1Q/1NQ` y el cableado guardado escribe
+  `J 1`, `K 1`, `Clock 1`, `Reset 1`, `Output 1`, `Inverted Output 1`
+  (y las variantes `2`). Sin alias la conectividad se cae aunque el
+  circuito funcione.
+
+### 46b · Cuatro defectos que el serial cazó (y uno que cazó un test)
+
+1. **Las tres R quedaron al aire.** `signal_nets` no emite net para una
+   señal que solo consumen pines de componente, y nadie cableó `u5.4Y` a
+   `ff1.1R/ff2.1R/ff2.2R`. Síntoma: `TEST:CICLO=FAIL` y el contador
+   repitiendo 0,1,2,3 (exactamente el diagnóstico que pide el punto 6).
+   El test `test_ninguna_entrada_de_un_jk_queda_al_aire` lo habría cazado
+   antes de gastar una corrida; ahora existe.
+2. **El reloj de las etapas 2 y 3 no llegaba.** El generador indexaba el
+   destino extra por nodo (`ff1.1Q`) y no por señal (`Q0`), así que
+   `ff2.1CP` y `ff2.2CP` nunca se agregaron. Mismo síntoma que el anterior.
+   `test_el_reloj_de_cada_etapa_viene_del_bit_anterior` lo fija.
+3. **El display colgaba de la compuerta positiva.** El ánodo común enciende
+   con LOW, así que quien debe manejarlo es el inversor `na..ng`. Medido:
+   el sketch leía la máscara **complementada** en los ocho dígitos
+   (`0 -> 0x40` en vez de `0x3F`, `1 -> 0x79` en vez de `0x06`). Con la
+   salida positiva el display nunca encendía aunque la lógica fuera
+   correcta.
+4. **El decoder se leía en dos instantes.** `leeValor()` y `leeSegmentos()`
+   separados por ~60 ms: un flanco del reloj caía en medio y la máscara no
+   correspondía al número. Ahora `leeEstado()` lee Q, segmentos y Q otra vez
+   y descarta la muestra si cambió, más 5 ms de estabilidad antes de
+   comparar. La evidencia queda en `TEST:MASK=<v>,<leido>,<esperado>`.
+
+De puente, dos cosas más:
+
+- El pin del 555 se guarda también como **`Control Voltage`**, no solo
+  `Control`: el alias faltaba y costaba 1 % de fidelidad.
+- `set_code` fallaba en falso con un integrado libre montado (ver 46c).
+
+### 46c · ShareJS deja un op residual que no bloquea el guardado
+
+Medido: tras montar un integrado libre, `numberPending()` se queda en **1
+para siempre** (y en 2 tras inyectar código), pero las partes, los cables y
+el sketch **sí** llegan al servidor: una recarga los devuelve y la cola
+vuelve a 0.
+
+- `wait_for_persistence`: un valor estancado `stall_polls` sondeos vale como
+  terminado; la recarga sigue teniendo la última palabra.
+- `set_code`: si hay ops residuales, **recarga antes de escribir**; así el op
+  del código sí sale.
+- La verificación tras recargar reintenta 8 x 2,5 s: leer a los 5 s fijos
+  declaraba `code_persistence_failed` sobre un código que estaba guardado.
+- Puente **319 tests**.
+
+### 46d · Verificado en vivo
+
+- Fidelidad **100.0 %** (componentes y conectividad), 140 de 140 cables
+  medidos, 0 tramos sobre placa, 0 diagonales, 1 salto recto de puente.
+- Serial (9 líneas, en orden): `READY`, `TEST:PERIODO=1014`,
+  `TEST:RESET=OK`, `TEST:CICLO=OK`, `TEST:EN0=OK`, `TEST:REANUDA=OK`,
+  `TEST:RESET_MEDIO=OK`, `TEST:DECODER=OK`, `TEST:FIN=OK`.
+- **Período medido: 1014 ms** (~0.99 Hz), con R1=10k, R2=68k, C=10 µF. La
+  fórmula da 0.99 Hz; el simulador está en lo que dice la fórmula.
+- Ningún componente estalló en 55 s de simulación y el display muestra
+  dígitos: en la captura marca **4** (segmentos b, c, f, g).
+- Conectividad 100 % valida de paso el alias medido del 74HC73.
+
+### 46e · Pendiente
+
+- Reabrir un diseño existente **a veces** no monta el editor
+  (`editor_not_mounted`, el bloqueo de servidor de las fases 44-45). En esta
+  fase el build sobre el diseño existente funcionó, pero una apertura de
+  solo lectura devolvió 0 componentes. La inspección posterior al build (en
+  la misma sesión) sí midió 100 %.
+- No se re-corrió la regresión de las 29 fixtures; el cambio de alias del
+  555 y el del alias de JK solo agregan claves, pero eso hay que medirlo.
+- El reporte guarda la tabla, las expresiones y las cuatro pruebas, pero no
+  incrusta capturas (el runner no captura pantalla).
+
+Lección: la lógica correcta no basta. Tres de los cuatro defectos dejaban
+`TEST:RESET=OK` y `TEST:EN0=OK` en verde —dos pruebas que pasan por no
+moverse— y solo el conteo completo y la tabla de verdad dijeron la verdad.
+Y un test que camina la fixture (¿toda entrada tiene cable?) cuesta segundos
+mientras una corrida en vivo cuesta cinco minutos.

@@ -160,7 +160,8 @@ def contador_jk_fixture() -> dict:
 
     # --- Decodificador -------------------------------------------------
     # signal_nets da una net por senal con su productor primero; aqui se
-    # agregan los destinos que no son compuertas (lecturas y relojes).
+    # agregan los destinos que no son compuertas (lecturas y relojes). El
+    # indice es la senal, no el nodo: net[0] es el nodo productor.
     extra = {
         "Q0": ["ff2.1CP", "uno.D3"],
         "Q1": ["ff2.2CP", "uno.D4"],
@@ -172,17 +173,28 @@ def contador_jk_fixture() -> dict:
         "Q2": "ff2.2Q",
         "RESET": "uno.D9",
     }
+    signal_by_node = {node: signal for signal, node in producers.items()}
     for net in signal_nets(producers):
-        nets.append(net + extra.get(net[0], []))
+        nets.append(net + extra.get(signal_by_node.get(net[0]), []))
 
     # --- EN ------------------------------------------------------------
     nets.append(["uno.D8", "ff1.1J", "ff1.1K", "ff2.1J", "ff2.1K",
                  "ff2.2J", "ff2.2K"])
 
-    # --- Segmentos: compuerta -> 220 ohm -> display, y lectura del nodo
-    for seg, gate_out in SEGMENT_OUTPUT.items():
-        gate = next(g for g in GATES if g.out == gate_out)
-        nets.append([f"{gate.chip}.{gate.slot}Y", f"{_SERIES_REF[seg]}.1",
+    # --- RESET ---------------------------------------------------------
+    # El taller lo pide activo en alto; el 74HC73 lo tiene activo en bajo.
+    # u5.4 invierte D9 y de ahi va a las tres R: una R al aire deja el
+    # biestable en estado indefinido (medido: el contador no pasaba de 3).
+    nets.append(["u5.4Y", "ff1.1R", "ff2.1R", "ff2.2R"])
+
+    # --- Segmentos: inversor -> 220 ohm -> display, y lectura del nodo -----
+    # El display es de anodo comun (medido): el segmento luce con LOW, asi que
+    # quien lo maneja es el inversor (na..ng) y no la salida positiva fa..fg.
+    # La lectura tambien va en el nodo del inversor: es el mismo nivel que ve
+    # el display, y leer el positivo daba la mascara complementada.
+    for seg in SEGMENT_OUTPUT:
+        inverter = next(g for g in GATES if g.out == f"n{seg}")
+        nets.append([f"{inverter.chip}.{inverter.slot}Y", f"{_SERIES_REF[seg]}.1",
                      f"uno.{_SENSE_PIN[seg]}"])
         nets.append([f"{_SERIES_REF[seg]}.2", f"seg.{seg}"])
 
@@ -191,6 +203,17 @@ def contador_jk_fixture() -> dict:
         "title": "Contador 0-7 con 3 JK, reloj 555 y decodificador de compuertas",
         "components": components,
         "nets": nets,
+        # Marcas del oraculo, en orden: el runner las busca como subcadena.
+        "oracle_serial": [
+            "TEST:PERIODO=",
+            "TEST:RESET=OK",
+            "TEST:CICLO=OK",
+            "TEST:EN0=OK",
+            "TEST:REANUDA=OK",
+            "TEST:RESET_MEDIO=OK",
+            "TEST:DECODER=OK",
+            "TEST:FIN=OK",
+        ],
         # Las nueve resistencias no caben en una placa de 30 columnas (paso 6):
         # las siete de los segmentos van al banco de la segunda placa.
         "board2": [_SERIES_REF[seg] for seg in SEGMENT_OUTPUT],
