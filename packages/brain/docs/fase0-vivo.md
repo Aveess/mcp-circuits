@@ -1244,7 +1244,10 @@ diseño; la espera fija de 3 s no alcanzaba.
 - `inspect_circuit`, antes de evaluar (8 s de tope).
 
 Es *best-effort*: si expira, se inspecciona igual y se declara lo que haya.
-Un vacío declarado es mejor que una excepción.
+Un vacío declarado es mejor que una excepción. **Corrección (fase 45):** ese
+"se inspecciona igual" se quedó corto — un vacío declarado seguía siendo un
+`success: true` indistinguible de un circuito vacío. Ahora el fallo explícito
+de la espera devuelve `reason: editor_not_mounted`.
 
 ### 43c · Y en el cerebro, para que un vacío nunca sea un cero
 
@@ -1272,3 +1275,133 @@ Dos reglas que evitan reportes mentirosos:
 Lección: una lectura vacía y un circuito vacío se parecen, y confundirlos
 convierte un fallo de tiempo en una acusación falsa. El cero tiene que
 significar "medí y no estaba", nunca "no llegué a mirar".
+
+---
+
+## Fase 44 · El serial entra en la puerta del OK
+
+Hasta la fase 43 el runner **guardaba** el serial y no lo miraba. Un circuito
+cuyo sketch imprime `TEST:ON` / `TEST:OFF` podía salir `OK: True` con **0
+líneas** capturadas, y nadie se enteraba. El serial es la única prueba de
+comportamiento que da la simulación: si no se exige, "funcionó" es una
+opinión.
+
+### 44a · El contrato
+
+Una fixture declara `oracle_serial` con las marcas que prueban su
+comportamiento, **en el orden en que deben aparecer**:
+
+```json
+"oracle_serial": ["TEST:ON", "TEST:OFF"]
+```
+
+`tinkercad_brain/oracle.py::check_serial` compara por subcadena literal con
+un cursor que avanza: la misma marca se puede pedir dos veces (`ON`, `OFF`,
+`ON`) y `TEST:LED=OFF` **no** satisface `TEST:LED=ON`. El cursor no avanza
+cuando una marca falta, para no encadenar un fallo en cascada.
+
+Además, si el sketch usa `Serial.` y no se capturó nada, el build falla por
+`checks["serial_nonempty"]`: cero líneas no es "funcionó". Una segunda
+lectura un segundo después absorbe el enganche tardío del monitor antes de
+acusar.
+
+El resultado viaja en `result["oracle"]`, el reporte gana una sección
+`## Oráculo` (esperado / observado / falta), el CLI imprime
+`Oráculo: OK|FALTA ...`, y el bloque de documentación que se antepone al
+sketch agrega "El serial debe imprimir, en orden: ...".
+
+### 44b · Las propiedades del modelo también esperan al editor
+
+La regresión destapó que `set_component_property_model` corría con la página
+a medio montar: devolvía `circuit_editor not available` para el HC-SR04 de
+`sensor-ultrasonico` y tumbaba el build (`presets_ok: false`). Era una
+carrera, no el circuito.
+
+`src/services/editor_guard.py` centraliza `EDITOR_READY_JS`,
+`wait_for_editor` y `editor_guard_hit`; el build y la limpieza lo reutilizan,
+y `set_property` espera antes de evaluar y **reintenta una vez** con los
+mismos argumentos si aun así cae en la guarda (30 s de espera en total en el
+peor caso, medido).
+
+### 44c · Verificado
+
+- Cerebro **1899 verdes** (13 tests de oráculo + doc), puente **303 tests**.
+- En vivo, `sensor-ultrasonico`: `setProperty us1.Target Y=-105` aplicado
+  (antes fallaba con la guarda).
+
+---
+
+## Fase 45 · Un editor que no monta no es un circuito vacío
+
+### 45a · El síntoma
+
+La regresión completa empezó a fallar en todos los circuitos, no solo en los
+sospechosos: `Score: 0.0%`, `OK: False`, tres lecturas vacías. La sonda de
+carga mostró que el diseño nunca monta:
+
+```
++23.7s  ce=True devices=0 canvas=False loaded=False
++30.8s  ce=True devices=0 canvas=False loaded=False
+```
+
+y la página se queda en `Initializing` para siempre.
+
+### 45b · La causa, medida fuera de nuestro código
+
+- El HTML crudo del editor (con la sesión del perfil) trae **`var shareprops;`
+  sin valor** y construye la app con el token en `null`:
+  `new CircuitEditorApp('.js-editor', editMode, docId, null, 'breadboard', meta, false, () => {})`.
+  Sin `shareprops`/token, `openShareJsDoc` no abre el documento y la app no
+  pasa de "Initializing".
+- No es el perfil ni la red: **un contexto limpio con las mismas cookies**
+  también se queda en `Initializing`; el service worker desregistrado y las
+  cachés borradas no cambian nada; WebGL funciona (SwiftShader); el
+  reinicio del navegador tampoco.
+- No es la cuenta caída: el dashboard lista los 30 diseños con nombre de
+  usuario y la vista pública del diseño renderiza la miniatura.
+- El endpoint de preferencias del editor devolvía **404** (la cuenta no tenía
+  el registro `editorElectronics`). Se creó con el `PUT` que usa la propia
+  app (`PUT /preferences/editorElectronics/<clave>`) y una `DELETE` posterior
+  dejó el contenedor en `{}` con 200. Eso arregló la carga de preferencias,
+  pero **no** el `shareprops` vacío.
+- Conclusión: es una regresión del **servidor de Tinkercad** al servir la
+  sesión de edición. No se arregla desde el puente.
+
+### 45c · Lo que sí es nuestro: nombrar la causa
+
+`inspect_circuit` respondía `success: true` con 0 componentes cuando la
+página no había montado. El runner ya distinguía "no pude leer", pero el
+reporte no decía **por qué**.
+
+- `CircuitsService.inspect_circuit`: si la espera de montaje falla
+  explícitamente, devuelve
+  `{"success": false, "reason": "editor_not_mounted", "editor_state": {...}}`
+  (`editor`, `data`, `devices`, `canvas`, `text`). Un circuito montado y
+  vacío sigue siendo `success: true`: solo el fallo de la espera dispara el
+  error.
+- `open_circuit` agrega `mounted` y `editor_state`: navegar no es montar.
+- El runner guarda `fidelity.read_reason` / `editor_state` y
+  `checks.read_reason`; el reporte escribe "no se pudo leer ... (el editor no
+  montó el diseño: la página quedó en «Initializing»)" y en Fallos
+  "inspect: el editor no montó el diseño (página en «...»); no es el
+  cableado".
+
+### 45d · Verificado
+
+- En vivo, sobre la página atascada: `open.mounted = false`,
+  `inspect.reason = "editor_not_mounted"`, `editor_state.text =
+  "Initializing"`.
+- Dashboard: **30 diseños, sin duplicados** (verificado por API, que no
+  depende del editor).
+- Puente **303 tests**, cerebro **1899 verdes**.
+
+### 45e · Pendiente (bloqueado por Tinkercad)
+
+- La regresión completa de 28 fixtures y la declaración de `oracle_serial`
+  por fixture no se pueden cerrar hasta que el editor vuelva a montar.
+- `scripts/sugerir_oraculos.py` ya deja el borrador de marcas desde los
+  reportes medidos; hay que correrlo tras la regresión limpia.
+
+Lección: "no se pudo leer" a secas sigue siendo ambiguo; una caída del
+servicio tiene que tener nombre propio, no promediarse dentro de un
+porcentaje de fidelidad.
