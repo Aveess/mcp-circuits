@@ -91,8 +91,10 @@ _EDITOR_READY_TIMEOUT_S = EDITOR_READY_TIMEOUT_S
 # Con mas de una placa el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
 # "5g" no dice a que protoboard pertenece y el cable caeria en la primera.
 _BOARD_PREFIX = r"(?:b[1-9]/)?"
-_HOLE_RE = re.compile(rf"^{_BOARD_PREFIX}(?:[1-9]|[12][0-9]|30)[a-jA-J]$")
-_RAIL_RE = re.compile(rf"^{_BOARD_PREFIX}[TBtb][+-](?:[1-9]|[12][0-9]|30)$")
+# Columnas 1..62: la Small tiene 30 y la grande 62. El tope real lo valida el
+# JS contra la placa del indice (aqui solo se descarta lo imposible).
+_HOLE_RE = re.compile(rf"^{_BOARD_PREFIX}(?:[1-9]|[1-5][0-9]|6[0-2])[a-jA-J]$")
+_RAIL_RE = re.compile(rf"^{_BOARD_PREFIX}[TBtb][+-](?:[1-9]|[1-5][0-9]|6[0-2])$")
 
 # Rotating palette for signal wires (power/ground use black/red instead).
 _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown"]
@@ -1159,7 +1161,7 @@ class ModelBuildService:
                         f"part '{ref}': 'free' requires numeric x and y, got {free!r}"
                     )
             elif not isinstance(at, str) or not _HOLE_RE.match(at.strip()):
-                errors.append(f"part '{ref}': invalid 'at' hole {at!r} (expected 1-30 + a-j)")
+                errors.append(f"part '{ref}': invalid 'at' hole {at!r} (expected 1-62 + a-j)")
             board = part.get("board")
             if board is not None and (type(board) is not int or board < 0):
                 errors.append(f"part '{ref}': 'board' must be int >= 0, got {board!r}")

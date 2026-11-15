@@ -38,7 +38,9 @@ class TestModelBuildValidation(unittest.IsolatedAsyncioTestCase):
 
     async def test_invalid_at_rejected_without_touching_page(self):
         svc, mock_bm, _ = make_service()
-        for bad in ("31a", "0a", "9k", "i9", "", None, "T-10"):
+        # 31a ya no es invalido: la placa grande tiene 62 columnas y el
+        # limite real lo aplica el JS contra la placa de cada pieza.
+        for bad in ("63a", "0a", "9k", "i9", "", None, "T-10", "b5/63a"):
             res = await svc.build_from_holes(
                 parts=[{"ref": "led1", "did": 58422, "at": bad, "pin": "anode"}],
                 wires=[],
@@ -49,13 +51,13 @@ class TestModelBuildValidation(unittest.IsolatedAsyncioTestCase):
 
     async def test_valid_hole_bounds_accepted(self):
         svc, _, mock_page = make_service({"placed": {}, "errors": []})
-        for good in ("1a", "30j", "15e"):
+        for good in ("1a", "30j", "15e", "62j"):
             res = await svc.build_from_holes(
                 parts=[{"ref": "r1", "did": 53184, "at": good, "pin": "1"}],
                 wires=[],
             )
             self.assertTrue(res["success"], good)
-        self.assertEqual(mock_page.evaluate.call_count, 3)
+        self.assertEqual(mock_page.evaluate.call_count, 4)
 
 
 class TestModelBuildEvaluate(unittest.IsolatedAsyncioTestCase):

@@ -15,6 +15,7 @@ import json
 import unittest
 
 from src.services.model_build_service import _BUILD_JS, board_kinds, hole_x, ROW_Y
+from src.services.model_build_service import _is_breadboard_endpoint
 
 SMALL = 111211
 LARGE = 116648
@@ -60,6 +61,25 @@ class BoardGeometryTest(unittest.TestCase):
     def test_el_js_ya_no_tiene_la_geometria_fija_de_la_chica(self):
         self.assertNotIn("const BB_DID = 111211", _BUILD_JS)
         self.assertNotIn("-145 + 10 * (col - 1)", _BUILD_JS)
+
+
+class HoleValidationTest(unittest.TestCase):
+    """La validacion de Python tambien tiene que dejar pasar las 62 columnas.
+
+    Si el `at` de una pieza se rechaza antes de llegar a la pagina, la placa
+    grande no sirve de nada: paso justo asi en el primer sondeo (un 74HC08
+    anclado en `32e` fue rechazado con "expected 1-30").
+    """
+
+    def test_acepta_huecos_hasta_la_columna_62(self):
+        self.assertTrue(_is_breadboard_endpoint("62e"))
+        self.assertTrue(_is_breadboard_endpoint("32e"))
+        self.assertTrue(_is_breadboard_endpoint("b1/62e"))
+
+    def test_sigue_rechazando_lo_que_no_existe(self):
+        self.assertFalse(_is_breadboard_endpoint("63e"))
+        self.assertFalse(_is_breadboard_endpoint("0e"))
+        self.assertFalse(_is_breadboard_endpoint("ee"))
 
 
 if __name__ == "__main__":
