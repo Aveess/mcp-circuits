@@ -1517,3 +1517,121 @@ Lección: la lógica correcta no basta. Tres de los cuatro defectos dejaban
 moverse— y solo el conteo completo y la tabla de verdad dijeron la verdad.
 Y un test que camina la fixture (¿toda entrada tiene cable?) cuesta segundos
 mientras una corrida en vivo cuesta cinco minutos.
+
+---
+
+# Fase 47 · v2 del contador 0-7: chips insertados y display al final
+
+La v1 (`4bJNKia4pfj`) se quedó como estaba: la v2 es un diseño **nuevo**
+(`jWUw1co8IZH`), no una modificación. Objetivo: que el montaje se lea como
+un circuito real —integrados insertados, cable corto de hueco a hueco,
+display al final de la segunda placa— y que el documento de entrega se
+pueda imprimir.
+
+### 47a · Geometría de la placa grande (medida)
+
+Antes de tocar código se midió la `Breadboard` grande (`did 116648`) en
+diseños desechables:
+
+- **640 huecos útiles** en **62 columnas** con nombre (x −295…315, paso 10).
+- **Filas invertidas** respecto de la Small: grande `A` = y −55 (abajo) …
+  `J` = +55; la Small va `a` = +55 … `j` = −55. El mapa de `y` del puente
+  sirve igual; cambia el nombre de la hilera.
+- **La media columna es un nodo** en las dos placas: `F6` ≡ `I6`.
+- Huellas medidas: DIP-14 = 7 columnas con hileras a 3 filas (`e`/`f`);
+  555 = 4 columnas con hileras a 3 filas (`b`/`e`); resistencia = `(c,e)` y
+  `(c,g)`; display = 5 columnas con las 10 patas una por media columna.
+- **Corrección a la memoria anterior:** la placa grande **existe** y
+  **74HC08 / 74HC32 / 74HC04 existen** (116702 / 116721 / 116701). La nota
+  de la fase 27 decía lo contrario: era del catálogo local, no del drawer.
+
+### 47b · Reglas del layout v2
+
+- **Un renglón por mitad**: buses horizontales en `d` (mitad alta) y `j`
+  (baja); GND por `a`/`c` y `g`/`i`. Todo puente es de hueco a hueco en la
+  misma fila, así que la ortogonalidad es por construcción, no por revisión.
+- **Un hueco admite el cable del bus y el de una pata** (tap), pero **dos
+  patas nunca** comparten hueco: `pin_holes` lo impide en `_hang_wire`.
+  Ese fue el defecto real de la primera corrida: los dos capacitores libres
+  caían en `b1/45i`.
+- **Colores por net**: 5 V rojo, GND negro, señales rotando la paleta.
+- **Reparto por placas**: placa A = los 7 integrados del decodificador
+  (1 x 74HC04, 2 x 74HC08, 3 x 74HC32, 1 x 74HC86); placa B = 555, dos
+  JK, las 7 resistencias de 220 Ω y el display. Capacitores libres a la
+  derecha; el Uno, fuera de las placas.
+
+### 47c · El display solo entra girado 180°
+
+Medido: a 0° el puente responde `seg: no angle fits all pins in holes` y la
+fidelidad se cae a 33/41 nets. A 180° entran las diez patas. Girar la pieza
+gira también el dibujo de los segmentos, así que el generador cablea cada
+señal por la **pata opuesta** (`_PIN_GIRADO`: a↔d, b↔e, c↔f; `g` queda en el
+centro). Comprobado con capturas: el dígito se lee derecho (3 y 5 en dos
+tomas separadas 1,3 s).
+
+Otra medición: Tinkercad guarda las **dos** patas del común con la etiqueta
+`Common`, así que la lectura no las distingue. Declarar las dos bajaba la
+fidelidad a 40/41 sin que faltara un cable: la fixture declara solo
+`seg.com1`.
+
+### 47d · Verificado en vivo
+
+- Fidelidad **100 %** en la tercera corrida: 184 de 184 puentes, 41 nets,
+  componentes y conectividad 1.0.
+- **0 diagonales**, **0 tramos sobre el cuerpo de una placa**, 0 violaciones
+  de banda. De los 184 puentes, 19 los dibuja el router (los que cambian de
+  placa o de mitad); el resto va recto porque vive en una sola fila.
+- Serial (9 líneas, en orden): `READY`, `TEST:PERIODO=1014`,
+  `TEST:RESET=OK`, `TEST:CICLO=OK`, `TEST:EN0=OK`, `TEST:REANUDA=OK`,
+  `TEST:RESET_MEDIO=OK`, `TEST:DECODER=OK`, `TEST:FIN=OK`.
+- `presets_ok`, incluido `seg1.common = 'cathode'`; `reused: True` sobre
+  `jWUw1co8IZH`; reporte `docs/reportes/contador-0-7-jk-v2.md`.
+- Capturas: `contador-0-7-jk-v2-montaje.png` (vista completa),
+  `-z1/-z2/-z3.png` (zoom al display), `-display-3y5.png` (par 3→5).
+- Cerebro **2067 passed + 12 skip + 1 xfail** con la fixture nueva (puente
+  **329**); `contador_jk_v2` + `layout_v2` + `fixtures` + `boards` = 48.
+- Los tests de la estrella de la ronda 15 saltan las fixtures `layout: v2`
+  con el motivo escrito: sus puentes son de hueco a hueco, no una estrella.
+  Lo que la v2 tiene que cumplir se prueba en `tests/test_layout_v2.py` (un
+  nodo por net, un color por net, puentes cortos, ningún tramo diagonal).
+  Deuda anotada: el layout v2 elige las columnas de cruce en el orden
+  declarado de las nets, así que barajarlas cambia el trazado (mismas nets,
+  184 puentes, sin medias columnas compartidas).
+
+### 47e · El oráculo depende de cuándo arranca la simulación
+
+La primera corrida con el display ya girado salió con `build_ok: True`,
+fidelidad 100 % y **`oracle_ok: False`**: solo llegaron 2 de las 8 marcas.
+Un sondeo sobre el mismo diseño (abrir, esperar 19 s, simular 55 s) devolvió
+las 8 marcas; la corrida siguiente, idéntica en todo, también. No era el
+circuito: es el arranque de la simulación justo después del `set_code`, que
+a veces deja el reloj lento o la página ocupada.
+
+Deuda anotada: el runner reintenta **leer** el serial pero no **reiniciar**
+la simulación cuando faltan marcas. Un reintento de `stop + start` cuando
+el serial exige marcas y no llegó ninguna nueva cerraría el falso negativo.
+
+### 47f · Documento de entrega
+
+`~/Documentos/StartUp/TInkercad/entrega/taller3-contador-0-7-jk-v2.pdf`
+(10 páginas, reportlab): portada con campos en blanco, objetivo, resultado
+verificado, piezas y configuraciones, funcionamiento con la justificación
+de las expresiones del punto 4 (más una comprobación a mano del dígito 5),
+plano de las dos placas, criterios de cableado, tabla de las 8 marcas con
+la salida real del monitor, capturas, anexo de código y conclusiones. El
+generador vive en `/tmp/opencode/make_pdf_v2.py` y lee la fixture del
+cerebro, así que las cifras no se escriben a mano.
+
+### 47g · Pendiente
+
+- Regresión de las 30 fixtures con los alias nuevos (`Control Voltage`,
+  74HC73) y con `layout: v2` en la lista.
+- Reintento de simulación en el runner cuando el serial queda a medias.
+- El plano del PDF dibuja las piezas por columna y fila; no muestra el
+  trazado de cada puente (eso lo cuenta el reporte).
+
+Lección: en una placa grande la mitad del trabajo es la convención (qué
+fila es el bus, dónde puede vivir una pata) y la otra mitad es medir la
+pieza rara. El display no cabía derecho, y el "arreglo" evidente —girarlo y
+ya— dejaba el número al revés: un dígito invertido pasa todas las pruebas
+eléctricas.
