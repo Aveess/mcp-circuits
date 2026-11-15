@@ -145,25 +145,77 @@ class SerialService:
                 await code_btn.click()
                 await page.wait_for_timeout(1000)
 
+    # Apertura del panel: si el editor tapa el boton (medido 2026-11-14),
+    # Playwright agota 35 s reintentando. El fallback despacha el clic desde
+    # el DOM, que no pasa por hit-testing.
+    _SERIAL_IS_OPEN_JS = """
+        () => {
+            const textEl = document.querySelector(
+                '.js-code_editor__serial-monitor__content, .code_panel__serial__content__text, .code_panel__serial__content'
+            );
+            if (textEl && textEl.offsetHeight > 0) return true;
+            const arrow = document.querySelector('.js-code_panel__serial__arrow');
+            if (arrow && arrow.classList.contains('code_panel__serial__arrow__up')) return true;
+            return false;
+        }
+    """
+    _SERIAL_CLICK_JS = """
+        () => {
+            const btn = document.querySelector(
+                'a#SERIAL_MONITOR_ID, a.js-toggle_serial_monitor, a[data-event="serial-monitor"], .serial-monitor-toggle'
+            );
+            if (!btn) return false;
+            btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window}));
+            return true;
+        }
+    """
+    _serial_open_poll_attempts = 10
+    _serial_open_poll_ms = 300
+
+    async def _serial_monitor_open(self, page) -> bool:
+        """True si el panel del monitor serial esta desplegado."""
+        try:
+            return bool(await page.evaluate(self._SERIAL_IS_OPEN_JS))
+        except Exception:
+            return False
+
+    async def _click_serial_toggle_js(self, page) -> bool:
+        """Clic sintetico sobre el boton del monitor (evita el hit-testing)."""
+        try:
+            return bool(await page.evaluate(self._SERIAL_CLICK_JS))
+        except Exception as exc:
+            logger.debug(f"Serial toggle JS click failed: {exc}")
+            return False
+
     async def _ensure_serial_monitor_open(self, page) -> None:
         """Helper to ensure the serial monitor drawer is open."""
         await self._ensure_code_panel_open(page)
 
-        # Check if already open (height > 0 or content text container is visible)
-        is_open = await page.evaluate("""
-            () => {
-                const textEl = document.querySelector(
-                    '.js-code_editor__serial-monitor__content, .code_panel__serial__content__text, .code_panel__serial__content'
-                );
-                if (textEl && textEl.offsetHeight > 0) return true;
-                const arrow = document.querySelector('.js-code_panel__serial__arrow');
-                if (arrow && arrow.classList.contains('code_panel__serial__arrow__up')) return true;
-                return false;
-            }
-        """)
-        if not is_open:
-            toggle_btn = await self.browser.find_first_matching(SERIAL_SELECTORS["toggle_btn"], timeout=2000, page=page)
-            if toggle_btn:
+        if await self._serial_monitor_open(page):
+            return
+
+        toggle_btn = await self.browser.find_first_matching(SERIAL_SELECTORS["toggle_btn"], timeout=2000, page=page)
+        if toggle_btn is not None:
+            try:
                 await toggle_btn.click()
                 await page.wait_for_timeout(800)
+            except Exception as exc:
+                # No es un selector equivocado: el boton esta ahi y el editor
+                # intercepta el puntero. Se despacha el clic desde el DOM.
+                logger.warning(
+                    "Serial monitor toggle click intercepted "
+                    f"({str(exc).splitlines()[0][:120]}); usando clic sintetico."
+                )
+                await self._click_serial_toggle_js(page)
+        else:
+            await self._click_serial_toggle_js(page)
+
+        for _ in range(self._serial_open_poll_attempts):
+            if await self._serial_monitor_open(page):
+                return
+            await page.wait_for_timeout(self._serial_open_poll_ms)
+        logger.warning(
+            "El monitor serial no se abrio tras el clic (directo y sintetico); "
+            "se leera lo que haya en el panel."
+        )
 
