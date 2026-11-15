@@ -26,6 +26,29 @@ class CircuitsService:
     def __init__(self, browser: Optional[BrowserManager] = None) -> None:
         self.browser = browser or BrowserManager.get_instance()
 
+    # El editor existe antes que el diseno: tras navegar, `window.circuit_editor`
+    # ya esta pero `#breadboardTab` y los devices del circuito todavia no, y
+    # `inspect_circuit` respondia `success: true` con 0 componentes y 0 cables.
+    # Medido en vivo: abrir blink-basico tarda 1.4-4.5 s en montar el diseno
+    # despues de que `open_circuit` retorna. Ese "vacio" no es un circuito sin
+    # partes, es una lectura de una pagina a medio montar.
+    _DESIGN_MOUNTED_JS = (
+        "() => !!(window.circuit_editor && window.circuit_editor.data "
+        "&& window.circuit_editor.data.devices "
+        "&& document.querySelector('#breadboardTab'))"
+    )
+
+    async def _wait_for_design_mounted(self, page: Any, timeout_s: float = 12.0) -> bool:
+        """Espera a que el diseno este montado en la pagina. Best-effort, no lanza."""
+        try:
+            await page.wait_for_function(
+                self._DESIGN_MOUNTED_JS, timeout=timeout_s * 1000
+            )
+            return True
+        except Exception as exc:  # timeout, pagina cerrada, mock sin JS
+            logger.debug(f"design mounted wait failed: {exc}")
+            return False
+
     async def list_circuits(self) -> Dict[str, Any]:
         """List all circuit designs available in the user's Tinkercad account."""
         # The landing dashboard (/dashboard?type=circuits) only renders a curated
@@ -285,7 +308,10 @@ class CircuitsService:
 
         # Wait for editor canvas or header to indicate it is loaded
         canvas = await self.browser.find_first_matching(EDITOR_SELECTORS["editor_canvas"], timeout=20000, page=page)
-        await page.wait_for_timeout(3000)
+        # El canvas aparece antes de que el diseno este montado dentro del
+        # editor: sin esta espera el primer inspect devuelve 0 componentes.
+        await self._wait_for_design_mounted(page)
+        await page.wait_for_timeout(300)
 
         # Proactively collapse code editor panel if open to prevent pointer interception
         try:
@@ -641,6 +667,9 @@ class CircuitsService:
         Guards with bounded evaluation timeouts so slow WebGL settling never hangs context.
         """
         page = await self.browser.get_page()
+        # Nunca reportar un circuito vacio por mirar antes de que monte: el
+        # editor existe antes que el diseno (ver _wait_for_design_mounted).
+        await self._wait_for_design_mounted(page, timeout_s=8.0)
         title = await self._get_current_title(page)
         circuit_id = self._extract_id_from_url(page.url)
 

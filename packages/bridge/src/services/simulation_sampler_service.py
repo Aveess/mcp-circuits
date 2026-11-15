@@ -1,8 +1,13 @@
-"""Timed simulation sampling: LED brightness at requested simulation instants.
+"""Timed simulation sampling: does the LED emit at each requested instant.
 
 Ports the sampler concept from netchuu's implementation: start the simulation,
 take a screenshot at each requested offset (ms since start), and classify the
-LED as on/off from the pixel brightness around its known screen position.
+LED from the share of *lit* pixels (bright and saturated) in a window centred
+on the **body** of the part. Measured live on blink-basico (2tMhkuosDyj): the
+pin anchors land on the breadboard hole (861,484), 15 px off the LED that
+lights up at (876,487), and that offset sits on white plastic with a constant
+brightness of 208 - which is why a brightness threshold reported "on" for an
+off LED.
 """
 
 from __future__ import annotations
@@ -31,11 +36,11 @@ LED_LIT_MIN_BRIGHTNESS = 150
 LED_LIT_MIN_SATURATION = 40
 
 # Fraccion de la ventana que debe estar emitiendo para decir "encendido".
-# Medido en la ventana de 9x9 centrada en el cuerpo: apagado 2.5% (2 px de
-# borde), encendido 45.7%; las tramas de desvanecido del parpadeo dan >=10%.
+# Medido en la ventana de 9x9 centrada en el cuerpo, en tres circuitos:
+# apagado 0.000-0.025 (1-2 px de borde), encendido 0.52-0.59.
 DEFAULT_LED_LIT_THRESHOLD = 0.12
 
-# Side (px) of the square window centred on the LED position that is averaged.
+# Lado (px) de la ventana cuadrada centrada en el cuerpo del LED.
 LED_WINDOW_SIZE = 9
 
 # Seconds SimulationService waits before verifying the simulation is active.
