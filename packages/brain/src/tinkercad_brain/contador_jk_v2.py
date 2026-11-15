@@ -127,11 +127,13 @@ _DOC = [
     "cayo dentro de la muestra y se descarta. La muestra valida se",
     "re-comprueba 5 ms despues antes de comparar con la tabla.",
     "",
-    "Al terminar las pruebas el sketch NO se queda quieto: el 555 sigue",
-    "dando el reloj y el loop cuenta en vivo, comparando el decodificador",
-    "en cada digito y anunciandolo por el serial (TEST:DIGITO). Uno de los",
-    "dos circuitos del taller se queda mirando el display; este sigue",
-    "contando solo, que es lo que se ve en la simulacion.",
+    "El display cuenta desde que arranca la simulacion, no despues de las",
+    "pruebas: el setup mide el periodo y suelta el contador (EN=1), y el",
+    "loop anuncia cada digito nuevo (TEST:DIGITO). Las cuatro pruebas del",
+    "punto 5 corren despues, una sola vez, cuando ya se vieron los",
+    "primeros digitos: asi la pantalla nunca se queda en 0 mientras se",
+    "mide. Al terminar, el 555 sigue dando el reloj y el conteo continua",
+    "solo, que es lo que se ve en la simulacion.",
     "",
     "Los dos capacitores van insertados en una Breadboard Small al costado",
     "derecho de la placa grande, no sueltos en el lienzo: C1 entre",
@@ -150,6 +152,9 @@ _ORACLE = [
     "  TEST:RESET_MEDIO=OK RESET en un valor intermedio da 000.",
     "  TEST:DECODER=OK    cada lectura estable coincide con la tabla.",
     "  TEST:FIN=OK        la secuencia de pruebas termino.",
+    "",
+    "Los TEST:DIGITO salen desde el arranque, antes que las pruebas",
+    "(el display ya cuenta), y TEST:DEMO=OK cierra la tanda anunciada.",
 ]
 
 _NOTES = [

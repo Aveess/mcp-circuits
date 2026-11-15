@@ -344,11 +344,26 @@ def test_el_sketch_v2_lee_high_y_cuenta_en_vivo():
     assert v1.rstrip().endswith("void loop() {\n  delay(100);\n}")
     assert 'Serial.print("TEST:DIGITO=")' not in v1
 
-    # v2: el loop sigue el conteo y anuncia los digitos, con tope para no
-    # tapar las marcas del oraculo en el monitor.
+    # v2: el display cuenta desde el primer segundo y las cuatro pruebas
+    # corren despues, una sola vez. El setup no ejecuta ninguna prueba: si
+    # volviera a meterlas ahi, la pantalla se quedaria en 0 los primeros
+    # segundos, que es justo el sintoma reportado.
     assert 'Serial.print("TEST:DIGITO=")' in v2
     assert "if (demoCuenta < DEMO_MAX)" in v2
     assert '"TEST:DEMO=OK"' in v2
+    assert "void correPruebas() {" in v2
+    assert "correPruebas();" in v2
+    assert "if (!pruebasHechas) {" in v2
+    assert "if (arranque < DEMO_ANTES) {" in v2
+    assert "void correPruebas" not in v1
+
+    setup_v2 = v2[v2.index("void setup() {"):v2.index("void correPruebas() {")]
+    for marca in ("TEST:CICLO", "TEST:EN0", "TEST:REANUDA", "TEST:FIN="):
+        assert marca not in setup_v2, marca
+    assert "digitalWrite(EN, HIGH);" in setup_v2, "el setup suelta el contador"
+    # Las pruebas arrancan desde 0: `pruebaCiclo` exige el contador en 000.
+    assert "pulsaReset();\n  delay(60);" in setup_v2
+
     # La rama sin cambio duerme: sin ese delay el loop lee tres pines miles
     # de veces por segundo y el simulador se arrastra.
     assert "if (valor == anterior) {\n    delay(15);\n    return;\n  }" in v2
