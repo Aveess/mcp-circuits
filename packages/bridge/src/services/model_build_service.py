@@ -33,6 +33,47 @@ from .sharejs import (
 UNO_DID = 132521
 BREADBOARD_DID = 111211
 
+# Geometria de las dos breadboards del catalogo. Medida en vivo el 2026-11-15
+# (ver docs/superpowers/specs/2026-11-15-layout-v2-design.md):
+#   - Small (111211): 30 columnas, x -145..145, con rieles T+/T-/B+/B-.
+#   - Large (116648): 62 columnas utiles (x -295..315; el modelo nombra
+#     "A98/A99" las dos extremas -315/-305 y no se usan) y SIN rieles
+#     utilizables: los dos de abajo comparten nombre "X" y el mismo nodo.
+# Las filas son las mismas en las dos (paso 10, a = +55 ... j = -55); la
+# grande las nombra al reves (A = -55) pero el puente trabaja en y.
+ROW_Y: Dict[str, int] = {
+    "j": -55,
+    "i": -45,
+    "h": -35,
+    "g": -25,
+    "f": -15,
+    "e": 15,
+    "d": 25,
+    "c": 35,
+    "b": 45,
+    "a": 55,
+}
+
+BOARD_KINDS: Dict[int, Dict[str, Any]] = {
+    BREADBOARD_DID: {
+        "columns": 30,
+        "x0": -145,
+        "rails": {"T-": -95, "T+": -85, "B-": 85, "B+": 95},
+    },
+    116648: {"columns": 62, "x0": -295, "rails": {}},
+}
+
+
+def board_kinds() -> Dict[int, Dict[str, Any]]:
+    """Copia de la tabla: los tests no pueden mutar la geometria del build."""
+    return {did: {**kind, "rails": dict(kind["rails"])} for did, kind in BOARD_KINDS.items()}
+
+
+def hole_x(did: int, col: int) -> int:
+    """x relativa al origen de la placa del hueco ``col`` (1-based)."""
+    kind = BOARD_KINDS[did]
+    return kind["x0"] + 10 * (col - 1)
+
 # ShareJS persistence polling. El sondeo vive en sharejs.py porque tambien lo
 # usa la inyeccion de codigo (un sketch largo se perdia al recargar con la
 # cola sin vaciar). Se mantienen estos nombres para no romper a quien los lee
@@ -250,13 +291,24 @@ _BUILD_JS = r"""
   const data = ce.data;
   const root = ce.root;
   const ORIGIN = { x: 870, y: 0 };
-  // Placas: plan.boards = [{x, y}, ...]. La primera es la de siempre
+  // Geometria por placa (columnas, x del primer hueco, rieles). La inyecta
+  // Python desde BOARD_KINDS: una sola tabla, probada sin navegador.
+  // Small (111211): 30 columnas, x -145..145, rieles T+/T-/B+/B-.
+  // Large (116648): 62 columnas utiles (x -295..315) y sin rieles usables.
+  const BOARD_KINDS = __BOARD_KINDS__;
+  const DEFAULT_BB_DID = 111211;
+  // Placas: plan.boards = [{x, y, did}, ...]. La primera es la de siempre
   // (870, 0); una parte pide otra con "board": N y sus huecos viajan como
   // "bN/<hueco>". Todos los cables usan el y de la primera placa como
   // referencia de carril, asi que las placas se colocan a la misma altura.
+  // `did` decide la geometria (30 o 62 columnas): Small 111211, Large 116648.
   const BOARDS = (Array.isArray(plan.boards) && plan.boards.length)
-    ? plan.boards.map((b) => ({ x: Number(b.x), y: Number(b.y) }))
-    : [{ x: ORIGIN.x, y: ORIGIN.y }];
+    ? plan.boards.map((b) => ({
+        x: Number(b.x),
+        y: Number(b.y),
+        did: (b.did !== undefined && b.did !== null) ? Number(b.did) : DEFAULT_BB_DID,
+      }))
+    : [{ x: ORIGIN.x, y: ORIGIN.y, did: DEFAULT_BB_DID }];
   const boardOrigin = (index) => {
     const b = BOARDS[index];
     return (b && isFinite(b.x) && isFinite(b.y)) ? b : BOARDS[0];
@@ -278,8 +330,7 @@ _BUILD_JS = r"""
   // por encima.
   const FREE_FREE_ESCAPE = 70;
   const ROW_Y = { j: -55, i: -45, h: -35, g: -25, f: -15, e: 15, d: 25, c: 35, b: 45, a: 55 };
-  const RAIL_Y = { 'T-': -95, 'T+': -85, 'B-': 85, 'B+': 95 };
-  const UNO_DID = 132521, BB_DID = 111211;
+  const UNO_DID = 132521;
   // Partes libres con terminales arriba (LCD 16x2): el cable sale de lado
   // antes de bajar. La tabla la inyecta Python desde FREE_ESCAPE.
   const FREE_ESCAPE = __FREE_ESCAPE__;
@@ -301,32 +352,49 @@ _BUILD_JS = r"""
     return dev;
   }
 
-  function holeRel(col, row) {
-    return { x: -145 + 10 * (col - 1), y: ROW_Y[row] };
+  function boardKind(index) {
+    const b = BOARDS[index] || BOARDS[0];
+    const kind = b ? BOARD_KINDS[String(b.did)] : null;
+    return kind || BOARD_KINDS[String(DEFAULT_BB_DID)];
+  }
+  function holeRel(col, row, boardIndex) {
+    const kind = boardKind(boardIndex || 0);
+    return { x: kind.x0 + 10 * (col - 1), y: ROW_Y[row] };
   }
   function parseHole(s) {
-    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?([1-9]|[12][0-9]|30)([a-j])$/i);
-    return m
-      ? { board: m[1] ? parseInt(m[1], 10) : 0, col: parseInt(m[2], 10), row: m[3].toLowerCase() }
-      : null;
+    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?(\d{1,2})([a-j])$/i);
+    if (!m) return null;
+    const board = m[1] ? parseInt(m[1], 10) : 0;
+    const col = parseInt(m[2], 10);
+    // El tope de columnas depende de la placa: 30 en la Small, 62 en la
+    // grande. Un hueco fuera de rango no existe y no debe resolver a nada.
+    if (!(col >= 1 && col <= boardKind(board).columns)) return null;
+    return { board, col, row: m[3].toLowerCase() };
   }
   function parseRail(s) {
-    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?([TB])([+-])([1-9]|[12][0-9]|30)$/i);
-    return m
-      ? { board: m[1] ? parseInt(m[1], 10) : 0, side: m[2].toUpperCase() + m[3], col: parseInt(m[4], 10) }
-      : null;
+    const m = String(s || '').trim().match(/^(?:b([1-9])\/)?([TB])([+-])(\d{1,2})$/i);
+    if (!m) return null;
+    const board = m[1] ? parseInt(m[1], 10) : 0;
+    const side = m[2].toUpperCase() + m[3];
+    const col = parseInt(m[4], 10);
+    const kind = boardKind(board);
+    // La grande no publica rieles: "T+5" sobre ella no es un destino valido.
+    if (!(side in (kind.rails || {}))) return null;
+    if (!(col >= 1 && col <= kind.columns)) return null;
+    return { board, side, col };
   }
-  function holeName(col, y) {
+  function holeName(col, y, boardIndex) {
+    const kind = boardKind(boardIndex || 0);
     for (const [row, ry] of Object.entries(ROW_Y)) {
       if (Math.abs(y - ry) < 3) return '' + col + row;
     }
-    for (const [rail, ry] of Object.entries(RAIL_Y)) {
+    for (const [rail, ry] of Object.entries(kind.rails || {})) {
       if (Math.abs(y - ry) < 3) return rail + col;
     }
     return null;
   }
-  function bbTerminal(bbDev, col, y) {
-    const target = holeRel(col, 'a');
+  function bbTerminal(bbDev, col, y, boardIndex) {
+    const target = holeRel(col, 'a', boardIndex);
     const map = bbDev?.bbid2terminal?._content || bbDev?.name2terminal?._content || {};
     for (const e of Object.values(map)) {
       const t = unwrap(e);
@@ -376,11 +444,17 @@ _BUILD_JS = r"""
     // Una protoboard por entrada de plan.boards: la primera reutiliza la que
     // ya exista (o la crea); las demas se crean siempre y se colocan en su
     // origen. clear_existing borra todas, incluidas las sobrantes.
-    const existingBoards = devices().filter((d) => didOf(d.dev) === BB_DID).map((d) => d.dev);
-    bbDevs = BOARDS.map((origin, index) => {
-      let dev = existingBoards[index];
+    // La reutilizacion respeta el `did`: no se puede reciclar una Small donde
+    // el plan pide una Large (cambian columnas y rieles).
+    const existingBoards = devices()
+      .filter((d) => !!BOARD_KINDS[String(didOf(d.dev))])
+      .map((d) => d.dev);
+    const claimedBoards = new Set();
+    bbDevs = BOARDS.map((origin) => {
+      let dev = existingBoards.find((d) => !claimedBoards.has(d) && didOf(d) === origin.did);
+      if (dev) claimedBoards.add(dev);
       if (!dev) {
-        dev = data.createDeviceInstance(BB_DID);
+        dev = data.createDeviceInstance(origin.did);
         if (dev && data.devices && typeof data.devices.add === 'function') {
           try { data.devices.add(dev); } catch (e) {}
         }
@@ -466,13 +540,14 @@ _BUILD_JS = r"""
         const anchorEntry = termByName(dev, part.pin) || (pinNames.length ? { name: pinNames[0], term: unwrap(dev.name2terminal._content[pinNames[0]]) } : null);
         if (!anchorEntry) { errors.push(part.ref + ': no terminals'); continue; }
         const angles = (part.angle !== undefined && part.angle !== null) ? [part.angle] : [0, 90, 180, 270];
+        const kind = boardKind(boardIndex);
         let ok = null;
         for (const angle of angles) {
           if (typeof bb.setAngle === 'function') bb.setAngle(angle);
           const aOff = termOffset(anchorEntry.term);
           if (!aOff) break;
           const aRot = rot(aOff, angle);
-          const rel = holeRel(anchor.col, anchor.row);
+          const rel = holeRel(anchor.col, anchor.row, boardIndex);
           const pos = { x: boardAt.x + rel.x - aRot.x, y: boardAt.y + rel.y - aRot.y };
           bb.setPos(pos);
           const holes = {};
@@ -483,9 +558,10 @@ _BUILD_JS = r"""
             if (!off) { all = false; break; }
             const abs = rot(off, angle);
             const lx = pos.x + abs.x - boardAt.x, ly = pos.y + abs.y - boardAt.y;
-            const col = Math.round((lx + 145) / 10) + 1;
-            if (Math.abs(lx - (-145 + 10 * (col - 1))) > 3) { all = false; break; }
-            const h = holeName(col, ly);
+            const col = Math.round((lx - kind.x0) / 10) + 1;
+            if (col < 1 || col > kind.columns) { all = false; break; }
+            if (Math.abs(lx - (kind.x0 + 10 * (col - 1))) > 3) { all = false; break; }
+            const h = holeName(col, ly, boardIndex);
             if (!h) { all = false; break; }
             holes[name] = h;
           }
@@ -497,10 +573,12 @@ _BUILD_JS = r"""
           const t = unwrap(dev.name2terminal._content[name]);
           const parsed = parseHole(h);
           let bt = null;
-          if (parsed) bt = bbTerminal(boardDev, parsed.col, ROW_Y[parsed.row]);
+          if (parsed) bt = bbTerminal(boardDev, parsed.col, ROW_Y[parsed.row], boardIndex);
           else {
             const rm = String(h).match(/^([TB][+-])(\d+)$/);
-            if (rm) bt = bbTerminal(boardDev, parseInt(rm[2], 10), RAIL_Y[rm[1]]);
+            if (rm && kind.rails[rm[1]] !== undefined) {
+              bt = bbTerminal(boardDev, parseInt(rm[2], 10), kind.rails[rm[1]], boardIndex);
+            }
           }
           if (t && bt && window.Circuits?.BendableWireData) {
             const w = new window.Circuits.BendableWireData(root, t, bt, { insert: true });
@@ -516,9 +594,9 @@ _BUILD_JS = r"""
     function resolveEndpoint(ep) {
       const s = String(ep || '').trim();
       const hole = parseHole(s);
-      if (hole) return bbTerminal(bbDevFor(hole.board), hole.col, ROW_Y[hole.row]);
+      if (hole) return bbTerminal(bbDevFor(hole.board), hole.col, ROW_Y[hole.row], hole.board);
       const rail = parseRail(s);
-      if (rail) return bbTerminal(bbDevFor(rail.board), rail.col, RAIL_Y[rail.side]);
+      if (rail) return bbTerminal(bbDevFor(rail.board), rail.col, boardKind(rail.board).rails[rail.side], rail.board);
       const dot = s.indexOf('.');
       if (dot > 0) {
         const ref = s.slice(0, dot), pin = s.slice(dot + 1);
@@ -529,7 +607,7 @@ _BUILD_JS = r"""
           const h = holes[pin] || Object.entries(holes)
             .find(([k]) => norm(k) === norm(pin))?.[1];
           const parsed = h ? parseHole(h) : null;
-          if (parsed) return bbTerminal(bbDevFor(parsed.board), parsed.col, ROW_Y[parsed.row]);
+          if (parsed) return bbTerminal(bbDevFor(parsed.board), parsed.col, ROW_Y[parsed.row], parsed.board);
           // Free parts have holes == {}: fall through to the real terminal.
         }
         const found = termByName(dev, pin);
@@ -589,13 +667,13 @@ _BUILD_JS = r"""
     function bbAbs(ep) {
       const hole = parseHole(ep);
       if (hole) {
-        const rel = holeRel(hole.col, hole.row), org = boardOrigin(hole.board);
+        const rel = holeRel(hole.col, hole.row, hole.board), org = boardOrigin(hole.board);
         return { x: org.x + rel.x, y: org.y + rel.y };
       }
       const rail = parseRail(ep);
       if (rail) {
-        const org = boardOrigin(rail.board);
-        return { x: org.x - 145 + 10 * (rail.col - 1), y: org.y + RAIL_Y[rail.side] };
+        const kind = boardKind(rail.board), org = boardOrigin(rail.board);
+        return { x: org.x + kind.x0 + 10 * (rail.col - 1), y: org.y + kind.rails[rail.side] };
       }
       return null;
     }
@@ -932,6 +1010,13 @@ _BUILD_JS = _BUILD_JS.replace(
     json.dumps({str(did): esc for did, esc in FREE_ESCAPE.items()}),
 )
 
+# Misma idea para la geometria de las placas: una tabla sola, inyectada, y el
+# JS la consulta por el did de la placa del indice que pida la pieza.
+_BUILD_JS = _BUILD_JS.replace(
+    "__BOARD_KINDS__",
+    json.dumps({str(did): kind for did, kind in BOARD_KINDS.items()}),
+)
+
 
 class ModelBuildService:
     """Build circuits by holes directly in the editor's internal model."""
@@ -1036,7 +1121,13 @@ class ModelBuildService:
             ):
                 errors.append(f"board {index}: 'x' and 'y' must be numbers, got {board!r}")
                 continue
-            board_list.append({"x": float(board["x"]), "y": float(board["y"])})
+            did = board.get("did", BREADBOARD_DID)
+            if type(did) is not int or did not in BOARD_KINDS:
+                errors.append(
+                    f"board {index}: 'did' must be one of {sorted(BOARD_KINDS)}, got {did!r}"
+                )
+                continue
+            board_list.append({"x": float(board["x"]), "y": float(board["y"]), "did": did})
         if len(board_list) > _MAX_BOARDS:
             errors.append(f"at most {_MAX_BOARDS} boards are supported, got {len(board_list)}")
         for part in parts or []:
@@ -1159,7 +1250,7 @@ class ModelBuildService:
             if isinstance(part, dict) and part.get("free") is not None
         ]
         plan: Dict[str, Any] = {
-            "boards": board_list or [{"x": 870.0, "y": 0.0}],
+            "boards": board_list or [{"x": 870.0, "y": 0.0, "did": BREADBOARD_DID}],
             "parts": parts or [],
             "wires": plan_wire_style(wires, free_refs=free_refs),
             "code": code,

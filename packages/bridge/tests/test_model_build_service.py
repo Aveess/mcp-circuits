@@ -1193,18 +1193,37 @@ class TestEditorReady(unittest.IsolatedAsyncioTestCase):
 
 class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
     async def test_plan_carries_boards_and_single_board_default(self):
+        # Cada placa viaja con su `did`: la geometria (columnas y rieles)
+        # depende de la placa, y el JS no puede adivinarla por la posicion.
+        # Sin `did` explicito el plan dice Small (111211).
         svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
         await svc.build_from_holes(
             parts=[], wires=[],
             boards=[{"x": 870, "y": 0}, {"x": 1270, "y": 40}])
         plan = page.evaluate.await_args_list[-1].args[1]
         self.assertEqual(plan["boards"],
-                         [{"x": 870.0, "y": 0.0}, {"x": 1270.0, "y": 40.0}])
+                         [{"x": 870.0, "y": 0.0, "did": 111211},
+                          {"x": 1270.0, "y": 40.0, "did": 111211}])
 
         svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
         await svc.build_from_holes(parts=[], wires=[])
         plan = page.evaluate.await_args_list[-1].args[1]
-        self.assertEqual(plan["boards"], [{"x": 870.0, "y": 0.0}])
+        self.assertEqual(plan["boards"], [{"x": 870.0, "y": 0.0, "did": 111211}])
+
+    async def test_la_placa_grande_viaja_con_su_did(self):
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        await svc.build_from_holes(
+            parts=[], wires=[], boards=[{"x": 870, "y": 0, "did": 116648}])
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual(plan["boards"], [{"x": 870.0, "y": 0.0, "did": 116648}])
+
+    async def test_un_did_de_placa_desconocido_no_toca_la_pagina(self):
+        svc, _, page = make_service()
+        res = await svc.build_from_holes(
+            parts=[], wires=[], boards=[{"x": 870, "y": 0, "did": 123456}])
+        self.assertFalse(res["success"])
+        self.assertTrue(any("did" in e for e in res["errors"]), res["errors"])
+        self.assertFalse(page.evaluate.await_count)
 
     async def test_board_limit_rejects_before_touching_page(self):
         svc, _, page = make_service()
