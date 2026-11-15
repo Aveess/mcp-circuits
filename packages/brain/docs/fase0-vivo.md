@@ -1487,14 +1487,22 @@ vuelve a 0.
 - Ningún componente estalló en 55 s de simulación y el display muestra
   dígitos: en la captura marca **4** (segmentos b, c, f, g).
 - Conectividad 100 % valida de paso el alias medido del 74HC73.
+- **Reapertura:** el diseño se abre montado (`mounted: true`), con 26
+  componentes (23 partes + Uno + las dos placas) y el sketch de 420 líneas
+  guardado (`TEST:DECODER` y `TABLA[8]` presentes). Una de las aperturas de
+  solo lectura del intento anterior devolvió 0 componentes; el fallo es
+  intermitente, no del circuito.
+- Dashboard: **32 diseños** = 29 fixtures + 3 ajenos, sin duplicados por
+  título (verificado por API).
 
 ### 46e · Pendiente
 
 - Reabrir un diseño existente **a veces** no monta el editor
-  (`editor_not_mounted`, el bloqueo de servidor de las fases 44-45). En esta
-  fase el build sobre el diseño existente funcionó, pero una apertura de
-  solo lectura devolvió 0 componentes. La inspección posterior al build (en
-  la misma sesión) sí midió 100 %.
+  (`editor_not_mounted`, el bloqueo de servidor de las fases 44-45). En la
+  verificación final sí montó (26 componentes, sketch de 420 líneas), pero
+  una apertura anterior devolvió 0 componentes. Es intermitente, no del
+  circuito; el build sobre un diseño existente también falló una vez y dejó
+  el diseño vacío (se borró y se volvió a construir).
 - No se re-corrió la regresión de las 29 fixtures; el cambio de alias del
   555 y el del alias de JK solo agregan claves, pero eso hay que medirlo.
 - El reporte guarda la tabla, las expresiones y las cuatro pruebas, pero no
