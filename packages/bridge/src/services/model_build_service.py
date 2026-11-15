@@ -22,32 +22,30 @@ from .editor_guard import (
     editor_guard_hit,
     wait_for_editor,
 )
+from .sharejs import (
+    PENDING_JS,
+    PERSIST_POLL_S,
+    PERSIST_REQUIRED_ZEROS,
+    PERSIST_TIMEOUT_S,
+    wait_for_persistence,
+)
 
 UNO_DID = 132521
 BREADBOARD_DID = 111211
 
-# ShareJS persistence polling (see ModelBuildService.build_from_holes).
-_PERSIST_TIMEOUT_S = 30.0
-_PERSIST_POLL_S = 0.3
-_PERSIST_REQUIRED_ZEROS = 3
+# ShareJS persistence polling. El sondeo vive en sharejs.py porque tambien lo
+# usa la inyeccion de codigo (un sketch largo se perdia al recargar con la
+# cola sin vaciar). Se mantienen estos nombres para no romper a quien los lee
+# (model_props_service y los tests que los parchean).
+_PERSIST_TIMEOUT_S = PERSIST_TIMEOUT_S
+_PERSIST_POLL_S = PERSIST_POLL_S
+_PERSIST_REQUIRED_ZEROS = PERSIST_REQUIRED_ZEROS
+_PENDING_JS = PENDING_JS
 
 # La espera del editor vive en editor_guard para que build, limpieza y
 # propiedades usen la misma senal (fase 44: props se la habia olvidado).
 _EDITOR_READY_JS = EDITOR_READY_JS
 _EDITOR_READY_TIMEOUT_S = EDITOR_READY_TIMEOUT_S
-
-# Returns pending ShareJS ops; 0 when shareJsDoc/numberPending is unavailable
-# (nothing can be pending through that doc in that case).
-_PENDING_JS = r"""
-() => {
-  try {
-    const doc = window.circuit_editor?.root?.shareJsDoc;
-    if (!doc || typeof doc.numberPending !== 'function') return 0;
-    const n = doc.numberPending();
-    return (typeof n === 'number' && isFinite(n)) ? n : 0;
-  } catch (e) { return 0; }
-}
-"""
 
 # Con mas de una placa el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
 # "5g" no dice a que protoboard pertenece y el cable caeria en la primera.
@@ -962,25 +960,16 @@ class ModelBuildService:
         Returns (persisted, last_pending). last_pending is the last numeric
         value observed, or None if no poll ever returned a number (e.g. every
         poll raised); a non-numeric/raising poll resets the zero streak.
+
+        The loop itself lives in ``sharejs.wait_for_persistence``; the module
+        constants are passed at call time so tests can shorten them.
         """
-        deadline = time.monotonic() + _PERSIST_TIMEOUT_S
-        stable_zeros = 0
-        last: Optional[int] = None
-        while True:
-            try:
-                raw = await page.evaluate(_PENDING_JS)
-            except Exception:
-                raw = None
-            if isinstance(raw, (int, float)) and not isinstance(raw, bool) and math.isfinite(raw):
-                last = int(raw)
-                stable_zeros = stable_zeros + 1 if last == 0 else 0
-                if stable_zeros >= _PERSIST_REQUIRED_ZEROS:
-                    return True, last
-            else:
-                stable_zeros = 0
-            if time.monotonic() >= deadline:
-                return False, last
-            await asyncio.sleep(_PERSIST_POLL_S)
+        return await wait_for_persistence(
+            page,
+            timeout_s=_PERSIST_TIMEOUT_S,
+            poll_s=_PERSIST_POLL_S,
+            required_zeros=_PERSIST_REQUIRED_ZEROS,
+        )
 
     async def build_from_holes(
         self,

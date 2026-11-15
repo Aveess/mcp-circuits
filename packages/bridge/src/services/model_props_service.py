@@ -22,7 +22,13 @@ from typing import Any, List, Optional
 from ..browser.browser_manager import BrowserManager
 from ..config import logger
 from .editor_guard import editor_guard_hit, wait_for_editor
-from .model_build_service import _PENDING_JS, _PERSIST_POLL_S, _PERSIST_REQUIRED_ZEROS, _PERSIST_TIMEOUT_S
+from .sharejs import (
+    PENDING_JS as _PENDING_JS,
+    PERSIST_POLL_S as _PERSIST_POLL_S,
+    PERSIST_REQUIRED_ZEROS as _PERSIST_REQUIRED_ZEROS,
+    PERSIST_TIMEOUT_S as _PERSIST_TIMEOUT_S,
+    wait_for_persistence,
+)
 
 _SET_PROP_JS = r"""
 (arg) => {
@@ -95,25 +101,13 @@ class ModelPropsService:
         self.browser = browser or BrowserManager.get_instance()
 
     async def _wait_for_persistence(self, page: Any):
-        """Poll shareJsDoc.numberPending() to 0 (pattern: model_build_service)."""
-        deadline = time.monotonic() + _PERSIST_TIMEOUT_S
-        stable_zeros = 0
-        last: Optional[int] = None
-        while True:
-            try:
-                raw = await page.evaluate(_PENDING_JS)
-            except Exception:
-                raw = None
-            if isinstance(raw, (int, float)) and not isinstance(raw, bool) and math.isfinite(raw):
-                last = int(raw)
-                stable_zeros = stable_zeros + 1 if last == 0 else 0
-                if stable_zeros >= _PERSIST_REQUIRED_ZEROS:
-                    return True, last
-            else:
-                stable_zeros = 0
-            if time.monotonic() >= deadline:
-                return False, last
-            await asyncio.sleep(_PERSIST_POLL_S)
+        """Poll shareJsDoc.numberPending() to 0 (via sharejs.wait_for_persistence)."""
+        return await wait_for_persistence(
+            page,
+            timeout_s=_PERSIST_TIMEOUT_S,
+            poll_s=_PERSIST_POLL_S,
+            required_zeros=_PERSIST_REQUIRED_ZEROS,
+        )
 
     async def set_property(
         self,

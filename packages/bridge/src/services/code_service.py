@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 from ..browser.browser_manager import BrowserManager
 from ..browser.selectors import CODE_SELECTORS, EDITOR_SELECTORS
 from ..config import logger
+from .sharejs import wait_for_persistence
 
 
 class CodeService:
@@ -221,8 +222,27 @@ class CodeService:
 
         # Cloud persistence verification across reload if requested
         if verify_persistence:
-            # Allow 5.0s for ShareJS operational transformation and autosave network XHR to complete
-            await page.wait_for_timeout(5000)
+            # Esperar a que ShareJS vacie su cola antes de recargar: recargar
+            # con operaciones pendientes descarta el cambio (medido con un
+            # sketch largo). Antes se dormian 5 s fijos y se recargaba igual.
+            persisted, pending = await wait_for_persistence(page)
+            if not persisted:
+                logger.error(
+                    "Code persistence failed: ShareJS still had pending "
+                    f"operations ({pending}); page not reloaded."
+                )
+                return {
+                    "success": False,
+                    "verified": False,
+                    "error": "code_persistence_pending",
+                    "persistence_pending": pending,
+                    "message": (
+                        "ShareJS still had pending operations when the code was "
+                        "written; reloading would discard it, so the page was left "
+                        "untouched."
+                    ),
+                    "line_count": line_count,
+                }
 
             # If on a live circuit project page, reload and verify cloud persistence
             current_url = getattr(page, "url", "")

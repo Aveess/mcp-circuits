@@ -61,11 +61,48 @@ class TestCodeMirrorPrecedenceAndPersistence(unittest.IsolatedAsyncioTestCase):
             "code": code_to_set,
         })
 
-        res = await service.set_code(code_to_set, ensure_text_mode=True, verify_persistence=True)
+        with patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(True, 0)),
+        ):
+            res = await service.set_code(code_to_set, ensure_text_mode=True, verify_persistence=True)
         self.assertTrue(res["success"])
         self.assertTrue(res["verified"])
         self.assertEqual(res["line_count"], 3)
         mock_page.reload.assert_called_once()
+
+    async def test_set_code_no_recarga_si_sharejs_sigue_pendiente(self):
+        """Si la cola de ShareJS no se vacia, no se recarga: la recarga tiraria el codigo."""
+        mock_bm = MagicMock(spec=BrowserManager)
+        mock_page = AsyncMock()
+        mock_page.url = "https://www.tinkercad.com/things/test-circuit-demo/editel"
+        mock_bm.get_page = AsyncMock(return_value=mock_page)
+
+        code_to_set = "int buzzer_pin = 11;\nvoid setup() {}\nvoid loop() {}"
+        mock_page.evaluate = AsyncMock(return_value=True)
+        mock_page.wait_for_timeout = AsyncMock()
+        mock_page.reload = AsyncMock()
+
+        service = CodeService(mock_bm)
+        service._ensure_code_panel_open = AsyncMock()
+        service._switch_to_text_mode = AsyncMock()
+        service.get_code = AsyncMock(return_value={
+            "success": True,
+            "line_count": 3,
+            "code": code_to_set,
+        })
+
+        with patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(False, 4)),
+        ):
+            res = await service.set_code(code_to_set, ensure_text_mode=True, verify_persistence=True)
+
+        self.assertFalse(res["success"])
+        self.assertFalse(res["verified"])
+        self.assertEqual(res["error"], "code_persistence_pending")
+        self.assertEqual(res["persistence_pending"], 4)
+        mock_page.reload.assert_not_called()
 
     async def test_set_code_fails_when_code_reverts_on_reload(self):
         """CodeService.set_code must return failure if code reverts after reload (Issue 2/5)."""
@@ -91,7 +128,11 @@ class TestCodeMirrorPrecedenceAndPersistence(unittest.IsolatedAsyncioTestCase):
             {"success": True, "line_count": 3, "code": reverted_code},
         ])
 
-        res = await service.set_code(new_code, ensure_text_mode=True, verify_persistence=True)
+        with patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(True, 0)),
+        ):
+            res = await service.set_code(new_code, ensure_text_mode=True, verify_persistence=True)
         self.assertFalse(res["success"])
         self.assertFalse(res["verified"])
         self.assertEqual(res["error"], "code_persistence_failed")
