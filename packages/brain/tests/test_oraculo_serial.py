@@ -180,3 +180,17 @@ def test_el_reporte_no_dice_sin_fallos_si_el_oraculo_fallo():
     )
     assert "serial: el sketch imprime y no se capturó ninguna línea" in reporte
     assert "Sin fallos." not in reporte
+
+
+def test_el_contrato_viaja_dentro_del_circuito_documentado():
+    from tinkercad_brain.circuit_doc import render_circuit_doc
+
+    fixture = {
+        "id": "blink",
+        "title": "Blink",
+        "components": [{"ref": "uno", "type": "arduino-uno"}],
+        "nets": [],
+        "oracle_serial": ["TEST:ON", "TEST:OFF"],
+    }
+    doc = "\n".join(render_circuit_doc(fixture))
+    assert "El serial debe imprimir, en orden: TEST:ON, TEST:OFF." in doc

@@ -92,13 +92,24 @@ def _doc_lines(fixture: dict) -> list[str]:
 def _oracle_lines(fixture: dict) -> list[str]:
     oracle = fixture.get("oracle")
     if isinstance(oracle, str):
-        return [line.strip() for line in oracle.splitlines() if line.strip()]
-    if isinstance(oracle, list):
-        return [str(line).strip() for line in oracle if str(line).strip()]
-    features = fixture.get("code_features") or []
-    if features:
-        return ["El sketch usa: " + ", ".join(str(f) for f in features) + "."]
-    return []
+        lines = [line.strip() for line in oracle.splitlines() if line.strip()]
+    elif isinstance(oracle, list):
+        lines = [str(line).strip() for line in oracle if str(line).strip()]
+    else:
+        features = fixture.get("code_features") or []
+        lines = (
+            ["El sketch usa: " + ", ".join(str(f) for f in features) + "."]
+            if features
+            else []
+        )
+    # El contrato de oraculo viaja con el diseno: quien lo abra sabe que
+    # marcas del serial prueban que el circuito hace lo que dice.
+    marcas = [str(m) for m in (fixture.get("oracle_serial") or []) if str(m)]
+    if marcas:
+        lines.append(
+            "El serial debe imprimir, en orden: " + ", ".join(marcas) + "."
+        )
+    return lines
 
 
 def render_circuit_doc(fixture: dict) -> list[str]:
