@@ -74,11 +74,15 @@ _PRESETS_BY_FIXTURE = {
 }
 
 
+# La v2 del contador 0-7 es el mismo circuito con los chips insertados: mismo
+# reloj (10k/68k/10uF/10nF) y las mismas siete 220 ohmios de segmento.
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v2"] = _PRESETS_BY_FIXTURE["contador-0-7-jk"]
+
+
 def select_presets(fixture: dict):
     """Presets de la fixture, o None si no tiene ninguno."""
     presets = _PRESETS_BY_FIXTURE.get(fixture.get("id"))
     return [dict(p) for p in presets] if presets else None
-
 
 # fixture_id -> nombre de la funcion en tinkercad_brain.sketches
 _SKETCH_BY_FIXTURE = {
@@ -111,6 +115,7 @@ _SKETCH_BY_FIXTURE = {
     "control-acceso": "access_control_sketch",
     "contador-555-compuertas": "gate_counter_sketch",
     "contador-0-7-jk": "contador_jk_sketch",
+    "contador-0-7-jk-v2": "contador_jk_v2_sketch",
 }
 
 

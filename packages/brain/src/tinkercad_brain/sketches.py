@@ -1961,7 +1961,7 @@ def gate_counter_sketch(
     )
 
 
-def contador_jk_sketch() -> str:
+def contador_jk_sketch(sense_high: bool = False) -> str:
     """Secuenciador de las cuatro pruebas del taller en un contador 0-7 con JK.
 
     Pines: D2 reloj (lectura), D3..D5 Q0..Q2, D6 lectura de ng (el Uno R3 no
@@ -1969,9 +1969,26 @@ def contador_jk_sketch() -> str:
 
     Toda lectura se estabiliza con dos muestras iguales separadas 60 ms: el
     acarreo entre JK es asincrono y el display pasa por estados intermedios.
+
+    ``sense_high`` dice como luce un segmento, o sea que lee el sketch en el
+    nodo de la compuerta: en la v1 el display es de **anodo comun** y hay un
+    inversor entre la compuerta y el segmento, asi que un segmento encendido
+    se lee LOW; en la v2 el display es de **catodo comun** y la compuerta
+    maneja el segmento directo, asi que se lee HIGH.
     """
     from tinkercad_brain.decoder7 import LIT_TABLE
 
+    encendido = "HIGH" if sense_high else "LOW"
+    if sense_high:
+        linea_display = (
+            "// Display de catodo comun: el comun va a GND y el segmento enciende",
+            "// con HIGH. La compuerta maneja el segmento directo (220 ohmios).",
+        )
+    else:
+        linea_display = (
+            "// Tabla del taller (1 = segmento encendido). Las compuertas invierten",
+            "// para el display de anodo comun, asi que un pin LOW enciende.",
+        )
     tabla = ", ".join(f"0x{valor:02X}" for valor in LIT_TABLE)
     secuencia = ", ".join(str(valor) for valor in list(range(8)) * 2 + [0])
     return "\n".join(
@@ -1988,8 +2005,7 @@ def contador_jk_sketch() -> str:
             "const int RST = 9;      // activo en alto",
             "const int SENSE[6] = {A0, A1, A2, A3, A4, A5};  // na..nf",
             "",
-            "// Tabla del taller (1 = segmento encendido). Las compuertas invierten",
-            "// para el display de anodo comun, asi que un pin LOW enciende.",
+            *linea_display,
             f"const byte TABLA[8] = {{{tabla}}};",
             "const int SECUENCIA[] = {" + secuencia + "};",
             "",
@@ -2014,9 +2030,9 @@ def contador_jk_sketch() -> str:
             "byte leeSegmentos() {",
             "  byte mascara = 0;",
             "  for (int i = 0; i < 6; i++) {",
-            "    if (digitalRead(SENSE[i]) == LOW) mascara |= (1 << i);",
+            f"    if (digitalRead(SENSE[i]) == {encendido}) mascara |= (1 << i);",
             "  }",
-            "  if (digitalRead(SENSE_G) == LOW) mascara |= (1 << 6);",
+            f"  if (digitalRead(SENSE_G) == {encendido}) mascara |= (1 << 6);",
             "  return mascara;",
             "}",
             "",
@@ -2176,3 +2192,14 @@ def contador_jk_sketch() -> str:
             "",
         ]
     )
+
+
+def contador_jk_v2_sketch() -> str:
+    """El mismo secuenciador sobre la v2: display de catodo comun.
+
+    En la v2 no hay inversores a la salida del decodificador: la compuerta
+    maneja el segmento a traves de su resistencia de 220 ohmios, asi que el
+    nodo que se lee (y que ve el display) es positivo. Lo unico que cambia
+    frente a la v1 es el nivel que significa "encendido".
+    """
+    return contador_jk_sketch(sense_high=True)
