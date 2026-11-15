@@ -27,6 +27,13 @@ def render_build_report(
         fidelity_line = f"- Fidelidad: {_pct(fidelity['score'])}"
     else:
         fidelity_line = "- Fidelidad: sin medir"
+    if fidelity.get("read_failed"):
+        # Un 0% que no se midio no acusa al cableado: la inspeccion volvio
+        # vacia (la pagina se recargaba) incluso despues de reintentar.
+        fidelity_line += (
+            f" — **no se pudo leer** el circuito en {fidelity.get('read_attempts', '?')} "
+            f"intentos; este porcentaje no mide el cableado"
+        )
 
     detail_parts = []
     if "components_score" in fidelity:

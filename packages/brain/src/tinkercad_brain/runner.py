@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 
 from tinkercad_brain.breadboard_nets import derive_nets
 from tinkercad_brain.builder import (
@@ -25,6 +26,14 @@ from tinkercad_brain.fase0.probe import ProbeStep, run_steps
 __all__ = ["run_build"]
 
 _THINGS_RE = re.compile(r"/things/([^/]+)")
+
+# Lectura del circuito tras reconstruirlo. `inspect_circuit` puede devolver 0
+# componentes y 0 cables mientras la pagina se recarga (medido en vivo con
+# blink-basico: el segundo inspect ya traia 4 componentes y 10 cables). Eso
+# no es un circuito vacio, es una lectura que no llego: reintentar antes de
+# acusar un 0%.
+READ_ATTEMPTS = 3
+READ_RETRY_SLEEP = 1.5
 
 
 def _parse_json_dict(output) -> dict:
@@ -313,14 +322,35 @@ def run_build(
 
     def _measure():
         _run("tinkercad_open_circuit", {"circuit_id_or_url": circuit_id})
-        inspect_record = _run("tinkercad_inspect_circuit", {})
-        inspect_data = _parse_json_dict(inspect_record.output)
+        # Solo un build que dice haber aplicado se puede leer vacio. Si el
+        # build fallo, el circuito puede estar vacio de verdad y culpar a la
+        # lectura seria cambiar una causa por otra.
+        expected_components = len(fixture.get("components") or []) if build_ok else 0
+        attempts = 0
+        read_failed = False
+        inspect_data = {}
+        while True:
+            attempts += 1
+            inspect_record = _run("tinkercad_inspect_circuit", {})
+            inspect_data = _parse_json_dict(inspect_record.output)
+            read_components = len(inspect_data.get("components") or [])
+            if read_components or not expected_components:
+                break
+            if attempts >= READ_ATTEMPTS:
+                # Se agotaron los intentos con la fixture esperando partes:
+                # esto es "no pude leer", no "el circuito esta mal".
+                read_failed = True
+                break
+            time.sleep(READ_RETRY_SLEEP)
         normalized = normalize_circuit(inspect_data, {"nets": []}, refs_by_name)
         actual = {
             "components": normalized.get("components", []),
             "nets": derive_nets(inspect_data, refs_by_name),
         }
-        return compare_connectivity(fixture, actual)
+        fidelity = compare_connectivity(fixture, actual)
+        fidelity["read_attempts"] = attempts
+        fidelity["read_failed"] = read_failed
+        return fidelity
 
     fidelity = _measure()
 
@@ -354,6 +384,7 @@ def run_build(
 
     ok = bool(
         fidelity.get("score", 0.0) >= 0.99
+        and not fidelity.get("read_failed")
         and build_ok
         and repair_ok
         and not preset_reported_failure
@@ -364,6 +395,9 @@ def run_build(
     # y cero cruces no dice nada y hay que adivinar.
     checks = {
         "fidelity": fidelity.get("score", 0.0),
+        # Una lectura vacia con partes esperadas es "no se pudo leer", no un
+        # circuito mal armado: se nombra aparte para no reportar un cero mudo.
+        "fidelity_readable": not fidelity.get("read_failed", False),
         "build_ok": build_ok,
         "repair_ok": repair_ok,
         "presets_ok": not preset_reported_failure,

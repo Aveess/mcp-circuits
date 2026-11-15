@@ -343,6 +343,7 @@ def main(argv=None) -> int:
         checks = result.get("checks") or {}
         fallos = [k for k, v in checks.items()
                   if (k == "fidelity" and v < 0.99)
+                  or (k == "fidelity_readable" and not v)
                   or (k in ("build_ok", "repair_ok", "presets_ok") and not v)
                   or (k in ("route_violations", "diagonals") and v)]
         print(f"Fallos: {', '.join(fallos) or 'sin datos'}")
