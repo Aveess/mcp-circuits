@@ -20,6 +20,7 @@ def render_build_report(
     diagonal_violations: list[dict] | None = None,
     board_hop_diagonals: list[dict] | None = None,
     build_ok: bool | None = None,
+    oracle: dict | None = None,
 ) -> str:
     report = build_report(records)
 
@@ -62,6 +63,33 @@ def render_build_report(
         )
     lines.append(f"- Simulación: {sim_summary}")
     lines.append("")
+    if oracle is not None:
+        lines.append("## Oráculo")
+        esperado = oracle.get("expected") or []
+        faltan = oracle.get("missing") or []
+        if esperado:
+            lines.append("- Esperado, en orden: " + " → ".join(f"`{m}`" for m in esperado))
+            if faltan:
+                lines.append(
+                    "- **Falta**: " + ", ".join(f"`{m}`" for m in faltan)
+                    + " — el serial no probó el comportamiento."
+                )
+            else:
+                lines.append("- Observado: todas las marcas aparecieron en orden.")
+        elif oracle.get("serial_required"):
+            if oracle.get("serial_lines", 0) > 0:
+                lines.append(
+                    f"- Sin marcas declaradas; el sketch imprime "
+                    f"({oracle['serial_lines']} líneas)."
+                )
+            else:
+                lines.append(
+                    "- **Sin marcas declaradas y sin serial**: el sketch imprime "
+                    "y no se capturó nada, así que no hay prueba de comportamiento."
+                )
+        else:
+            lines.append("- Sin marcas declaradas y el sketch no usa `Serial`.")
+        lines.append("")
     if route_violations is not None:
         measured = (routes or {}).get("measured", 0)
         routed = (routes or {}).get("routed", 0)
@@ -109,9 +137,21 @@ def render_build_report(
             )
     lines.append("")
     lines.append("## Fallos")
-    if report["failures"]:
-        for failure in report["failures"]:
-            lines.append(f"- {failure['tool']}: {failure['output']}")
+    fallos = [
+        f"- {failure['tool']}: {failure['output']}" for failure in report["failures"]
+    ]
+    # El oráculo no es una tool que falle: si falta una marca o el serial
+    # vino vacío, el motivo del OK: False tiene que estar aquí, no solo en la
+    # sección de arriba.
+    if oracle:
+        faltan = oracle.get("missing") or []
+        if faltan:
+            fallos.append("- oráculo: falta " + ", ".join(f"`{m}`" for m in faltan))
+        if oracle.get("serial_required") and not oracle.get("serial_lines"):
+            fallos.append("- serial: el sketch imprime y no se capturó ninguna línea")
+    if fallos:
+        for fallo in fallos:
+            lines.append(fallo)
     else:
         lines.append("Sin fallos.")
     return "\n".join(lines) + "\n"

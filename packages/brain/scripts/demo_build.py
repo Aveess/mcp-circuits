@@ -275,6 +275,7 @@ def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DI
         diagonal_violations=result.get("diagonal_violations"),
         board_hop_diagonals=result.get("board_hop_diagonals"),
         build_ok=(result.get("checks") or {}).get("build_ok"),
+        oracle=result.get("oracle"),
     )
     # La misma documentacion que viaja dentro del circuito, para poder
     # leerla desde el repo sin abrir Tinkercad.
@@ -338,12 +339,21 @@ def main(argv=None) -> int:
         f"({routes.get('measured', 0)} de {routes.get('total', 0)} cables medidos, "
         f"{routes.get('routed', 0)} ruteados)"
     )
+    oracle = result.get("oracle") or {}
+    esperado = oracle.get("expected") or []
+    if esperado:
+        estado = "OK" if oracle.get("ok") else "FALTA " + ", ".join(oracle["missing"])
+        print(f"Oráculo: {estado} ({', '.join(esperado)})")
+    elif oracle.get("serial_required"):
+        lineas = oracle.get("serial_lines", 0)
+        print(f"Oráculo: {lineas} línea(s) de serial, sin marcas declaradas")
     print(f"OK: {bool(result.get('ok'))}")
     if not result.get("ok"):
         checks = result.get("checks") or {}
         fallos = [k for k, v in checks.items()
                   if (k == "fidelity" and v < 0.99)
                   or (k == "fidelity_readable" and not v)
+                  or (k in ("oracle_ok", "serial_nonempty") and not v)
                   or (k in ("build_ok", "repair_ok", "presets_ok") and not v)
                   or (k in ("route_violations", "diagonals") and v)]
         print(f"Fallos: {', '.join(fallos) or 'sin datos'}")

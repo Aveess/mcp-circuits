@@ -22,6 +22,7 @@ from tinkercad_brain.builder import (
 from tinkercad_brain.fase0.metrics import compare_connectivity
 from tinkercad_brain.fase0.normalize import normalize_circuit
 from tinkercad_brain.fase0.probe import ProbeStep, run_steps
+from tinkercad_brain.oracle import check_serial
 
 __all__ = ["run_build"]
 
@@ -380,6 +381,20 @@ def run_build(
     _run("tinkercad_start_simulation", {"wait_seconds": wait_seconds})
     serial_record = _run("tinkercad_read_serial_monitor", {})
     serial = serial_record.output if serial_record.ok else ""
+
+    # El oraculo: que marcas declara la fixture y si el serial las probo.
+    # Un sketch que imprime y no dejo nada no es "funciono": es una prueba
+    # que falta, y el build no puede salir OK sin comportamiento observado.
+    expected_serial = [str(m) for m in (fixture.get("oracle_serial") or []) if str(m)]
+    serial_required = bool(expected_serial) or bool(code and "Serial." in code)
+    if serial_required and not serial.strip():
+        # El monitor puede engancharse un instante tarde; una segunda
+        # lectura mientras simula es barata y evita acusar por una carrera.
+        time.sleep(1.0)
+        retry_record = _run("tinkercad_read_serial_monitor", {})
+        if retry_record.ok:
+            serial = retry_record.output or serial
+    serial_check = check_serial(serial, expected_serial)
     _run("tinkercad_stop_simulation", {})
 
     ok = bool(
@@ -390,6 +405,8 @@ def run_build(
         and not preset_reported_failure
         and not route_violations
         and not diagonal_violations
+        and serial_check["ok"]
+        and (bool(serial.strip()) if serial_required else True)
     )
     # Por que el build no esta OK: sin esto un "OK: False" con fidelidad 100%
     # y cero cruces no dice nada y hay que adivinar.
@@ -403,6 +420,13 @@ def run_build(
         "presets_ok": not preset_reported_failure,
         "route_violations": len(route_violations),
         "diagonals": len(diagonal_violations),
+        # Contrato del oraculo: las marcas declaradas tienen que aparecer en
+        # orden, y si el sketch imprime, el serial no puede venir vacio.
+        "oracle_ok": serial_check["ok"],
+        "oracle_missing": serial_check["missing"],
+        "oracle_expected": expected_serial,
+        "serial_nonempty": (bool(serial.strip()) if serial_required else True),
+        "serial_lines": len([ln for ln in serial.splitlines() if ln.strip()]),
         "build_errors": [
             str(e) for e in (_parse_json_dict(build_record.output).get("errors") or [])
         ][:5],
@@ -422,5 +446,13 @@ def run_build(
         "board_hop_diagonals": board_hop_diagonals,
         "routes": {"routed": routes_routed, "measured": routes_measured,
                    "total": routes_total},
+        "oracle": {
+            "expected": expected_serial,
+            "found": serial_check["found"],
+            "missing": serial_check["missing"],
+            "ok": serial_check["ok"],
+            "serial_required": serial_required,
+            "serial_lines": len([ln for ln in serial.splitlines() if ln.strip()]),
+        },
         "checks": checks,
     }
