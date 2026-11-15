@@ -34,6 +34,11 @@ TYPE_MAP: dict[str, str] = {
     "XOR Gate": "xor-gate",  # Alias del buscador (add_component acepta "XOR Gate").
     "Quad NAND gate [74HC00]": "nand-gate",  # Verificado en vivo (did 116696, pines 1A..4A, 1B..4B, 1Y..4Y, Vcc, GND).
     "Quad NAND gate": "nand-gate",  # Alias del buscador (add_component acepta "Quad NAND gate").
+    # 74HC08/32/04 medidos en vivo el 2026-11-15 en la placa grande: inspect
+    # reporta estos textos exactos (con el did entre corchetes).
+    "Quad AND gate [74HC08]": "and-gate",  # did 116702, pines 1A..4A, 1B..4B, 1Y..4Y.
+    "Quad OR gate [74HC32]": "or-gate",  # did 116721, mismos pines que el AND.
+    "Hex Inverter [74HC04]": "not-gate",  # did 116701, seis compuertas 1A/1Y .. 6A/6Y.
     "Dual D Flip-Flop [74HC74]": "flip-flop-d",  # Verificado en vivo (did 116725, pines 1D/1CP/1RD/1SD/1Q/1NQ y la mitad 2).
     "D Flip-Flop": "flip-flop-d",  # Alias del buscador (add_component acepta "D Flip-Flop").
     "Dual J-K Flip-Flop [74HC73]": "flip-flop-jk",  # Verificado en vivo (did 116723, pines 1J/1K/1CP/1R/1Q/1NQ y la mitad 2).

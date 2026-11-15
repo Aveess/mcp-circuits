@@ -212,6 +212,33 @@ _PIN_ALIASES_BY_TYPE = {
         "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
         "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
     },
+    # 74HC08 (AND) y 74HC32 (OR), medidos en vivo el 2026-11-15 en la placa
+    # grande (fAjTrnXZDLS): inspect devuelve 1A/1B/1Y..., el guardado escribe
+    # "Input nA", "Input nB", "Output n" y Power/Ground en mayuscula.
+    "and-gate": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Input 1A": "1A", "Input 1B": "1B", "Output 1": "1Y",
+        "Input 2A": "2A", "Input 2B": "2B", "Output 2": "2Y",
+        "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
+        "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
+    },
+    "or-gate": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        "Input 1A": "1A", "Input 1B": "1B", "Output 1": "1Y",
+        "Input 2A": "2A", "Input 2B": "2B", "Output 2": "2Y",
+        "Input 3A": "3A", "Input 3B": "3B", "Output 3": "3Y",
+        "Input 4A": "4A", "Input 4B": "4B", "Output 4": "4Y",
+    },
+    # 74HC04 (inversor): seis compuertas de UNA entrada (1A/1Y .. 6A/6Y); el
+    # guardado escribe "Input n" / "Output n". No existe "Input nB".
+    "not-gate": {
+        "Power": "Vcc",
+        "Ground": "GND",
+        **{f"Input {n}": f"{n}A" for n in range(1, 7)},
+        **{f"Output {n}": f"{n}Y" for n in range(1, 7)},
+    },
     # 74HC74 (descubierto en vivo en euU4CI6HwhX): inspect devuelve
     # 1D/1CP/1RD/1SD/1Q/1NQ, pero el cableado guardado usa nombres humanos:
     # "Input 1", "Clock 1", "Reset 1", "Set 1", "Output 1" y

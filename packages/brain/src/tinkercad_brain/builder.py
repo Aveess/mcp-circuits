@@ -54,6 +54,11 @@ DID_BY_TYPE: dict[str, int] = {
     # 74HC86 (Quad XOR) y 74HC00 (Quad NAND) verificados en vivo.
     "xor-gate": 116727,
     "nand-gate": 116696,
+    # 74HC08 (Quad AND), 74HC32 (Quad OR) y 74HC04 (Hex Inverter), medidos en
+    # vivo el 2026-11-15 insertados en la placa grande.
+    "and-gate": 116702,
+    "or-gate": 116721,
+    "not-gate": 116701,
     # 74HC74 (Dual D Flip-Flop) verificado en vivo: did 116725.
     "flip-flop-d": 116725,
     # 74HC73 (Dual J-K Flip-Flop) verificado en vivo: did 116723.
