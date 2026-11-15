@@ -903,33 +903,40 @@ async def tinkercad_simulate_samples(
     samples_ms: List[int],
     led_component: str = "LED",
     read_serial: bool = True,
-    brightness_threshold: float = 144.0,
+    lit_threshold: float = 0.12,
 ) -> str:
     """Sample the LED state at timed offsets (ms) after starting the simulation.
 
-    Locates the LED before starting, starts the simulation, takes a screenshot
-    at each requested instant, classifies the LED from the 9x9px brightness
-    around its position (on if brightness > brightness_threshold, default
-    144.0 — calibrated from ~128 off / 160-190 on, recalibrate live), then
-    reads the serial monitor (if read_serial) and stops the simulation.
+    Locates the LED body before starting (the group of the device, not the
+    breadboard hole where its leg ends), starts the simulation, takes a
+    screenshot at each requested instant, and classifies the LED from the
+    share of *lit* pixels (bright AND saturated) in a 9x9px window centred on
+    the body. Measured on blink-basico: lens off (128,32,32) -> 0 lit; lens on
+    (207,132,132) -> 46% lit; white breadboard plastic (208,208,208) -> 0 lit,
+    which is why plain brightness could not tell "LED on" from "plastic".
 
-    Each sample reports `window_px` (the real crop measured: it shrinks when
-    the LED sits near a screenshot edge). If the resolved pin falls outside
-    the capture the sampler returns no samples and an `led_offscreen` error
+    Then it reads the serial monitor (if read_serial) and stops the simulation.
+    Each sample reports `measured_at_px`, `window_px` (the real crop: it
+    shrinks near a screenshot edge), `led.lit` (share emitting) and
+    `led.brightness` (mean max RGB channel, 0-255, for humans). `led_position`
+    says whether the point came from the body (`source: "body"`) or from the
+    pins (`source: "pins"`, less accurate). If the point falls outside the
+    capture the sampler returns no samples and an `led_offscreen` error
     instead of reporting a LED it never looked at.
 
     Args:
         samples_ms: Offsets in milliseconds from simulation start, e.g. [0, 250, 500].
         led_component: Component name/type of the LED (default 'LED').
         read_serial: If True, include serial monitor output captured before stopping.
-        brightness_threshold: Brightness (0-255) above which the LED counts as on.
+        lit_threshold: Share of the 9x9 window that must be emitting for "on"
+            (default 0.12 = 12%; measured 2.5% off vs 46% on).
     """
     try:
         res = await simulation_sampler_service.sample(
             samples_ms=samples_ms,
             led_component=led_component,
             read_serial=read_serial,
-            brightness_threshold=brightness_threshold,
+            lit_threshold=lit_threshold,
         )
         return json.dumps(res, indent=2)
     except Exception as e:

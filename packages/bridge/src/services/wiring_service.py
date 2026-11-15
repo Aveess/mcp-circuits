@@ -627,9 +627,9 @@ class WiringService:
                         aliasTarget = 'out';
                     } else if (['wiper', 'analog', 'data'].some(k => rawP.includes(k) || normP === k)) {
                         aliasTarget = 'wiper';
-                    } else if (['terminal1', 'terminal_1', '1', 't1', 'a'].some(k => rawP.includes(k) || normP === k)) {
+                    } else if ((['terminal1', 'terminal_1', '1', 't1'].some(k => rawP.includes(k) || normP === k) || normP === 'a')) {
                         aliasTarget = 'terminal1';
-                    } else if (['terminal2', 'terminal_2', '2', 't2', 'b'].some(k => rawP.includes(k) || normP === k)) {
+                    } else if ((['terminal2', 'terminal_2', '2', 't2'].some(k => rawP.includes(k) || normP === k) || normP === 'b')) {
                         aliasTarget = 'terminal2';
                     }
                 }
@@ -815,8 +815,8 @@ class WiringService:
                     const isGndQ = ['ground', 'gnd', 'neg', '-', 'heater2', 'h2', 'v-', 'cathode', '0v'].some(k => rawQ.includes(k) || normQ === k || aliasTarget === 'gnd');
                     const isSigQ = ['signal', 'sig', 'out', 'output', 'vout', 'analog', 'data', 'wiper', 'trig', 'echo', 'sense'].some(k => rawQ.includes(k) || normQ === k || aliasTarget === 'out');
                     const isWipQ = ['wiper', 'analog', 'data'].some(k => rawQ.includes(k) || normQ === k || aliasTarget === 'wiper');
-                    const isT1Q = ['terminal1', 'terminal_1', '1', 't1', 'a'].some(k => rawQ.includes(k) || normQ === k || aliasTarget === 'terminal1');
-                    const isT2Q = ['terminal2', 'terminal_2', '2', 't2', 'b'].some(k => rawQ.includes(k) || normQ === k || aliasTarget === 'terminal2');
+                    const isT1Q = (['terminal1', 'terminal_1', '1', 't1'].some(k => rawQ.includes(k) || normQ === k) || normQ === 'a' || aliasTarget === 'terminal1');
+                    const isT2Q = (['terminal2', 'terminal_2', '2', 't2'].some(k => rawQ.includes(k) || normQ === k) || normQ === 'b' || aliasTarget === 'terminal2');
 
                     if (isPwrQ) {
                         matchedPinName = availablePinKeys.find(k => {
@@ -844,6 +844,31 @@ class WiringService:
 
                 // 3. Locate exact SVG terminal coordinates
                 let screenPos = null;
+                let screenTermEl = null;
+
+                // Caja del CUERPO de la parte, no del pin. Los grupos de device
+                // llevan id="id_..." y contienen el dibujo + sus terminales; el
+                // ancla de un terminal cae en el hueco de la protoboard, que
+                // puede estar 15 px fuera del cuerpo (medido con un LED en
+                // blink-basico). Sirve para medir el brillo de un LED donde el
+                // LED esta, no donde termina su pata.
+                function deviceBodyBox(termEl) {
+                    try {
+                        if (!termEl || !termEl.closest) return null;
+                        const group = termEl.closest('g[id^="id_"]') || termEl.closest('svg[id^="id_"]');
+                        if (!group || !group.getBoundingClientRect) return null;
+                        const r = group.getBoundingClientRect();
+                        if (!(r.width > 0 && r.height > 0)) return null;
+                        return {
+                            x: Math.round(r.x),
+                            y: Math.round(r.y),
+                            width: Math.round(r.width),
+                            height: Math.round(r.height),
+                            cx: Math.round(r.x + r.width / 2),
+                            cy: Math.round(r.y + r.height / 2),
+                        };
+                    } catch (e) { return null; }
+                }
                 const searchContainers = targetSvg ? [targetSvg, document.querySelector('#breadboardTab')] : [document.querySelector('#breadboardTab')];
                 for (const container of searchContainers) {
                     if (!container) continue;
@@ -948,6 +973,7 @@ class WiringService:
 
                         const t = selected.t;
                         const termLabel = selected.name;
+                        screenTermEl = t;
                         const line = t.querySelector('line');
                         let lx = 0, ly = 0;
                         if (line) {
@@ -984,6 +1010,7 @@ class WiringService:
                     pin: screenPos.terminalName || matchedPinName || pinQuery,
                     x: screenPos.x,
                     y: screenPos.y,
+                    body: deviceBodyBox(screenTermEl),
                 };
             }
         """, {
@@ -3188,8 +3215,8 @@ class WiringService:
                             const isGnd = ['ground', 'gnd', 'neg', '-', 'cathode', 'heater2', 'h2', 'v-'].some(k => normPin.includes(k) || normPin === k);
                             const isSig = ['signal', 'sig', 'out', 'output', 'vout', 'analog', 'data', 'wiper', 'trig', 'echo', 'sense'].some(k => normPin.includes(k) || normPin === k);
                             const isWip = ['wiper', 'analog', 'data'].some(k => normPin.includes(k) || normPin === k);
-                            const isT1 = ['terminal1', 'terminal_1', '1', 't1', 'a'].some(k => normPin.includes(k) || normPin === k);
-                            const isT2 = ['terminal2', 'terminal_2', '2', 't2', 'b'].some(k => normPin.includes(k) || normPin === k);
+                            const isT1 = (['terminal1', 'terminal_1', '1', 't1'].some(k => normPin.includes(k) || normPin === k) || normPin === 'a');
+                            const isT2 = (['terminal2', 'terminal_2', '2', 't2'].some(k => normPin.includes(k) || normPin === k) || normPin === 'b');
 
                             if (isPwr) {
                                 matchedPin = availablePins.find(p => {

@@ -21,12 +21,19 @@ from .serial_service import SerialService
 from .simulation_service import SimulationService
 from .wiring_service import WiringService
 
-# Brightness (average of the per-pixel max RGB channel, 0-255) above which an
-# LED is classified as ON. netchuu measured ~128 for an OFF LED and 160-190
-# for an ON LED in their implementation; the default below is the midpoint of
-# that range. It MUST be recalibrated live against this bridge's screenshots,
-# so it is a named constant / parameter rather than a magic number inline.
-DEFAULT_LED_ON_THRESHOLD = 144.0
+# Un pixel del LED "emite" si es brillante **y** saturado: el brillo solo no
+# distingue el plastico blanco de la protoboard (medido: 208 constante) de un
+# LED encendido (207). Medido en blink-basico (2tMhkuosDyj) sobre el lente:
+#   apagado  (128, 32, 32) -> max 128, saturacion 96  -> no emite (falta brillo)
+#   encendido(207,132,132) -> max 207, saturacion 75  -> emite
+#   plastico (208,208,208) -> max 208, saturacion 0   -> no emite (falta color)
+LED_LIT_MIN_BRIGHTNESS = 150
+LED_LIT_MIN_SATURATION = 40
+
+# Fraccion de la ventana que debe estar emitiendo para decir "encendido".
+# Medido en la ventana de 9x9 centrada en el cuerpo: apagado 2.5% (2 px de
+# borde), encendido 45.7%; las tramas de desvanecido del parpadeo dan >=10%.
+DEFAULT_LED_LIT_THRESHOLD = 0.12
 
 # Side (px) of the square window centred on the LED position that is averaged.
 LED_WINDOW_SIZE = 9
@@ -111,44 +118,105 @@ class SimulationSamplerService:
         return total / count if count else 0.0
 
     @staticmethod
-    def classify(brightness: float, threshold: float = DEFAULT_LED_ON_THRESHOLD) -> Tuple[bool, float]:
-        """Classify a brightness reading.
+    def is_lit(pixel: Tuple[int, int, int]) -> bool:
+        """True si el pixel parece un LED emitiendo (brillante y saturado)."""
+        mx = max(pixel)
+        mn = min(pixel)
+        return mx > LED_LIT_MIN_BRIGHTNESS and (mx - mn) > LED_LIT_MIN_SATURATION
 
-        Returns ``(on, level)`` where ``on`` is ``brightness > threshold`` and
-        ``level`` is normalised simply as
-        ``clamp((brightness - threshold) / (255 - threshold), 0, 1)``:
-        0.0 at/below the threshold, 1.0 at full brightness (255).
+    @staticmethod
+    def lit_fraction(
+        image: Image.Image,
+        x: int,
+        y: int,
+        window: int = LED_WINDOW_SIZE,
+    ) -> Optional[float]:
+        """Fraccion (0..1) de pixeles que emiten en la ventana centrada en (x, y).
+
+        Devuelve ``None`` cuando la ventana cae fuera de la captura (ver
+        ``window_bounds``): sin ventana no hay medida, y devolver 0.0 seria
+        reportar apagado un LED que no se miro.
         """
-        on = brightness > threshold
-        denom = 255.0 - float(threshold)
-        level = 0.0 if denom <= 0 else min(1.0, max(0.0, (brightness - float(threshold)) / denom))
-        return on, level
+        img = image.convert("RGB")
+        bounds = SimulationSamplerService.window_bounds(img, x, y, window)
+        if bounds is None:
+            return None
+        left, upper, right, lower = bounds
+        crop = img.crop((left, upper, right, lower))
+        total = 0
+        lit = 0
+        for px in range(crop.width):
+            for py in range(crop.height):
+                total += 1
+                if SimulationSamplerService.is_lit(crop.getpixel((px, py))):
+                    lit += 1
+        return lit / total if total else 0.0
+
+    @staticmethod
+    def classify(lit_fraction: float, threshold: float = DEFAULT_LED_LIT_THRESHOLD) -> Tuple[bool, float]:
+        """Clasifica una fraccion de pixeles encendidos.
+
+        Returns ``(on, level)``: ``on`` es ``lit_fraction > threshold`` y
+        ``level`` la fraccion recortada a 0..1 (0.0 sin emision, 1.0 ventana
+        entera emitiendo). El umbral se expresa en la misma unidad: 0.12 es
+        "12% de la ventana emitiendo".
+        """
+        fraction = max(0.0, float(lit_fraction))
+        on = fraction > float(threshold)
+        # level = 0 cuando no emite; si emite, la fraccion de ventana que emite.
+        return on, (min(1.0, fraction) if on else 0.0)
 
     # ------------------------------------------------------------------ #
     # Browser-dependent helpers
     # ------------------------------------------------------------------ #
-    async def _resolve_led_position(self, led_component: str) -> Optional[Tuple[int, int]]:
-        """Resolve the LED screen position via WiringService.resolve_terminal.
+    async def _resolve_led_position(self, led_component: str) -> Optional[Dict[str, Any]]:
+        """Localiza **el cuerpo** del LED en px de pantalla.
 
-        Averages the anode and cathode screen coordinates when both resolve
-        (approximating the LED body centre); falls back to whichever terminal
-        resolves. Returns None when neither can be located.
+        ``resolve_terminal`` devuelve ahora la caja del grupo del device
+        (``body``): el ancla de un terminal cae en el hueco de la protoboard,
+        y en un LED eso puede quedar 15 px fuera del lente (medido en
+        blink-basico: pines (843,492)/(879,477), LED encendido en (876,487)).
+        Se prefiere el centro del cuerpo; sin cuerpo se cae al promedio de los
+        pines y se informa ``source: "pins"`` para que el reporte lo sepa.
+
+        Returns ``{"x", "y", "source", "body"}`` o ``None`` si no se localiza.
         """
         points: List[Tuple[int, int]] = []
+        body: Optional[Dict[str, Any]] = None
         for pin in ("anode", "cathode"):
             try:
                 res = await self.wiring.resolve_terminal(led_component, pin)
             except Exception as exc:  # browser/DOM errors must not propagate
                 logger.debug(f"resolve_terminal({led_component!r}, {pin!r}) failed: {exc}")
                 continue
-            if isinstance(res, dict) and res.get("success") and res.get("x") is not None and res.get("y") is not None:
+            if not isinstance(res, dict) or not res.get("success"):
+                continue
+            if res.get("x") is not None and res.get("y") is not None:
                 points.append((int(res["x"]), int(res["y"])))
+            candidate = res.get("body")
+            if (
+                body is None
+                and isinstance(candidate, dict)
+                and int(candidate.get("width") or 0) > 0
+                and int(candidate.get("height") or 0) > 0
+            ):
+                body = candidate
+
+        if body is not None and body.get("cx") is not None and body.get("cy") is not None:
+            return {
+                "x": int(body["cx"]),
+                "y": int(body["cy"]),
+                "source": "body",
+                "body": body,
+            }
         if not points:
             return None
-        return (
-            sum(p[0] for p in points) // len(points),
-            sum(p[1] for p in points) // len(points),
-        )
+        return {
+            "x": sum(p[0] for p in points) // len(points),
+            "y": sum(p[1] for p in points) // len(points),
+            "source": "pins",
+            "body": None,
+        }
 
     async def _capture_image(self) -> Image.Image:
         """Take a screenshot (reusing BrowserManager.take_screenshot) as PIL image."""
@@ -208,13 +276,14 @@ class SimulationSamplerService:
         samples_ms: Sequence[int],
         led_component: str = "LED",
         read_serial: bool = True,
-        brightness_threshold: float = DEFAULT_LED_ON_THRESHOLD,
+        lit_threshold: float = DEFAULT_LED_LIT_THRESHOLD,
     ) -> Dict[str, Any]:
         """Sample the LED at each requested offset (ms) from simulation start.
 
-        Returns ``{"samples": [{"at_ms", "led": {"on", "level"}, "sim_time"}],
-        "serial": str|None, "errors": [...]}``. Never raises for a missing LED:
-        that is reported as ``led_position_unknown`` in ``errors``.
+        Returns ``{"samples": [{"at_ms", "led": {"on", "level", "lit",
+        "brightness"}, "measured_at_px", "window_px", "sim_time"}],
+        "led_position": {...}, "serial": str|None, "errors": [...]}``. Never
+        raises for a missing LED: that is reported as ``led_position_unknown``.
         """
         errors: List[str] = []
         ordered = sorted(max(0, int(t)) for t in (samples_ms or []))
@@ -227,7 +296,8 @@ class SimulationSamplerService:
                 f"'{led_component}' (anode/cathode) before starting simulation"
             )
             return {"samples": [], "serial": None, "errors": errors}
-        led_x, led_y = position
+        led_x, led_y = position["x"], position["y"]
+        led_position = {"x": led_x, "y": led_y, "source": position["source"]}
 
         page = await self.browser.get_page()
         samples: List[Dict[str, Any]] = []
@@ -265,6 +335,8 @@ class SimulationSamplerService:
                 if remaining_ms > 0:
                     await page.wait_for_timeout(int(remaining_ms))
                 bounds = None
+                lit: Optional[float] = None
+                brightness: Optional[float] = None
                 try:
                     image = await self._capture_image()
                     bounds = self.window_bounds(image, led_x, led_y)
@@ -278,14 +350,21 @@ class SimulationSamplerService:
                             f"no se mide"
                         )
                         break
+                    lit = self.lit_fraction(image, led_x, led_y)
                     brightness = self.brightness_at(image, led_x, led_y)
-                    on, level = self.classify(brightness, brightness_threshold)
+                    on, level = self.classify(lit, lit_threshold)
                 except Exception as exc:
                     errors.append(f"sample_failed at {at_ms}ms: {exc}")
                     on, level = False, 0.0
-                sample = {
+                sample: Dict[str, Any] = {
                     "at_ms": int(at_ms),
-                    "led": {"on": bool(on), "level": float(level)},
+                    "led": {
+                        "on": bool(on),
+                        "level": float(level),
+                        "lit": None if lit is None else round(float(lit), 3),
+                        "brightness": None if brightness is None else round(float(brightness), 1),
+                    },
+                    "measured_at_px": [led_x, led_y],
                     "sim_time": await self._sim_time(),
                 }
                 if bounds is not None:
@@ -312,4 +391,9 @@ class SimulationSamplerService:
                 except Exception as exc:
                     errors.append(f"simulation_stop_failed: {exc}")
 
-        return {"samples": samples, "serial": serial_text, "errors": errors}
+        return {
+            "samples": samples,
+            "led_position": led_position,
+            "serial": serial_text,
+            "errors": errors,
+        }

@@ -206,5 +206,69 @@ class TestBreadboardWiring(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(wire["target"]["pin"], "y1")
 
 
+class TestCajaDelCuerpo(unittest.TestCase):
+    """`resolve_terminal` debe devolver la caja del cuerpo, no solo el pin.
+
+    El sampler de simulacion mide el brillo del LED: con el ancla del pin cae
+    en el hueco de la protoboard (medido: 15 px a la izquierda del lente) y
+    mide plastico blanco. La caja sale del grupo `g[id^="id_"]` que contiene
+    al terminal, que es el dibujo completo de la parte.
+    """
+
+    def _js(self):
+        import asyncio
+
+        from unittest.mock import AsyncMock, MagicMock
+
+        browser = MagicMock()
+        page = AsyncMock()
+        page.evaluate = AsyncMock(return_value={"success": True, "x": 1, "y": 2})
+        browser.get_page = AsyncMock(return_value=page)
+        browser.ensure_canvas_interactive = AsyncMock()
+        asyncio.run(WiringService(browser).resolve_terminal("LED", "anode"))
+        return page.evaluate.await_args.args[0]
+
+    def test_el_js_busca_el_grupo_del_device_y_devuelve_body(self):
+        js = self._js()
+        self.assertIn('closest(\'g[id^="id_"]\')', js)
+        self.assertIn("body: deviceBodyBox(screenTermEl)", js)
+
+    def test_la_caja_del_cuerpo_es_geometria_en_px_de_pantalla(self):
+        js = self._js()
+        for field in ("width", "height", "cx", "cy"):
+            self.assertIn(field, js)
+        # La caja se calcula con getBoundingClientRect: mismas coordenadas
+        # que la captura que mide el sampler.
+        self.assertIn("getBoundingClientRect", js)
+
+    def test_un_pin_que_contiene_una_letra_no_es_ese_alias(self):
+        """`anode` contiene 'a' y acababa resolviendo el 'Terminal 1' de una R.
+
+        Medido en blink-basico: `resolve_terminal('LED','anode')` devolvia el
+        terminal del resistor en serie (caja 34x7, un resistor acostado) en vez
+        del anodo del LED. El alias de una sola letra ('a' = terminal1) se
+        comparaba con `includes`, asi que cualquier pin con una 'a' caia ahi.
+        """
+        js = self._js()
+        self.assertIn("normP === 'a'", js)
+        self.assertIn("normP === 'b'", js)
+        self.assertNotIn("'t1', 'a']", js)
+        self.assertNotIn("'t2', 'b']", js)
+
+    def test_el_js_sigue_siendo_javascript_valido(self):
+        import shutil
+        import subprocess
+        import tempfile
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
+            f.write("(" + self._js() + ")")
+            path = f.name
+        res = subprocess.run([node, "--check", path], capture_output=True, text=True)
+        self.assertEqual(res.returncode, 0, res.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
