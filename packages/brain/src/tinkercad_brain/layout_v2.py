@@ -55,6 +55,10 @@ _ANCHOR: Dict[str, str] = {
 
 # Angulo medido por pieza (el resto va a 0). El display solo encaja girado:
 # con el ancla en la fila `e`, sus cinco patas de arriba quedan a la derecha.
+# Medido en jWUw1co8IZH: a 0 grados el puente responde "no angle fits all pins
+# in holes" y la fidelidad cae a 33/41 nets. Girar la pieza gira tambien sus
+# segmentos, asi que el generador cablea la senal de cada uno por su pata
+# opuesta (ver `contador_jk_v2._PIN_GIRADO`) para que el digito se lea derecho.
 _ANGLE: Dict[str, int] = {"seven-segment": 180}
 
 # Placa por rol. Es una decision de diseno, no un resultado del algoritmo: las
@@ -289,14 +293,13 @@ def _pick_cross(board_index: int, near_a: int, near_b: int, claims, name: str,
     return best[1] if best else None
 
 
-def _nearest_node(endpoint: str, nodes, boards: List[dict], placements: dict):
-    """Nodo de placa al que se cuelga un terminal libre o un pin del Uno."""
+def _nodes_by_distance(endpoint: str, nodes, boards: List[dict],
+                       placements: dict) -> List[Tuple[int, int, str]]:
+    """Nodos de placa ordenados por cercania al terminal libre o al Uno."""
     ref = str(endpoint).split(".", 1)[0]
-    if ref.lower() == "uno":
-        return min(nodes, key=lambda key: (key[0], key[1]))
     placement = placements.get(ref) or {}
     free = placement.get("free")
-    if isinstance(free, dict):
+    if ref.lower() != "uno" and isinstance(free, dict):
         free_x = float(free.get("x", 0))
 
         def distance(key) -> float:
@@ -305,8 +308,48 @@ def _nearest_node(endpoint: str, nodes, boards: List[dict], placements: dict):
                 boards[board_index]["x"] + x_of(boards[board_index]["kind"], col) - free_x
             )
 
-        return min(nodes, key=distance)
-    return min(nodes, key=lambda key: (key[0], key[1]))
+        return sorted(nodes, key=distance)
+    return sorted(nodes, key=lambda key: (key[0], key[1]))
+
+
+def _nearest_node(endpoint: str, nodes, boards: List[dict], placements: dict):
+    """Nodo de placa al que se cuelga un terminal libre o un pin del Uno."""
+    return _nodes_by_distance(endpoint, nodes, boards, placements)[0]
+
+
+def _hang_rows(side: str, preferred: str) -> List[str]:
+    """Filas de una mitad, empezando por la del net y sin alejarse de ella."""
+    filas = [row for row in ROW_Y if half(row) == side]
+    filas.sort(key=lambda row: (row != preferred, abs(ROW_Y[row] - ROW_Y[preferred])))
+    return filas
+
+
+def _hang_wire(endpoint: str, nodes, boards: List[dict], placements: dict,
+               rows: Tuple[str, str], taken: set, legs: set) -> str:
+    """Hueco donde entra el cable de una pata: uno solo por hueco.
+
+    Dos **patas** colgadas del mismo hueco se dibujan como un cable solo (paso
+    con los dos capacitores libres, los dos en ``b1/45i``). Un cable de pata si
+    puede entrar donde ya termina un puente de la misma fila: asi se ve un tap
+    de riel, que es como se cablea el resto del circuito. Como los cinco huecos
+    de una media columna son el mismo nodo, correr el cable una fila no cambia
+    nada electrico.
+    """
+    candidatos = _nodes_by_distance(endpoint, nodes, boards, placements)
+
+    def _hole(board_index, col, side):
+        return _hole_name(col, rows[0] if side == "top" else rows[1], board_index)
+
+    # Del nodo mas cercano al mas lejano; dentro de cada uno, su renglon y
+    # despues los otros renglones de la misma media columna (mismo nodo).
+    for board_index, col, side in candidatos:
+        preferred = rows[0] if side == "top" else rows[1]
+        for row in _hang_rows(side, preferred):
+            name = _hole_name(col, row, board_index)
+            if name not in taken and name not in legs:
+                return name
+
+    return _hole(*candidatos[0])
 
 
 def plan_nets_v2(fixture: dict, placements: dict) -> dict:
@@ -373,9 +416,18 @@ def plan_nets_v2(fixture: dict, placements: dict) -> dict:
                 claims.setdefault((board_index, cross, side), set()).add(names[index])
 
     wires: List[dict] = []
+    # Huecos que ya reciben el cable de una pata. Sirve para no colgar dos
+    # patas del mismo hueco: con dos capacitores libres los dos Terminal 2
+    # caian en `b1/45i`.
+    pin_holes: set = set()
+    legs_by_name = {_hole_name(col, row, b) for (b, col, row) in legs}
 
     def emit(frm: str, to: str, name: str, color: str) -> None:
         wires.append({"from": frm, "to": to, "net": name, "color": color})
+        if "." in frm and "." not in to:
+            pin_holes.add(to)
+        if "." in to and "." not in frm:
+            pin_holes.add(frm)
 
     for index, net in enumerate(nets):
         name, color = names[index], colors[names[index]]
@@ -453,9 +505,12 @@ def plan_nets_v2(fixture: dict, placements: dict) -> dict:
                 emit(first, second, name, color)
             continue
         for endpoint in real:
-            board_index, col, side = _nearest_node(endpoint, nodes, boards, placements)
-            row = rows[0] if side == "top" else rows[1]
-            emit(endpoint, _hole_name(col, row, board_index), name, color)
+            emit(
+                endpoint,
+                _hang_wire(endpoint, nodes, boards, placements, rows,
+                           pin_holes, legs_by_name),
+                name, color,
+            )
 
     return {
         "wires": wires,

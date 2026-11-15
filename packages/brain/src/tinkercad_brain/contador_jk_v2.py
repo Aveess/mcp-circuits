@@ -39,6 +39,15 @@ FIXTURE_ID = "contador-0-7-jk-v2"
 _SERIES_REF = {"a": "ra", "b": "rb", "c": "rc", "d": "rd",
                "e": "re", "f": "rf", "g": "rg"}
 
+# El display entra girado 180 grados en la placa: es la unica orientacion en
+# la que sus diez patas caen en huecos (medido en jWUw1co8IZH; a 0 grados el
+# puente responde "no angle fits all pins in holes"). Girar la pieza gira
+# tambien el dibujo de los segmentos: la pata `d` queda donde el dibujo pone la
+# `a`. Para que el numero se lea derecho, la senal de cada segmento entra por
+# su pata opuesta; `g` esta en el medio y no cambia.
+_PIN_GIRADO = {"a": "d", "b": "e", "c": "f", "d": "a",
+               "e": "b", "f": "c", "g": "g"}
+
 # Segmento -> pin de lectura del Uno (A0..A5 y D6 para el septimo).
 _SENSE_PIN = {"a": "A0", "b": "A1", "c": "A2", "d": "A3",
               "e": "A4", "f": "A5", "g": "D6"}
@@ -82,10 +91,19 @@ _DOC = [
     "sobrantes de los integrados van a GND: una entrada CMOS nunca queda",
     "flotando.",
     "",
-    "El display es de CATODO COMUN: los dos comunes a GND y cada segmento",
-    "a la salida de su compuerta por una resistencia de 220 ohmios. Un",
-    "segmento luce con HIGH, asi que el sketch lee el nodo de la compuerta",
-    "tal cual (en la v1 habia un inversor y se leia LOW).",
+    "El display es de CATODO COMUN: el comun a GND y cada segmento a la",
+    "salida de su compuerta por una resistencia de 220 ohmios. Un segmento",
+    "luce con HIGH, asi que el sketch lee el nodo de la compuerta tal cual",
+    "(en la v1 habia un inversor y se leia LOW). Las dos patas del comun",
+    "son el mismo nodo interno del display: se cablea una sola, como en la",
+    "v1, y encienden todos los segmentos.",
+    "",
+    "El display va GIRADO 180 GRADOS sobre la placa: es la unica postura",
+    "en la que sus diez patas caen en huecos. Al girarlo giran tambien sus",
+    "segmentos, asi que la senal del segmento a entra por la pata d, la de",
+    "b por la e y la de c por la f; la g queda igual. Asi el numero se lee",
+    "derecho mirando la placa. En la tabla de abajo, a..g son los",
+    "segmentos que se ven, no los nombres de las patas.",
     "",
     "Tabla (1 = segmento encendido, convencion del taller):",
     "  digito  Q2Q1Q0  a b c d e f g",
@@ -144,6 +162,10 @@ _NOTES = [
     "  segmento.",
     "- El display es de catodo comun: si se cablea como si fuera de",
     "  anodo, la mascara sale complementada y TEST:DECODER falla.",
+    "- Si el numero se ve invertido en la placa, el cableado del display",
+    "  se hizo como si la pieza estuviera derecha: girada 180 grados, el",
+    "  segmento a es la pata d, b es e y c es f. El serial no lo detecta",
+    "  (lee las compuertas), asi que hay que mirar el display.",
 ]
 
 
@@ -168,9 +190,15 @@ def contador_jk_v2_fixture() -> dict:
     vcc = ["uno.5V", "t1.Vcc", "t1.Reset", "r1.1"]
     vcc += ["ff1.Vcc", "ff2.Vcc"] + [f"{chip}.Vcc" for chip in _CHIPS]
 
-    # Catodo comun: los dos comunes del display van a GND.
+    # Catodo comun: el comun del display va a GND. Va **uno**, no los dos:
+    # Tinkercad guarda las etiquetas de las dos patas del comun igual
+    # ("Common"), asi que el cableado se lee sin poder distinguirlas y la
+    # fidelidad caia a 40/41 nets por un empate de nombres, no por un cable
+    # faltante. Medido en la v1: con un solo comun cableado el display
+    # enciende todos sus segmentos, o sea que las dos patas son el mismo
+    # nodo interno y la segunda no hace falta.
     gnd = ["uno.GND1", "t1.GND", "c1.2", "c2.2", "ff1.GND", "ff2.GND",
-           "seg.com1", "seg.com2"]
+           "seg.com1"]
     gnd += [f"{chip}.GND" for chip in _CHIPS]
     # Mitad de ff1 sin usar: entradas a GND, nunca flotando. Y las compuertas
     # sobrantes de los integrados, por la misma razon.
@@ -241,7 +269,7 @@ def contador_jk_v2_fixture() -> dict:
             net_de[salida].extend([resistencia, lectura])
         else:
             nets.append([salida, resistencia, lectura])
-        nets.append([f"{_SERIES_REF[seg]}.2", f"seg.{seg}"])
+        nets.append([f"{_SERIES_REF[seg]}.2", f"seg.{_PIN_GIRADO[seg]}"])
 
     return {
         "id": FIXTURE_ID,

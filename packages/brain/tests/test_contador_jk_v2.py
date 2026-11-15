@@ -11,12 +11,16 @@ Lo que estos tests protegen:
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from tinkercad_brain.boards import footprint_for
 from tinkercad_brain.builder import fixture_to_model_call
 from tinkercad_brain.contador_jk_v2 import (
     FIXTURE_ID,
+    _PIN_GIRADO,
     _chip_types,
     contador_jk_v2_fixture,
 )
@@ -33,6 +37,9 @@ def _fixture() -> dict:
     return contador_jk_v2_fixture()
 
 
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "fase0" / "circuits.json"
+
+
 def _es_hueco(endpoint: str) -> bool:
     return "." not in endpoint
 
@@ -41,6 +48,27 @@ def _parse(endpoint: str):
     board = 1 if endpoint.startswith("b1/") else 0
     text = endpoint.split("/", 1)[1] if "/" in endpoint else endpoint
     return board, int(text[:-1]), text[-1]
+
+
+def test_la_entrada_del_repositorio_es_la_que_genera_el_modulo():
+    # Misma red de seguridad que la v1: si la entrada de circuits.json y el
+    # generador divergen, el build en vivo arma un circuito que no es el que
+    # los tests aprueban. El mensaje dice cual clave se separo.
+    circuits = json.loads(FIXTURES.read_text(encoding="utf-8"))
+    entrada = next((c for c in circuits if c["id"] == FIXTURE_ID), None)
+    assert entrada is not None, f"falta {FIXTURE_ID} en circuits.json"
+
+    generada = _fixture()
+    claves = (
+        "title", "layout", "boards", "components", "nets", "doc", "oracle",
+        "oracle_serial", "notes", "sim_wait_seconds", "code_features",
+    )
+    for clave in claves:
+        assert entrada.get(clave) == generada.get(clave), clave
+
+    # El id lo escribe la corrida en vivo, no el generador. Si se pierde, el
+    # siguiente build crea un duplicado en el dashboard en vez de reusarlo.
+    assert entrada.get("tinkercad_id"), "la entrada necesita tinkercad_id"
 
 
 def test_la_fixture_declara_layout_v2_y_dos_placas_grandes():
@@ -94,7 +122,12 @@ def test_el_display_es_de_catodo_comun_y_su_nodo_es_la_compuerta():
     fixture = _fixture()
     gnd = next(net for net in fixture["nets"] if "uno.GND1" in net)
 
-    assert "seg.com1" in gnd and "seg.com2" in gnd, "los comunes van a GND"
+    # Va UN solo comun, como en la v1: medido en el diseno jWUw1co8IZH, el
+    # cableado guardado etiqueta las dos patas del comun igual ("Common"),
+    # asi que la lectura no puede distinguirlas y declarar las dos bajaba la
+    # fidelidad a 40/41 nets sin que faltara un solo cable.
+    assert "seg.com1" in gnd, "el comun va a GND"
+    assert "seg.com2" not in gnd, "la lectura no distingue los dos comunes"
     assert not any(ep == "seg.dp" for net in fixture["nets"] for ep in net)
 
     # El segmento va de la compuerta a su resistencia y de ahi al display: si
@@ -105,8 +138,28 @@ def test_el_display_es_de_catodo_comun_y_su_nodo_es_la_compuerta():
         salida = next(g for g in GATES_V2 if g.out == SEGMENT_OUTPUT_V2[seg])
         nodo = f"{salida.chip}.{salida.slot}Y"
         assert any(nodo in net and f"r{seg}.1" in net for net in fixture["nets"]), seg
-        assert ("r" + seg + ".2", f"seg.{seg}") in por_par or (
-            f"seg.{seg}", "r" + seg + ".2") in por_par, seg
+        pata = _PIN_GIRADO[seg]
+        assert ("r" + seg + ".2", f"seg.{pata}") in por_par or (
+            f"seg.{pata}", "r" + seg + ".2") in por_par, seg
+
+
+def test_el_display_girado_cablea_cada_segmento_por_su_pata_opuesta():
+    # El modulo entra girado 180 grados (unica orientacion que encaja en la
+    # placa grande). Un giro de 180 grados mueve la pata `a` al sitio de la
+    # `d`, la `b` al de la `e` y la `c` al de la `f`; `g` queda en el medio.
+    # Si alguien "arregla" el cableado poniendo segmento a -> pata a, el
+    # numero sale invertido en la placa aunque el serial siga en verde.
+    assert _PIN_GIRADO == {"a": "d", "b": "e", "c": "f",
+                           "d": "a", "e": "b", "f": "c", "g": "g"}
+
+    fixture = _fixture()
+    pares = {tuple(sorted(net)) for net in fixture["nets"] if len(net) == 2}
+    for seg in SEGMENT_OUTPUT_V2:
+        assert (f"r{seg}.2", f"seg.{_PIN_GIRADO[seg]}") in pares, seg
+    # Ninguna senal de segmento cae en su pata homonima: eso seria cablearlo
+    # como si el display estuviera derecho, y en la placa se lee al reves.
+    for seg in "abcdef":
+        assert (f"r{seg}.2", f"seg.{seg}") not in pares, seg
 
 
 def test_todas_las_patas_de_la_fixture_tienen_huella():
@@ -140,7 +193,8 @@ def test_el_reparto_de_placas_es_el_medido():
         assert por_ref[ref]["board"] == 1, (ref, por_ref[ref])
     for ref in ("c1", "c2"):
         assert "free" in por_ref[ref], ref
-    # El display girado 180: con otra orientacion sus patas no caen en huecos.
+    # Girado 180: es la unica orientacion en la que sus diez patas entran en
+    # huecos (medido: a 0 el puente no encuentra angulo y pierde 8 nets).
     assert por_ref["seg"]["angle"] == 180
     assert por_ref["seg"]["at"].endswith("e")
 
@@ -153,6 +207,26 @@ def test_el_cableado_no_tiene_cortos_ni_errores():
     assert nets["errors"] == []
     assert column_conflicts(nets) == [], "dos nets en una media columna es un corto"
     assert len(nets["wires"]) > 100, "un contador de 7 chips no se cablea con 20 cables"
+
+
+def test_dos_patas_no_cuelgan_del_mismo_hueco():
+    # Dos cables de pata en un hueco se dibujan como uno: en el diseno
+    # jWUw1co8IZH los dos capacitores libres caian en b1/45i y el circuito se
+    # veia con un solo cable. Un cable de pata si puede entrar donde termina
+    # un puente de la misma fila: eso es un tap, no una superposicion.
+    fixture = _fixture()
+    plan = plan_layout_v2(fixture)
+    nets = plan_nets_v2(fixture, plan["placements"])
+
+    por_hueco: dict[str, list] = {}
+    for wire in nets["wires"]:
+        if _es_hueco(wire["from"]) and _es_hueco(wire["to"]):
+            continue
+        hueco = wire["to"] if _es_hueco(wire["to"]) else wire["from"]
+        por_hueco.setdefault(hueco, []).append(wire["net"])
+
+    repetidos = {h: v for h, v in por_hueco.items() if len(v) > 1}
+    assert repetidos == {}, repetidos
 
 
 def test_ningun_puente_sale_diagonal():

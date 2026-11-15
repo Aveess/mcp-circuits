@@ -75,8 +75,13 @@ _PRESETS_BY_FIXTURE = {
 
 
 # La v2 del contador 0-7 es el mismo circuito con los chips insertados: mismo
-# reloj (10k/68k/10uF/10nF) y las mismas siete 220 ohmios de segmento.
-_PRESETS_BY_FIXTURE["contador-0-7-jk-v2"] = _PRESETS_BY_FIXTURE["contador-0-7-jk"]
+# reloj (10k/68k/10uF/10nF) y las mismas siete 220 ohmios de segmento. Y el
+# display pasa a catodo comun: Tinkercad lo crea de anodo comun, asi que sin
+# esta propiedad la simulacion no enciende ningun segmento aunque el cableado
+# sea el correcto (comunes a GND, segmentos por la compuerta).
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v2"] = _PRESETS_BY_FIXTURE["contador-0-7-jk"] + [
+    {"component": "seg", "property": "common", "value": "cathode"},
+]
 
 
 def select_presets(fixture: dict):

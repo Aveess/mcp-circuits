@@ -95,6 +95,9 @@ def test_los_dip_se_insertan_en_mitades_distintas():
 
 
 def test_el_display_se_inserta_con_el_angulo_medido():
+    # Medido en jWUw1co8IZH: a 0 grados el puente dice "no angle fits all pins
+    # in holes" y la fidelidad cae a 33/41 nets. El digito se lee derecho
+    # porque el generador cablea cada segmento por su pata opuesta.
     plan = plan_layout_v2(_fixture_v2())
 
     assert plan["placements"]["seg"]["angle"] == 180
