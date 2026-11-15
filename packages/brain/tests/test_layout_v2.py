@@ -10,7 +10,9 @@ Lo que estos tests protegen es lo que no se ve en el dibujo:
 - una net partida en dos trozos "funciona" en la foto y falla en la simulacion.
 
 La fixture de aca es sintetica y minima (la real es el Task 6): dos chips,
-un JK, el 555, el display con su resistencia y un capacitor libre.
+un JK, el 555, el display con su resistencia y un capacitor en la placa
+chica. Las tres placas son las mismas de la real: dos grandes y una Small
+al costado para los capacitores.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from tinkercad_brain.layout_v2 import (
 
 LARGE_X0 = 870
 LARGE_X1 = 1570
+SMALL_X2 = 2100
 
 
 def _fixture_v2() -> dict:
@@ -36,6 +39,7 @@ def _fixture_v2() -> dict:
         "boards": [
             {"kind": "large", "x": LARGE_X0, "y": 0},
             {"kind": "large", "x": LARGE_X1, "y": 0},
+            {"kind": "small", "x": SMALL_X2, "y": 0, "start": 9},
         ],
         "components": [
             {"ref": "uno", "type": "arduino-uno"},
@@ -72,7 +76,8 @@ def _is_hole(ep: str) -> bool:
 
 
 def _board(ep: str) -> int:
-    return 1 if ep.startswith("b1/") else 0
+    # "b2/10i" -> 2; "b1/7h" -> 1; "12d" -> 0.
+    return int(ep[1]) if ep.startswith("b") and "/" in ep else 0
 
 
 def _col(ep: str) -> int:
@@ -87,6 +92,11 @@ def test_los_dip_se_insertan_en_mitades_distintas():
         if "at" not in p:
             continue
         ctype = next(c["type"] for c in fixture["components"] if c["ref"] == ref)
+        if ctype == "capacitor":
+            # Medido: sus dos patas caen en la misma fila, a una columna de
+            # distancia. No cruza el canal, asi que la regla del DIP no le
+            # aplica (ver test_boards).
+            continue
         huella = footprint_for(ctype)
         filas = {row for _, row in huella.values()}
         assert len({half(r) for r in filas}) == 2, (ref, p)
@@ -263,12 +273,16 @@ def test_el_builder_despacha_v2_y_arma_la_llamada_del_puente():
     call = fixture_to_model_call(_fixture_v2(), code="// hola")
 
     assert call["code"] == "// hola"
-    assert [b["did"] for b in call["boards"]] == [116648, 116648]
-    assert [b["x"] for b in call["boards"]] == [LARGE_X0, LARGE_X1]
+    assert [b["did"] for b in call["boards"]] == [116648, 116648, 111211]
+    assert [b["x"] for b in call["boards"]] == [LARGE_X0, LARGE_X1, SMALL_X2]
 
     por_ref = {p["ref"]: p for p in call["parts"]}
     assert "uno" not in por_ref, "el Uno lo crea el puente"
-    assert por_ref["c1"]["free"] == {"x": LARGE_X1 + 380, "y": -250}
+    # El capacitor ya no va libre a la derecha: se inserta en la placa chica,
+    # con su hueco prefijado y su placa declarada.
+    assert "free" not in por_ref["c1"], por_ref["c1"]
+    assert por_ref["c1"]["at"].startswith("b2/"), por_ref["c1"]
+    assert por_ref["c1"]["board"] == 2
     assert por_ref["seg"]["angle"] == 180
     # Una pieza de la segunda placa lleva su hueco prefijado: sin `b1/` el
     # puente la clava en la primera placa y el cableado queda partido.

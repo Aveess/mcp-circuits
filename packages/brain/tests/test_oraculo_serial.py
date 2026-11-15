@@ -15,7 +15,24 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from tinkercad_brain.oracle import check_serial
+
+
+@pytest.fixture(autouse=True)
+def _sin_sondeo_real(monkeypatch):
+    """Los tests no esperan: el sondeo del serial se prueba aparte.
+
+    Desde 2026-11-15 el runner sondea el monitor hasta que aparezcan todas las
+    marcas (``ORACLE_PATIENCE_S``). Aca hay tests que a proposito dejan una
+    marca sin imprimir; con la espera real cada uno costaba 150 s de reloj.
+    El sondeo en si (reintenta y se cansa) se prueba en ``test_runner.py``.
+    """
+    import tinkercad_brain.runner as runner
+
+    monkeypatch.setattr(runner, "ORACLE_POLL_S", 0.0)
+    monkeypatch.setattr(runner, "ORACLE_PATIENCE_S", 0.0)
 
 FIXTURE = {
     "id": "blink",

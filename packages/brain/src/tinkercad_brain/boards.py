@@ -169,6 +169,16 @@ _DIP8_555 = {
 }
 
 _RESISTOR = {"1": (0, "e"), "2": (0, "g")}
+# Capacitor ceramico (did 57752): las dos patas caen en huecos vecinos de la
+# MISMA fila, no una encima de la otra. Medido en vivo el 2026-11-15 en una
+# sonda desechable (avLAlMuZhih, ya borrada): anclado en `10e` el puente
+# responde `{'1': '10e', '2': '11e'}` con angulo 0; en `10f`, `{'1': '10f',
+# '2': '11f'}`. O sea (0, +1 columna) en la fila del ancla.
+# El ancla va en `f` (mitad de abajo) a proposito: asi cada net del capacitor
+# enlaza con la placa grande por un solo cable horizontal y no hace falta
+# cruzar el canal en la placa chica.
+_CAPACITOR = {"1": (0, "f"), "2": (1, "f")}
+
 # El 74HC73 (medido en vivo el 2026-11-15, fqm2OOLKTr3) tambien tiene las dos
 # hileras a 30 unidades: anclado por `1J` en la fila de abajo, la otra queda
 # arriba. Ojo: no es la huella del DIP-14 de compuertas, cuyas hileras caen en
@@ -212,6 +222,7 @@ FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip14-not": _DIP14_NOT,
     "dip8-555": _DIP8_555,
     "resistor": _RESISTOR,
+    "capacitor": _CAPACITOR,
     "display-7seg": _DISPLAY_7SEG,
 }
 
@@ -227,6 +238,7 @@ _FOOTPRINT_BY_TYPE: Dict[str, str] = {
     "timer-555": "dip8-555",
     "seven-segment": "display-7seg",
     "resistor": "resistor",
+    "capacitor": "capacitor",
 }
 
 

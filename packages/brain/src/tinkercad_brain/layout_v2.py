@@ -11,7 +11,10 @@ Reparto por rol (medido: es el unico que cabe en dos placas grandes):
 
 - **placa 0** los siete integrados de compuertas (7 columnas cada uno).
 - **placa 1** los dos JK, el 555, el display y las nueve resistencias.
-- los capacitores quedan libres a la derecha (sus cables los rutea el puente).
+- **placa 2** una Breadboard Small al costado con los dos capacitores, que en
+  la v1 colgaban sueltos a la derecha de todo. Sus patas caen en huecos
+  vecinos de la misma fila (medido: `(0, +1)`), asi que el capacitor se
+  inserta como cualquier otra pieza y sus cables salen cortos.
 
 Dos reglas que no son esteticas y que el plan hace cumplir:
 
@@ -51,6 +54,7 @@ _ANCHOR: Dict[str, str] = {
     "timer-555": "CTRL",
     "seven-segment": "a",
     "resistor": "1",
+    "capacitor": "1",
 }
 
 # Angulo medido por pieza (el resto va a 0). El display solo encaja girado:
@@ -73,10 +77,13 @@ _BOARD_BY_TYPE: Dict[str, int] = {
     "timer-555": 1,
     "seven-segment": 1,
     "resistor": 1,
+    "capacitor": 2,
 }
 
-# Partes que no se insertan: van libres y el puente las rutea.
-_FREE_TYPES = frozenset({"capacitor"})
+# Partes que no se insertan: van libres y el puente las rutea. En la v2 no
+# queda ninguna (los capacitores pasaron a la placa 2 al medir su huella),
+# pero el camino sigue vivo para piezas sin geometria de huecos.
+_FREE_TYPES: frozenset = frozenset()
 
 _GAP_DEFAULT = 2
 _GAP = {"resistor": 1}
@@ -124,10 +131,20 @@ def _boards(fixture: dict) -> List[dict]:
         for key in ("x", "y"):
             if not isinstance(entry.get(key, 0), (int, float)) or isinstance(entry.get(key), bool):
                 raise LayoutError(f"board {index}: '{key}' tiene que ser numerico")
+        # Columna donde arranca el cursor de esta placa. Con dos o tres piezas
+        # en una placa chica, empezar en la 1 las deja pegadas al borde.
+        start = entry.get("start", 1)
+        if not isinstance(start, int) or isinstance(start, bool) or start < 1:
+            raise LayoutError(f"board {index}: 'start' tiene que ser un entero >= 1")
+        if start > table.columns:
+            raise LayoutError(
+                f"board {index}: 'start' {start} se pasa de las {table.columns} columnas"
+            )
         out.append({
             "kind": kind,
             "x": float(entry.get("x", 0)),
             "y": float(entry.get("y", 0)),
+            "start": start,
             "did": table.did,
         })
     return out
@@ -174,7 +191,7 @@ def plan_layout_v2(fixture: dict) -> dict:
         seen.add(component["ref"])
 
     boards = _boards(fixture)
-    cursor = [1] * len(boards)
+    cursor = [b["start"] for b in boards]
     placements: Dict[str, dict] = {}
     unplaced: List[str] = []
     errors: List[str] = []
@@ -423,6 +440,11 @@ def plan_nets_v2(fixture: dict, placements: dict) -> dict:
     legs_by_name = {_hole_name(col, row, b) for (b, col, row) in legs}
 
     def emit(frm: str, to: str, name: str, color: str) -> None:
+        if frm == to:
+            # Un cable de un hueco a si mismo no se ve (largo cero) y el
+            # puente lo rechaza: mejor un error con nombre que un dibujo roto.
+            errors.append(f"{name}: cable de {frm} a si mismo")
+            return
         wires.append({"from": frm, "to": to, "net": name, "color": color})
         if "." in frm and "." not in to:
             pin_holes.add(to)
@@ -493,8 +515,11 @@ def plan_nets_v2(fixture: dict, placements: dict) -> dict:
                 continue
             for extra_side in ("top", "bottom"):
                 claims.setdefault((right, cross, extra_side), set()).add(name)
-            emit(_hole_name(col_right, row_right, right),
-                 _hole_name(cross, row_right, right), name, color)
+            # Si la columna de cruce ya es la de la pata, el tramo corto sobra:
+            # un cable del hueco a si mismo no es un cable.
+            if cross != col_right:
+                emit(_hole_name(col_right, row_right, right),
+                     _hole_name(cross, row_right, right), name, color)
             emit(_hole_name(cross, row_right, right),
                  _hole_name(cross, row_left, right), name, color)
             emit(_hole_name(col_left, row_left, left),

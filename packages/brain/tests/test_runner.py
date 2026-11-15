@@ -70,9 +70,10 @@ def _fake_call_tool(
     fail_preset=False,
     list_output=None,
     fail_list=False,
+    serial_sequence=None,
 ):
     calls = []
-    state = {"inspect": 0}
+    state = {"inspect": 0, "serial": 0}
 
     def call_tool(tool, arguments):
         calls.append((tool, arguments))
@@ -99,6 +100,10 @@ def _fake_call_tool(
                 return json.dumps(inspect_sequence[index])
             return json.dumps(_inspect_blink())
         if tool == "tinkercad_read_serial_monitor":
+            if serial_sequence:
+                index = min(state["serial"], len(serial_sequence) - 1)
+                state["serial"] += 1
+                return serial_sequence[index]
             return serial_output
         return json.dumps({"success": True})
 
@@ -571,3 +576,73 @@ def test_list_non_json_falls_back_to_create():
     assert "tinkercad_create_circuit" in tools
     assert result["reused"] is False
     assert result["circuit_id"] == CIRCUIT_ID
+
+
+def test_el_oraculo_sondea_el_serial_hasta_que_aparezcan_todas_las_marcas(monkeypatch):
+    # `sim_wait_seconds` es reloj de pared, pero el simulador con 30 piezas
+    # avanza a un tercio de la velocidad real: la primera lectura puede traer
+    # solo las marcas tempranas. El runner vuelve a leer en vez de declarar
+    # roto un sketch que solo iba lento (medido 2026-11-15 en el contador v2:
+    # 2 s simulados en 55 s reales).
+    import tinkercad_brain.runner as runner
+
+    monkeypatch.setattr(runner, "ORACLE_POLL_S", 0.0)
+    monkeypatch.setattr(runner, "ORACLE_PATIENCE_S", 5.0)
+
+    fixture = dict(_fixture())
+    fixture["oracle_serial"] = ["blink: 1", "blink: 2"]
+    call_tool = _fake_call_tool(
+        serial_sequence=["blink: 1\n", "blink: 1\nblink: 2\n"]
+    )
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    lecturas = [t for t, _ in call_tool.calls if t == "tinkercad_read_serial_monitor"]
+    assert len(lecturas) == 2, lecturas
+    assert result["checks"]["oracle_ok"] is True
+    assert result["checks"]["oracle_missing"] == []
+    assert result["serial"].strip().endswith("blink: 2")
+
+
+def test_el_oraculo_se_cansa_y_no_sondea_para_siempre(monkeypatch):
+    # El sondeo tiene tope: un sketch que de verdad no imprime las marcas no
+    # puede costar una espera eterna. Con paciencia 0 hay una sola lectura.
+    import tinkercad_brain.runner as runner
+
+    monkeypatch.setattr(runner, "ORACLE_POLL_S", 0.0)
+    monkeypatch.setattr(runner, "ORACLE_PATIENCE_S", 0.0)
+
+    fixture = dict(_fixture())
+    fixture["oracle_serial"] = ["blink: 1", "blink: 2"]
+    call_tool = _fake_call_tool(serial_output="blink: 1\n")
+
+    result = run_build(fixture, CODE, call_tool, "Blink runner")
+
+    lecturas = [t for t, _ in call_tool.calls if t == "tinkercad_read_serial_monitor"]
+    assert len(lecturas) == 1, lecturas
+    assert result["checks"]["oracle_ok"] is False
+    assert result["checks"]["oracle_missing"] == ["blink: 2"]
+    assert result["ok"] is False
+
+
+def test_sin_sketch_nuevo_el_oraculo_no_espera_marcas_que_nadie_imprime(monkeypatch):
+    # Reusar por id no escribe codigo: las marcas de la fixture las produciria
+    # un sketch que esta corrida no puso. Sondeaba igual y un test que reusa
+    # por id pagaba la paciencia entera (150 s, visto en la ronda 17).
+    import tinkercad_brain.runner as runner
+
+    monkeypatch.setattr(runner, "ORACLE_POLL_S", 10.0)
+    monkeypatch.setattr(runner, "ORACLE_PATIENCE_S", 2.0)
+
+    fixture = dict(_fixture())
+    fixture["oracle_serial"] = ["blink: 1", "blink: 2"]
+    # Serial con la primera marca pero sin la segunda: si el sondeo se
+    # disparara, volveria a leer y dormiria. (Con serial vacio hay un
+    # reintento distinto, el del monitor que engancha tarde.)
+    call_tool = _fake_call_tool(serial_output="blink: 1\n")
+
+    result = run_build(fixture, None, call_tool, "Blink runner")
+
+    lecturas = [t for t, _ in call_tool.calls if t == "tinkercad_read_serial_monitor"]
+    assert len(lecturas) == 1, lecturas
+    assert result["checks"]["oracle_ok"] is False

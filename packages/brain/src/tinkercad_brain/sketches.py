@@ -1961,7 +1961,8 @@ def gate_counter_sketch(
     )
 
 
-def contador_jk_sketch(sense_high: bool = False) -> str:
+def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
+                       ciclo_pasos: int = 17) -> str:
     """Secuenciador de las cuatro pruebas del taller en un contador 0-7 con JK.
 
     Pines: D2 reloj (lectura), D3..D5 Q0..Q2, D6 lectura de ng (el Uno R3 no
@@ -1975,8 +1976,22 @@ def contador_jk_sketch(sense_high: bool = False) -> str:
     inversor entre la compuerta y el segmento, asi que un segmento encendido
     se lee LOW; en la v2 el display es de **catodo comun** y la compuerta
     maneja el segmento directo, asi que se lee HIGH.
+
+    ``demo`` agrega el conteo en vivo: con ``False`` el sketch termina las
+    pruebas en ``setup()`` y deja ``loop()`` vacio, o sea que el display se
+    queda en el ultimo digito (0 tras la prueba de reset). Eso fue el "no
+    pasa de 0" del 2026-11-15: el circuito contaba y el sketch no lo seguia.
+    Con ``True`` el ``loop`` vigila el decodificador y anuncia cada digito
+    nuevo, sin inundar el monitor (``DEMO_MAX`` lineas y despues silencio).
+
+    ``ciclo_pasos`` es cuantos valores recorre ``pruebaCiclo`` antes de dar el
+    ciclo por bueno. 17 son dos vueltas completas y el rebote; 10 es una
+    vuelta (0..7) mas el rebote a 1, que ya prueba los ocho codigos.
     """
     from tinkercad_brain.decoder7 import LIT_TABLE
+
+    if not isinstance(ciclo_pasos, int) or isinstance(ciclo_pasos, bool) or not 2 <= ciclo_pasos <= 17:
+        raise ValueError(f"ciclo_pasos debe ser un entero 2..17: {ciclo_pasos!r}")
 
     encendido = "HIGH" if sense_high else "LOW"
     if sense_high:
@@ -1990,12 +2005,55 @@ def contador_jk_sketch(sense_high: bool = False) -> str:
             "// para el display de anodo comun, asi que un pin LOW enciende.",
         )
     tabla = ", ".join(f"0x{valor:02X}" for valor in LIT_TABLE)
-    secuencia = ", ".join(str(valor) for valor in list(range(8)) * 2 + [0])
+    secuencia = ", ".join(str(valor % 8) for valor in range(ciclo_pasos))
+    cabecera = [
+        "// Contador 0-7 con tres 74HC73, reloj 555 y decodificador de compuertas.",
+        "// El sketch ejecuta las cuatro pruebas del taller y verifica el",
+        "// decodificador contra la tabla de verdad en cada lectura estable.",
+    ]
+    extras: list[str] = []
+    cuerpo_demo: list[str] = ["void loop() {", "  delay(100);", "}"]
+    if demo:
+        cabecera.append(
+            "// Al terminar las pruebas el 555 sigue dando el reloj: el loop "
+        )
+        cabecera.append(
+            "// cuenta en vivo y comprueba el decodificador en cada digito."
+        )
+        extras = ["const int DEMO_MAX = 12;  // digitos que se anuncian por serial",
+                  "int demoCuenta = 0;"]
+        cuerpo_demo = [
+            "void loop() {",
+            "  // Conteo en vivo: las pruebas ya terminaron y el 555 sigue",
+            "  // relojeando, asi que el contador avanza solo y el display cuenta",
+            "  // 0..7 sin parar. Anunciar cada digito para siempre taparia las",
+            "  // marcas del oraculo en el monitor, asi que solo salen los",
+            "  // primeros DEMO_MAX.",
+            "  static int anterior = -1;",
+            "  int valor = leeValor();",
+            "  if (valor == anterior) {",
+            "    delay(15);",
+            "    return;",
+            "  }",
+            "  // El acarreo entre JK es asincrono: un cambio puede ser un",
+            "  // transitorio de microsegundos. Se confirma 8 ms despues antes de",
+            "  // darlo por digito nuevo.",
+            "  delay(8);",
+            "  int estable = leeValor();",
+            "  if (estable != valor) return;",
+            "  anterior = estable;",
+            "  verificaDecoder();",
+            "  if (demoCuenta < DEMO_MAX) {",
+            '    Serial.print("TEST:DIGITO=");',
+            "    Serial.println(estable);",
+            "    demoCuenta++;",
+            '    if (demoCuenta == DEMO_MAX) Serial.println("TEST:DEMO=OK");',
+            "  }",
+            "}",
+        ]
     return "\n".join(
         [
-            "// Contador 0-7 con tres 74HC73, reloj 555 y decodificador de compuertas.",
-            "// El sketch ejecuta las cuatro pruebas del taller y verifica el",
-            "// decodificador contra la tabla de verdad en cada lectura estable.",
+            *cabecera,
             "const int CLK = 2;      // salida del 555 (lectura del periodo)",
             "const int Q0 = 3;",
             "const int Q1 = 4;",
@@ -2011,6 +2069,7 @@ def contador_jk_sketch(sense_high: bool = False) -> str:
             "",
             "unsigned long periodoMs = 1000;",
             "bool decoderOk = true;",
+            *extras,
             "",
             "int leeValor() {",
             "  return (digitalRead(Q2) << 2) | (digitalRead(Q1) << 1) | digitalRead(Q0);",
@@ -2107,7 +2166,7 @@ def contador_jk_sketch(sense_high: bool = False) -> str:
             "bool pruebaCiclo() {",
             "  int valor = leeEstable();",
             "  if (valor != 0) return false;",
-            "  for (int i = 1; i < 17; i++) {",
+            f"  for (int i = 1; i < {ciclo_pasos}; i++) {{",
             "    int nuevo = esperaCambio(valor, periodoMs * 2);",
             "    if (nuevo != SECUENCIA[i]) return false;",
             "    verificaDecoder();",
@@ -2186,9 +2245,7 @@ def contador_jk_sketch(sense_high: bool = False) -> str:
             '  Serial.println("TEST:FIN=OK");',
             "}",
             "",
-            "void loop() {",
-            "  delay(100);",
-            "}",
+            *([*cuerpo_demo] if demo else ["void loop() {", "  delay(100);", "}"]),
             "",
         ]
     )
@@ -2201,5 +2258,12 @@ def contador_jk_v2_sketch() -> str:
     maneja el segmento a traves de su resistencia de 220 ohmios, asi que el
     nodo que se lee (y que ve el display) es positivo. Lo unico que cambia
     frente a la v1 es el nivel que significa "encendido".
+
+    Ademas la v2 **cuenta en vivo** (``demo=True``): la v1 se queda mostrando
+    el 0 al terminar las pruebas y Eddie lo reporto como "no pasa de 0". Y
+    ``pruebaCiclo`` recorre una vuelta mas el rebote en vez de dos vueltas:
+    cada paso cuesta un periodo del 555, y el simulador con 30 piezas corre a
+    un tercio de la velocidad real, asi que la segunda vuelta solo alargaba la
+    espera antes de que el display se quedara contando solo.
     """
-    return contador_jk_sketch(sense_high=True)
+    return contador_jk_sketch(sense_high=True, demo=True, ciclo_pasos=10)

@@ -36,6 +36,13 @@ _THINGS_RE = re.compile(r"/things/([^/]+)")
 READ_ATTEMPTS = 3
 READ_RETRY_SLEEP = 1.5
 
+# Espera del oraculo: `sim_wait_seconds` es reloj de pared y el simulador
+# arranca a una fraccion de la velocidad real, asi que tras la primera ventana
+# se sondea el serial hasta que aparezcan todas las marcas. El tope evita que
+# un sketch de verdad roto cueste una eternidad.
+ORACLE_PATIENCE_S = 150.0
+ORACLE_POLL_S = 10.0
+
 
 def _parse_json_dict(output) -> dict:
     try:
@@ -389,14 +396,36 @@ def run_build(
     # mas con "sim_wait_seconds" cuando su oraculo necesita varios ciclos
     # (p. ej. el contador de 2 Hz tarda en arrancar el simulador).
     wait_seconds = fixture.get("sim_wait_seconds", 5)
-    _run("tinkercad_start_simulation", {"wait_seconds": wait_seconds})
+    sim_record = _run("tinkercad_start_simulation", {"wait_seconds": wait_seconds})
+
+    expected_serial = [str(m) for m in (fixture.get("oracle_serial") or []) if str(m)]
     serial_record = _run("tinkercad_read_serial_monitor", {})
     serial = serial_record.output if serial_record.ok else ""
+
+    # `wait_seconds` es reloj de pared, pero el simulador no arranca a
+    # velocidad real: con la placa recien cargada avanza a una fraccion y
+    # despues acelera (medido 2026-11-15: 2 s simulados en 55 s reales en el
+    # contador, 15 s simulados a los 40 s en una pagina ya asentada). Un
+    # unico sleep declara "no funciona" a un sketch que solo iba lento, asi
+    # que se sondea el serial hasta que esten todas las marcas, con tope.
+    #
+    # Solo si esta corrida **escribio** el sketch: sin codigo nuevo las marcas
+    # de la fixture no las produce nadie y esperarlas seria dormir por gusto
+    # (un test que reusa por id pagaba 150 s por esto).
+    if (expected_serial and code and sim_record.ok
+            and not _success_false(sim_record.output)):
+        limite = time.monotonic() + ORACLE_PATIENCE_S
+        while not check_serial(serial, expected_serial)["ok"]:
+            if time.monotonic() >= limite:
+                break
+            time.sleep(ORACLE_POLL_S)
+            otra = _run("tinkercad_read_serial_monitor", {})
+            if otra.ok and otra.output:
+                serial = otra.output
 
     # El oraculo: que marcas declara la fixture y si el serial las probo.
     # Un sketch que imprime y no dejo nada no es "funciono": es una prueba
     # que falta, y el build no puede salir OK sin comportamiento observado.
-    expected_serial = [str(m) for m in (fixture.get("oracle_serial") or []) if str(m)]
     serial_required = bool(expected_serial) or bool(code and "Serial." in code)
     if serial_required and not serial.strip():
         # El monitor puede engancharse un instante tarde; una segunda

@@ -158,6 +158,12 @@ def test_ninguna_huella_repite_media_columna():
 def test_las_huellas_usan_dos_filas_que_caen_en_mitades_distintas():
     # Ancla en `e`: filas `e` y `f` (o `e` y `g`) quedan una en cada mitad.
     # Si las dos hileras caen del mismo lado el chip queda cortado.
+    # Excepcion medida: el capacitor (did 57752) no cruza el canal. Sus dos
+    # patas son huecos vecinos de la MISMA fila (`10f` -> `10f`/`11f`), o sea
+    # que se inserta como un puente, no como un DIP. Exigirle dos mitades
+    # seria pedirle que la placa una lo que el capacitor tiene que separar.
     for nombre, huella in FOOTPRINTS.items():
+        if nombre == "capacitor":
+            continue
         filas = {fila for _, fila in huella.values()}
         assert len({half(f) for f in filas}) == 2, (nombre, filas)

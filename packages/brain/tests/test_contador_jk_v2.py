@@ -45,7 +45,7 @@ def _es_hueco(endpoint: str) -> bool:
 
 
 def _parse(endpoint: str):
-    board = 1 if endpoint.startswith("b1/") else 0
+    board = int(endpoint[1]) if endpoint.startswith("b") and "/" in endpoint else 0
     text = endpoint.split("/", 1)[1] if "/" in endpoint else endpoint
     return board, int(text[:-1]), text[-1]
 
@@ -71,13 +71,16 @@ def test_la_entrada_del_repositorio_es_la_que_genera_el_modulo():
     assert entrada.get("tinkercad_id"), "la entrada necesita tinkercad_id"
 
 
-def test_la_fixture_declara_layout_v2_y_dos_placas_grandes():
+def test_la_fixture_declara_layout_v2_dos_placas_grandes_y_una_chica():
     fixture = _fixture()
 
     assert fixture["id"] == FIXTURE_ID
     assert fixture["layout"] == "v2"
-    assert [b["kind"] for b in fixture["boards"]] == ["large", "large"]
-    assert [b["x"] for b in fixture["boards"]] == [870, 1570]
+    assert [b["kind"] for b in fixture["boards"]] == ["large", "large", "small"]
+    assert [b["x"] for b in fixture["boards"]] == [870, 1570, 2100]
+    # La chica arranca en la columna 9: con dos capacitores, empezar en la 1
+    # los deja pegados al borde y el montaje se ve a medias.
+    assert fixture["boards"][2].get("start") == 9
     assert "wiring" not in fixture, "la placa grande no tiene rieles utilizables"
 
 
@@ -191,8 +194,12 @@ def test_el_reparto_de_placas_es_el_medido():
         assert por_ref[ref]["board"] == 0, (ref, por_ref[ref])
     for ref in ("ff1", "ff2", "t1", "seg", "ra", "rb", "rc", "rd", "re", "rf", "rg"):
         assert por_ref[ref]["board"] == 1, (ref, por_ref[ref])
-    for ref in ("c1", "c2"):
-        assert "free" in por_ref[ref], ref
+    # Los capacitores ya no cuelgan libres a la derecha: van insertados en la
+    # placa chica, uno al lado del otro y lejos del borde.
+    for ref, primera in (("c1", 9), ("c2", 13)):
+        assert "free" not in por_ref[ref], por_ref[ref]
+        assert por_ref[ref]["board"] == 2, (ref, por_ref[ref])
+        assert por_ref[ref]["at"] == f"{primera}f", por_ref[ref]
     # Girado 180: es la unica orientacion en la que sus diez patas entran en
     # huecos (medido: a 0 el puente no encuentra angulo y pierde 8 nets).
     assert por_ref["seg"]["angle"] == 180
@@ -248,6 +255,45 @@ def test_ningun_puente_sale_diagonal():
         assert a[1] == b[1] or a[2] == b[2], wire
 
 
+def test_ningun_cable_empieza_y_termina_en_el_mismo_hueco():
+    # Un cable de un hueco a si mismo no se ve (largo cero) y el puente lo
+    # rechaza. Aparecio con la placa chica: la net del CTRL tocaba la placa 1
+    # por la mitad de abajo y la 2 por la de arriba, y el cruce elegia la
+    # misma columna de la pata. `emit` ahora lo rechaza con nombre.
+    fixture = _fixture()
+    plan = plan_layout_v2(fixture)
+    nets = plan_nets_v2(fixture, plan["placements"])
+
+    repetidos = [w for w in nets["wires"] if w["from"] == w["to"]]
+    assert repetidos == [], repetidos
+    assert nets["errors"] == []
+
+
+def test_cada_capacitor_cuelga_de_la_placa_chica_con_un_puente_horizontal():
+    # Lo que se ve en el montaje: los capacitores insertados en la placa
+    # chica y un solo cable por net hasta la placa del 555, a la misma altura
+    # (horizontal). Si el cruce eligiera otra fila, el puente saldria diagonal.
+    fixture = _fixture()
+    plan = plan_layout_v2(fixture)
+    nets = plan_nets_v2(fixture, plan["placements"])
+
+    por_net: dict[str, list] = {}
+    for wire in nets["wires"]:
+        toca_chica = "b2/" in str(wire["from"]) or "b2/" in str(wire["to"])
+        if toca_chica and _es_hueco(wire["from"]) and _es_hueco(wire["to"]):
+            por_net.setdefault(wire["net"], []).append(wire)
+
+    assert {"GND", "r2.2", "t1.CTRL"} <= set(por_net), sorted(por_net)
+    for nombre, cables in por_net.items():
+        entre_placas = [
+            w for w in cables
+            if w["from"].startswith("b2/") != w["to"].startswith("b2/")
+        ]
+        assert len(entre_placas) == 1, (nombre, cables)
+        cruce = entre_placas[0]
+        assert cruce["from"][-1] == cruce["to"][-1], (nombre, cruce)
+
+
 def test_un_color_por_net_y_rojo_negro_para_la_alimentacion():
     fixture = _fixture()
     plan = plan_layout_v2(fixture)
@@ -262,10 +308,10 @@ def test_un_color_por_net_y_rojo_negro_para_la_alimentacion():
     assert colores["GND"] == {"black"}
 
 
-def test_el_builder_arma_la_llamada_con_dos_placas_y_la_placa_en_cada_pieza():
+def test_el_builder_arma_la_llamada_con_tres_placas_y_la_placa_en_cada_pieza():
     call = fixture_to_model_call(_fixture(), code="// v2")
 
-    assert [b["did"] for b in call["boards"]] == [116648, 116648]
+    assert [b["did"] for b in call["boards"]] == [116648, 116648, 111211]
     por_ref = {part["ref"]: part for part in call["parts"]}
     assert "uno" not in por_ref
     for ref in ("u1", "u2", "u3", "u4", "u5", "u6", "x1"):
@@ -273,10 +319,15 @@ def test_el_builder_arma_la_llamada_con_dos_placas_y_la_placa_en_cada_pieza():
     for ref in ("ff1", "t1", "seg"):
         assert por_ref[ref]["at"].startswith("b1/"), por_ref[ref]
         assert por_ref[ref]["board"] == 1
-    assert por_ref["c1"]["free"] and por_ref["c2"]["free"]
+    for ref in ("c1", "c2"):
+        assert por_ref[ref]["at"].startswith("b2/"), por_ref[ref]
+        assert por_ref[ref]["board"] == 2
+        assert "free" not in por_ref[ref]
 
 
-def test_el_sketch_v2_lee_high_y_el_v1_sigue_leyendo_low():
+def test_el_sketch_v2_lee_high_y_cuenta_en_vivo():
+    # Contratos distintos a proposito: la v1 ya esta entregada y verde, la v2
+    # arregla lo que Eddie reporto ("no pasa de 0"). Ya no comparten esqueleto.
     v1 = contador_jk_sketch()
     v2 = contador_jk_v2_sketch()
 
@@ -285,9 +336,26 @@ def test_el_sketch_v2_lee_high_y_el_v1_sigue_leyendo_low():
     assert "digitalRead(SENSE[i]) == HIGH" in v2
     assert "digitalRead(SENSE_G) == HIGH" in v2
     assert "catodo comun" in v2 and "anodo comun" not in v2
-    # Mismo esqueleto: lo unico que cambia es el nivel de "encendido".
-    assert v1.count("digitalRead") == v2.count("digitalRead")
-    assert len(v1.splitlines()) == len(v2.splitlines())
+
+    # v1: al terminar las pruebas el loop no hace nada. El contador sigue
+    # avanzando por hardware pero el sketch deja de leerlo y el display se
+    # queda en el ultimo digito (0 tras la prueba de reset). Ese es el
+    # sintoma que se reporto, y en la v1 se deja como estaba.
+    assert v1.rstrip().endswith("void loop() {\n  delay(100);\n}")
+    assert 'Serial.print("TEST:DIGITO=")' not in v1
+
+    # v2: el loop sigue el conteo y anuncia los digitos, con tope para no
+    # tapar las marcas del oraculo en el monitor.
+    assert 'Serial.print("TEST:DIGITO=")' in v2
+    assert "if (demoCuenta < DEMO_MAX)" in v2
+    assert '"TEST:DEMO=OK"' in v2
+    # La rama sin cambio duerme: sin ese delay el loop lee tres pines miles
+    # de veces por segundo y el simulador se arrastra.
+    assert "if (valor == anterior) {\n    delay(15);\n    return;\n  }" in v2
+    # Una vuelta de prueba (0..7 y el rebote a 1) en vez de dos: cada paso
+    # cuesta un periodo del reloj.
+    assert "for (int i = 1; i < 10; i++)" in v2
+    assert "for (int i = 1; i < 17; i++)" in v1
 
 
 def test_el_oraculo_tiene_las_ocho_marcas_en_orden():
