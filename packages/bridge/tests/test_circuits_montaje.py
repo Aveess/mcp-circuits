@@ -59,7 +59,14 @@ class TestEsperaDelMontaje(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(orden[0], "espera")
 
-    async def test_si_la_espera_falla_se_inspecciona_igual(self):
+    async def test_si_la_espera_falla_se_declara_no_montado(self):
+        """Antes se inspeccionaba igual; ahora se dice que no se pudo leer.
+
+        El contrato viejo ("mejor un vacio declarado que una excepcion")
+        producia `success: true` con 0 componentes: indistinguible de un
+        circuito vacio de verdad. La fase 45 lo cambia por un error con
+        causa (`editor_not_mounted`), que el runner ya sabe leer.
+        """
         page = AsyncMock()
         page.url = "https://www.tinkercad.com/things/abc/editel"
         page.wait_for_function = AsyncMock(side_effect=RuntimeError("timeout"))
@@ -69,8 +76,9 @@ class TestEsperaDelMontaje(unittest.IsolatedAsyncioTestCase):
 
         res = await _service(page).inspect_circuit()
 
-        self.assertTrue(res["success"])
-        self.assertEqual(len(res["components"]), 1)
+        self.assertFalse(res["success"])
+        self.assertEqual(res["reason"], "editor_not_mounted")
+        self.assertEqual(res["components"], [])
 
     async def test_open_circuit_espera_el_montaje_antes_de_retornar(self):
         page = AsyncMock()
@@ -90,3 +98,65 @@ class TestEsperaDelMontaje(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEditorQueNoMonto(unittest.IsolatedAsyncioTestCase):
+    """Un editor atascado no es un circuito vacio.
+
+    Medido el 2026-11-14: el servidor de Tinkercad sirvio el HTML del editor
+    con `var shareprops;` vacio y el token en `null`. La pagina se queda en
+    "Initializing" para siempre y `inspect_circuit` respondia
+    `success: true` con 0 componentes: el runner lo leia como "no pude leer"
+    (bien) pero sin causa, y el reporte no podia decir que el problema era
+    el editor.
+    """
+
+    def _pagina_atascada(self):
+        page = AsyncMock()
+        page.url = "https://www.tinkercad.com/things/abc/editel"
+        page.wait_for_function = AsyncMock(side_effect=TimeoutError("sin montar"))
+        page.evaluate = AsyncMock(return_value={
+            "editor": True, "data": False, "devices": 0, "canvas": False,
+            "text": "Initializing",
+        })
+        return page
+
+    async def test_no_finge_un_circuito_vacio_cuando_el_editor_no_monto(self):
+        res = await _service(self._pagina_atascada()).inspect_circuit()
+
+        self.assertFalse(res["success"])
+        self.assertEqual(res["reason"], "editor_not_mounted")
+        self.assertIn("Initializing", res["message"])
+        self.assertEqual(res["components"], [])
+        self.assertEqual(res["editor_state"]["text"], "Initializing")
+
+    async def test_un_circuito_vacio_de_verdad_sigue_siendo_valido(self):
+        """Montado y sin partes: eso si es un circuito vacio, no un error."""
+        page = AsyncMock()
+        page.url = "https://www.tinkercad.com/things/abc/editel"
+        page.wait_for_function = AsyncMock(return_value=True)
+        page.evaluate = AsyncMock(return_value={"components": [], "wires": []})
+
+        res = await _service(page).inspect_circuit()
+
+        self.assertTrue(res["success"])
+        self.assertNotIn("reason", res)
+
+    async def test_open_circuit_avisa_que_el_diseno_no_monto(self):
+        page = AsyncMock()
+        page.url = "https://www.tinkercad.com/things/abc/editel"
+        page.wait_for_function = AsyncMock(side_effect=TimeoutError("sin montar"))
+        page.evaluate = AsyncMock(return_value={
+            "editor": True, "data": False, "devices": 0, "canvas": False,
+            "text": "Initializing",
+        })
+        service = _service(page)
+        service.browser.navigate = AsyncMock(return_value=page)
+        service.browser.find_first_matching = AsyncMock(return_value=None)
+        service.browser.close_code_panel = AsyncMock(return_value=True)
+
+        res = await service.open_circuit("abc")
+
+        self.assertFalse(res["mounted"])
+        self.assertEqual(res["editor_state"]["text"], "Initializing")
+        self.assertIn("did not mount", res["message"])

@@ -49,6 +49,32 @@ class CircuitsService:
             logger.debug(f"design mounted wait failed: {exc}")
             return False
 
+    async def _editor_state(self, page: Any) -> Dict[str, Any]:
+        """Foto de lo que hay en la pagina cuando el diseno no monto.
+
+        Sirve para distinguir un circuito vacio de una pagina a medio
+        arrancar: si el texto dice "Initializing" y no hay devices, el
+        problema es el editor (sesion de edicion, red, caida), no el
+        cableado. Medido el 2026-11-14: la pagina del editor se quedo en
+        "Initializing" y el HTML del servidor traia `var shareprops;` sin
+        valor y el token de edicion en `null`.
+        """
+        try:
+            estado = await page.evaluate("""() => {
+                const ce = window.circuit_editor;
+                const text = (document.body.innerText || '').trim();
+                return {
+                    editor: !!ce,
+                    data: !!ce?.data,
+                    devices: Object.keys(ce?.data?.devices?._content || {}).length,
+                    canvas: !!document.querySelector('#breadboardTab'),
+                    text: text.slice(0, 120),
+                };
+            }""")
+        except Exception as exc:
+            return {"editor": None, "error": str(exc)[:160]}
+        return estado if isinstance(estado, dict) else {"editor": None}
+
     async def list_circuits(self) -> Dict[str, Any]:
         """List all circuit designs available in the user's Tinkercad account."""
         # The landing dashboard (/dashboard?type=circuits) only renders a curated
@@ -310,7 +336,7 @@ class CircuitsService:
         canvas = await self.browser.find_first_matching(EDITOR_SELECTORS["editor_canvas"], timeout=20000, page=page)
         # El canvas aparece antes de que el diseno este montado dentro del
         # editor: sin esta espera el primer inspect devuelve 0 componentes.
-        await self._wait_for_design_mounted(page)
+        mounted = await self._wait_for_design_mounted(page)
         await page.wait_for_timeout(300)
 
         # Proactively collapse code editor panel if open to prevent pointer interception
@@ -322,13 +348,22 @@ class CircuitsService:
         # Get circuit title
         title = await self._get_current_title(page)
 
-        return {
+        respuesta = {
             "success": True,
             "circuit_id": self._extract_id_from_url(page.url),
             "title": title,
             "url": page.url,
+            "mounted": mounted,
             "message": f"Circuit '{title}' opened successfully in editor.",
         }
+        # Navegar no es montar: si el diseno no aparecio, el llamador tiene
+        # que saberlo aqui y no descubrirlo con un "0 componentes" despues.
+        if not mounted:
+            respuesta["editor_state"] = await self._editor_state(page)
+            respuesta["message"] = (
+                f"Circuit '{title}' opened in editor, but the design did not mount."
+            )
+        return respuesta
 
     async def create_circuit(self, title: Optional[str] = None) -> Dict[str, Any]:
         """Create a new circuit design and open it in the editor.
@@ -669,7 +704,23 @@ class CircuitsService:
         page = await self.browser.get_page()
         # Nunca reportar un circuito vacio por mirar antes de que monte: el
         # editor existe antes que el diseno (ver _wait_for_design_mounted).
-        await self._wait_for_design_mounted(page, timeout_s=8.0)
+        mounted = await self._wait_for_design_mounted(page, timeout_s=8.0)
+        if mounted is False:
+            # No se pudo montar: devolver "0 componentes" seria acusar al
+            # cableado de una pagina que nunca llego a cargar el circuito.
+            estado = await self._editor_state(page)
+            return {
+                "success": False,
+                "reason": "editor_not_mounted",
+                "components": [],
+                "wires": [],
+                "editor_state": estado,
+                "message": (
+                    "El editor no monto el diseno (pagina en "
+                    f"{estado.get('text') or 'estado desconocido'}); "
+                    "no se pudo leer el circuito."
+                ),
+            }
         title = await self._get_current_title(page)
         circuit_id = self._extract_id_from_url(page.url)
 
