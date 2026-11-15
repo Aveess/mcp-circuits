@@ -1123,3 +1123,152 @@ Lección: **un cable que "no se ve" no es un cable que no existe**. Si el
 router no lo toca, Tinkercad lo dibuja a su manera; la única forma de saberlo
 es que el puente devuelva la geometría de lo que construyó y que el cerebro
 la mida.
+
+## Fase 42: el sampler mira el LED y no el plástico (2026-11-14)
+
+El sampler de simulación (`tinkercad_simulate_samples`) existía desde la
+fase 0 y nunca se había calibrado: heredaba un umbral de brillo de otra
+implementación. Esta fase lo midió con datos y encontró que el problema no
+era el umbral.
+
+### 42a · El síntoma, medido
+
+Con `blink-basico` (`2tMhkuosDyj`) la simulación arranca, el serial dice
+`TEST:ON / TEST:OFF / TEST:ON` y el sampler devolvía **`on: true` en todas
+las muestras**, incluidos los instantes en que el LED estaba apagado.
+
+Un barrido de diferencias entre la captura con la simulación parada y las
+capturas en marcha localizó el LED: se enciende en **(876,487)** y pasa de
+`RGB(128,32,32)` a `RGB(207,132,132)` (delta 100 en el canal máximo). El
+sampler medía en **(861,484)** — el promedio del ánodo (843,492) y el
+cátodo (879,477).
+
+Quince píxeles a la izquierda del LED está el **plástico blanco de la
+protoboard**: brillo 208, constante, apagado o encendido. Con el umbral en
+144, plástico (208) siempre gana: el sampler reportaba "encendido" un LED
+que no estaba mirando. No era el umbral, era el punto.
+
+### 42b · El cuerpo, no el hueco
+
+El ancla de un terminal es el **hueco de la protoboard** donde entra la
+pata; el LED dibujado está en otro sitio. El modelo no expone la caja de la
+parte (`dev.breadboard()`, `subdevice`, `module` son modelos sin nodo), pero
+el DOM sí: cada parte es un `g[id^="id_"]` y el terminal que ya se resuelve
+es su descendiente.
+
+`resolve_terminal` devuelve ahora `body` (caja en px de pantalla, vía
+`getBoundingClientRect`). Para el LED: `[869,475,12,23]` → centro
+**(875,487)**, a 1 px del píxel que se enciende. El sampler usa el centro
+del cuerpo y lo informa (`led_position.source: "body"`); si no hay cuerpo
+cae al promedio de pines y lo dice (`"pins"`).
+
+### 42c · El clasificador: píxeles que emiten
+
+Con el punto correcto, el brillo medio seguía sin servir: el plástico mide
+208 y el LED encendido 207. Lo que sí separa es **brillo + saturación**:
+un píxel emite si `max(R,G,B) > 150` y `max - min > 40`.
+
+| Zona | RGB | max | saturación | ¿emite? |
+|---|---|---|---|---|
+| lente apagado | (128,32,32) | 128 | 96 | no (falta brillo) |
+| lente encendido | (207,132,132) | 207 | 75 | sí |
+| plástico | (208,208,208) | 208 | 0 | no (falta color) |
+
+El clasificador es la **fracción** de la ventana 9x9 que emite, con umbral
+**0.12**. Medido en tres circuitos:
+
+| Circuito | Componente | Apagado | Encendido |
+|---|---|---|---|
+| blink-basico | `led1` | 0.000 | 0.52 – 0.59 |
+| semaforo-3-leds | `led_amarillo` | 0.012 | 0.53 |
+| boton-pullup | `led1` | 0.025 | (no se pulsó) |
+
+Cada muestra informa `measured_at_px`, `window_px`, `led.lit` (fracción) y
+`led.brightness` (brillo medio, para leerlo como humano). Una ventana fuera
+de la captura es error `led_offscreen`, no un "apagado".
+
+### 42d · El bug de fondo: `anode` contiene `a`
+
+El primer intento de usar el cuerpo dio una caja de 34x7 (un resistor
+acostado): `resolve_terminal("LED","anode")` resolvía el `Terminal 1` del
+**resistor en serie**, no el ánodo del LED. Los alias de una sola letra se
+comparaban con `includes`, así que cualquier pin con una `a` caía en
+`terminal1` (y con una `b`, en `terminal2`). Corregido a igualdad exacta en
+los tres sitios del JS. Efecto colateral: `connect_component_pins` también
+cableaba el hueco del resistor cuando le pedías el ánodo.
+
+### 42e · Verificado en vivo
+
+- `blink-basico`: `source: "body"`, mide en (875,487); 0.59 / 0.52 / 0.00 /
+  0.59 / 0.57 / 0.00 … siguiendo el parpadeo y el serial.
+- `semaforo-3-leds`: `led_amarillo` apagado 0.012 durante rojo y verde,
+  0.53 al encenderse a los 1000 ms (`TEST:YELLOW`).
+- `boton-pullup`: LED en reposo, 0.025 constante, nunca "encendido".
+- Suites: puente 293 tests, cerebro 1879.
+
+Lección: **una propiedad que la UI muestra no siempre está en el modelo**,
+y un promedio de dos puntos no es el cuerpo de una parte. Y un alias de una
+letra comparado con `includes` encuentra cualquier cosa.
+
+## Fase 43: "no pude leer" no es "0%" (2026-11-14)
+
+La fase 42 cerró el sampler y de paso dejó a la vista un problema más viejo:
+al reconstruir `blink-basico` el runner reportaba **`Score: 0.0%` / `OK:
+False`** con el circuito intacto (4 dispositivos, 10 cables, verificado
+leyéndolo aparte). Un 0% acusa al cableado; aquí no había nada mal.
+
+### 43a · El síntoma y el orden de los hechos
+
+El reporte mostraba `tinkercad_inspect_circuit | 0.1 s` — la inspección
+respondía **rápido y vacía**, no tardaba ni fallaba. O sea: el puente decía
+`success: true` con 0 componentes y 0 cables porque en ese instante la
+página no tenía el diseño montado.
+
+Medido con una sonda que abre el circuito y mira el DOM cada segundo:
+
+| Circuito | `open_circuit` retorna | devices visibles |
+|---|---|---|
+| blink-basico | 12.7 s | 4 a los ~3.4 s |
+| semaforo-3-leds | 13.6 s | 8 a los ~4.5 s |
+
+En los dos casos, al volver de `open_circuit` había `window.circuit_editor`
+pero **ni `#breadboardTab` ni devices**. El editor existe antes que el
+diseño; la espera fija de 3 s no alcanzaba.
+
+### 43b · El arreglo, en la fuente
+
+`CircuitsService._wait_for_design_mounted` espera a que existan
+`circuit_editor.data.devices` **y** `#breadboardTab`. Se usa en dos sitios:
+
+- `open_circuit`, después de encontrar el canvas (antes dormía 3 s a ciegas);
+- `inspect_circuit`, antes de evaluar (8 s de tope).
+
+Es *best-effort*: si expira, se inspecciona igual y se declara lo que haya.
+Un vacío declarado es mejor que una excepción.
+
+### 43c · Y en el cerebro, para que un vacío nunca sea un cero
+
+Aunque el puente ya espera, el runner no puede confiar en que siempre
+funcione: `_measure` reabre el circuito y reintenta la inspección hasta 3
+veces (1.5 s) cuando la fixture espera componentes y la lectura vino vacía.
+La medida lleva `read_attempts` y `read_failed`, y el build falla por
+`checks["fidelity_readable"]`.
+
+Dos reglas que evitan reportes mentirosos:
+
+- Si el **build falló**, no se culpa a la lectura: el circuito puede estar
+  vacío de verdad y la causa es otra (`build_ok` ya lo dice).
+- El reporte escribe "**no se pudo leer** el circuito en N intentos; este
+  porcentaje no mide el cableado", y el CLI lista `fidelity_readable` en
+  `Fallos:`.
+
+### 43d · Verificado en vivo
+
+- `blink-basico` (`2tMhkuosDyj`): **100% de fidelidad, `OK: True`**, serial
+  de 11 líneas. Antes de la fase: 0% con `read_failed` en 3 intentos.
+- `semaforo-3-leds` (`hGHU2MiJnDJ`): 100% / `OK: True` (9 de 9 cables).
+- Suites: puente **297 tests**, cerebro **1885 verdes**.
+
+Lección: una lectura vacía y un circuito vacío se parecen, y confundirlos
+convierte un fallo de tiempo en una acusación falsa. El cero tiene que
+significar "medí y no estaba", nunca "no llegué a mirar".

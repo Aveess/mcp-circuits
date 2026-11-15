@@ -7,6 +7,19 @@ limpio; el match por título queda solo como respaldo). Fidelidad = score de
 comportamiento es siempre el serial instrumentado en simulación, nunca el
 píxel del LED.
 
+Pasada completa de las 28 fixtures (fase 41/42): **28 de 28 al 100% de
+fidelidad**, 0 diagonales y 0 cruces. Un `OK: False` (`buzzer-activo`,
+`circuit_editor not available`) resultó ser una carrera del editor, no del
+circuito: ahora el build espera a que exista `circuit_editor.data.devices` y
+reintenta una vez (re-corrido en vivo: `4 de 4 cables, OK: True`).
+
+La inspección posterior al build tiene su propia carrera (fase 43): el
+editor existe antes que el diseño, y en el hueco `inspect_circuit` devolvía
+0 componentes. `open_circuit` e `inspect_circuit` ahora esperan el montaje
+(`circuit_editor.data.devices` + `#breadboardTab`) y el runner reintenta la
+lectura hasta 3 veces. Una lectura que no llega se reporta como
+`read_failed` / `fidelity_readable`, nunca como un 0% que acuse al cableado.
+
 | # | Circuito | ID Tinkercad | Fidelidad | Oráculo observado |
 |---|---|---|---|---|
 | 1 | Blink organizado v3 | 2tMhkuosDyj | 100% | `TEST:ON`/`TEST:OFF` alternando |
@@ -159,8 +172,17 @@ y es lo que se usa masivamente para verificar.
 - Dos cuerpos grandes (HC-SR04 + piezo) comparten placa: el sensor cede la
   mitad derecha (arranca en la columna 10) porque su módulo se dibuja mucho
   más ancho que sus cuatro pines.
-- El sampler de píxeles (brillo de LED) no calibra en headless; el oráculo
-  real es el serial.
+- El sampler de píxeles del LED **ya está calibrado** (fase 42): mide el
+  centro del cuerpo de la parte (`resolve_terminal` devuelve `body`), no el
+  promedio de pines, y clasifica por fracción de píxeles que emiten
+  (brillante y saturado), no por brillo medio — el plástico de la protoboard
+  mide 208 constante y el LED encendido 207. Medido: apagado 0.00–0.025,
+  encendido 0.52–0.59, umbral 0.12. El serial sigue siendo el oráculo
+  principal; el sampler sirve para lo que el serial no dice (luces que no
+  imprimen).
+- El sampler necesita un LED con ánodo/cátodo (`LED`, `led1`, `led_amarillo`).
+  Un LED RGB (`rgb1`) no tiene esos pines: el sampler devuelve
+  `led_position_unknown`, no un valor inventado.
 - Los saltos rectos entre huecos de la misma placa (`5g -> 8c`) siguen en
   diagonal a propósito: son puentes cortos sobre el plástico. El reporte los
   cuenta y no rompen el build.
