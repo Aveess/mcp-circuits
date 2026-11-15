@@ -37,6 +37,17 @@ class _RaisingPage:
         raise RuntimeError("target closed")
 
 
+class _GrowingPage:
+    """Pagina falsa cuyo pendiente crece en cada sondeo (nunca se estanca)."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def evaluate(self, script):
+        self.calls += 1
+        return self.calls
+
+
 class TestWaitForPersistence(unittest.IsolatedAsyncioTestCase):
     async def test_espera_tres_ceros_seguidos(self):
         page = _Page([2, 1, 0, 0, 0])
@@ -68,6 +79,24 @@ class TestWaitForPersistence(unittest.IsolatedAsyncioTestCase):
         persisted, last = await wait_for_persistence(page, timeout_s=0, poll_s=0)
         self.assertFalse(persisted)
         self.assertIsNone(last)
+
+    async def test_un_op_residual_estancado_no_bloquea_el_guardado(self):
+        """Medido: numberPending() se queda en 1 y los cables sí persisten."""
+        page = _Page([1])
+        persisted, last = await wait_for_persistence(
+            page, timeout_s=30, poll_s=0, stall_polls=10
+        )
+        self.assertTrue(persisted)
+        self.assertEqual(last, 1)
+        self.assertEqual(page.calls, 11)
+
+    async def test_un_valor_que_sube_no_se_da_por_estancado(self):
+        page = _GrowingPage()
+        persisted, last = await wait_for_persistence(
+            page, timeout_s=0, poll_s=0, stall_polls=3
+        )
+        self.assertFalse(persisted)
+        self.assertEqual(page.calls, 1)
 
 
 class TestModelBuildUsaElCompartido(unittest.IsolatedAsyncioTestCase):

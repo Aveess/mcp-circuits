@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 from ..browser.browser_manager import BrowserManager
 from ..browser.selectors import CODE_SELECTORS, EDITOR_SELECTORS
 from ..config import logger
-from .sharejs import wait_for_persistence
+from .sharejs import pending_ops, wait_for_persistence
 
 
 class CodeService:
@@ -113,6 +113,22 @@ class CodeService:
         """
         page = await self.browser.get_page()
         await self._ensure_code_panel_open(page)
+
+        # OJO, medido el 2026-11-14: si el build dejo un op residual en ShareJS
+        # (numberPending() se queda en 1 para siempre tras montar un integrado
+        # libre), la cola queda atascada y el op del codigo no sale nunca: la
+        # recarga posterior lo descarta. Recargar aqui deja la cola en 0 y el
+        # op del codigo si llega al servidor.
+        if verify_persistence:
+            pendientes = await pending_ops(page)
+            if pendientes > 0:
+                logger.info(
+                    f"ShareJS tenia {pendientes} operacion(es) residual(es); "
+                    "recargando antes de escribir el codigo."
+                )
+                await page.reload(wait_until="domcontentloaded")
+                await page.wait_for_timeout(6000)
+                await self._ensure_code_panel_open(page)
 
         if ensure_text_mode:
             await self._switch_to_text_mode(page)
@@ -250,10 +266,18 @@ class CodeService:
                 logger.info("Verifying code persistence across circuit page reload...")
                 try:
                     await page.reload(wait_until="domcontentloaded")
-                    await page.wait_for_timeout(5000)
-                    await self._ensure_code_panel_open(page)
-                    persisted_read = await self.get_code()
-                    persisted_code = persisted_read.get("code", "")
+                    # El editor tarda en montar: leer a los 5 s fijos daba
+                    # un "revertido" falso (medido: el codigo si estaba en el
+                    # servidor cuando se reabrio el circuito). Se reintenta
+                    # hasta que el panel devuelva codigo.
+                    persisted_code = ""
+                    for intento in range(8):
+                        await page.wait_for_timeout(2500)
+                        await self._ensure_code_panel_open(page)
+                        persisted_read = await self.get_code()
+                        persisted_code = persisted_read.get("code", "")
+                        if persisted_code.strip():
+                            break
                     if code.strip() != persisted_code.strip():
                         logger.error("Code persistence failed: code reverted after page reload!")
                         return {

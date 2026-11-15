@@ -395,3 +395,84 @@ class TestBrowserLifecycleCleanup(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestFlushYVerificacionDelCodigo(unittest.IsolatedAsyncioTestCase):
+    """Medido el 2026-11-14 con un 74HC73 montado por modelo.
+
+    Dos fallos distintos que se parecian:
+    1. Un op residual del build atasca la cola de ShareJS y el op del codigo
+       no sale nunca; hay que recargar ANTES de escribir.
+    2. La verificacion leia 5 s despues del reload, antes de que el editor
+       montara, y declaraba "revertido" un codigo que si estaba guardado.
+    """
+
+    def _servicio(self, codigo):
+        mock_bm = MagicMock(spec=BrowserManager)
+        mock_page = AsyncMock()
+        mock_page.url = "https://www.tinkercad.com/things/test/editel"
+        mock_bm.get_page = AsyncMock(return_value=mock_page)
+        mock_page.evaluate = AsyncMock(return_value=True)
+        mock_page.wait_for_timeout = AsyncMock()
+        mock_page.reload = AsyncMock()
+
+        service = CodeService(mock_bm)
+        service._ensure_code_panel_open = AsyncMock()
+        service._switch_to_text_mode = AsyncMock()
+        service.get_code = AsyncMock(return_value={"success": True, "code": codigo})
+        return service, mock_page
+
+    async def test_un_op_residual_hace_recargar_antes_de_escribir(self):
+        codigo = "void setup() {}\nvoid loop() {}"
+        service, mock_page = self._servicio(codigo)
+
+        with patch(
+            "src.services.code_service.pending_ops", new=AsyncMock(return_value=1)
+        ), patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(True, 0)),
+        ):
+            res = await service.set_code(codigo, verify_persistence=True)
+
+        self.assertTrue(res["success"])
+        # Una recarga para limpiar la cola y otra para verificar.
+        self.assertEqual(mock_page.reload.await_count, 2)
+
+    async def test_sin_pendientes_no_hay_recarga_extra(self):
+        codigo = "void setup() {}\nvoid loop() {}"
+        service, mock_page = self._servicio(codigo)
+
+        with patch(
+            "src.services.code_service.pending_ops", new=AsyncMock(return_value=0)
+        ), patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(True, 0)),
+        ):
+            res = await service.set_code(codigo, verify_persistence=True)
+
+        self.assertTrue(res["success"])
+        self.assertEqual(mock_page.reload.await_count, 1)
+
+    async def test_una_lectura_vacia_tras_recargar_no_es_codigo_revertido(self):
+        codigo = "void setup() {}\nvoid loop() {}"
+        service, mock_page = self._servicio(codigo)
+        # 1a: verificacion inmediata. Luego el editor tarda dos lecturas.
+        service.get_code = AsyncMock(
+            side_effect=[
+                {"success": True, "code": codigo},
+                {"success": True, "code": ""},
+                {"success": True, "code": ""},
+                {"success": True, "code": codigo},
+            ]
+        )
+
+        with patch(
+            "src.services.code_service.pending_ops", new=AsyncMock(return_value=0)
+        ), patch(
+            "src.services.code_service.wait_for_persistence",
+            new=AsyncMock(return_value=(True, 0)),
+        ):
+            res = await service.set_code(codigo, verify_persistence=True)
+
+        self.assertTrue(res["success"])
+        self.assertTrue(res["verified"])

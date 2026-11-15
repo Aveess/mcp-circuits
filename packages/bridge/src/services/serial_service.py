@@ -197,7 +197,10 @@ class SerialService:
         toggle_btn = await self.browser.find_first_matching(SERIAL_SELECTORS["toggle_btn"], timeout=2000, page=page)
         if toggle_btn is not None:
             try:
-                await toggle_btn.click()
+                # 2.5 s basta para saber si el puntero llega: si el editor lo
+                # tapa, Playwright reintenta hasta el timeout y cada reintento
+                # cuesta medio minuto en un build de 4 minutos.
+                await toggle_btn.click(timeout=2500)
                 await page.wait_for_timeout(800)
             except Exception as exc:
                 # No es un selector equivocado: el boton esta ahi y el editor
