@@ -20,6 +20,7 @@ from tinkercad_brain.boards import (
     LARGE,
     SMALL,
     Board,
+    footprint_for,
     board,
     columns,
     footprint,
@@ -104,6 +105,46 @@ def test_la_resistencia_cruza_el_canal_en_su_columna():
 
     assert huella["1"] == (0, "e") and huella["2"] == (0, "g")
     assert half(huella["1"][1]) != half(huella["2"][1])
+
+
+def test_huella_del_jk_deja_las_dos_hileras_en_el_canal():
+    # Medido en vivo el 2026-11-15 (fqm2OOLKTr3): el 74HC73 tiene las
+    # hileras a 30 unidades, como el 555. Anclado por 1J en la fila de
+    # abajo, la otra hilera queda arriba: una en cada mitad.
+    huella = footprint("dip14-jk")
+
+    assert huella["1J"] == (0, "f") and huella["1CP"] == (0, "e")
+    assert huella["1NQ"] == (1, "f") and huella["1R"] == (1, "e")
+    assert huella["Vcc"] == (3, "e") and huella["GND"] == (3, "f")
+    assert huella["2J"] == (6, "e") and huella["2NQ"] == (6, "f")
+    assert len(huella) == 14
+
+
+def test_footprint_for_elige_la_huella_de_cada_tipo():
+    # Las compuertas comparten el DIP-14 de 74HC00/08/32/86 (mismos nombres
+    # de pin); el JK y el 555 son DIP mas anchos y el display tiene 10 patas.
+    assert footprint_for("and-gate") == footprint("dip14")
+    assert footprint_for("or-gate") == footprint("dip14")
+    assert footprint_for("not-gate") == footprint("dip14-not")
+    assert footprint_for("xor-gate") == footprint("dip14")
+    assert footprint_for("flip-flop-jk") == footprint("dip14-jk")
+    assert footprint_for("timer-555") == footprint("dip8-555")
+    assert footprint_for("seven-segment") == footprint("display-7seg")
+    assert footprint_for("resistor") == footprint("resistor")
+
+    with pytest.raises(KeyError):
+        footprint_for("led")
+
+
+def test_el_inversor_tiene_seis_compuertas_en_la_misma_huella():
+    # 74HC04 medido en vivo (2rI5SQHDHcD): 1A/1Y..6A/6Y, filas e/f. La
+    # numeracion fisica no cambia respecto del DIP-14 generico, solo los
+    # nombres: por eso comparte huella.
+    huella = footprint_for("not-gate")
+
+    assert huella["1A"] == (0, "e") and huella["1Y"] == (1, "e")
+    assert huella["4Y"] == (6, "f") and huella["6A"] == (1, "f")
+    assert "7A" not in huella
 
 
 def test_ninguna_huella_repite_media_columna():

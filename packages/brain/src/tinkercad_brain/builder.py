@@ -16,6 +16,11 @@ import re
 from tinkercad_brain.fase0.component_map import TYPE_MAP
 from tinkercad_brain.fase0.probe import ProbeStep, run_steps
 from tinkercad_brain.layout import LayoutError, plan_layout
+from tinkercad_brain.layout_v2 import (
+    column_conflicts,
+    plan_layout_v2,
+    plan_nets_v2,
+)
 
 __all__ = ["BuildError", "DID_BY_TYPE", "fixture_to_model_call", "build_circuit"]
 
@@ -856,6 +861,85 @@ def _series_resistor_errors(fixture) -> list[str]:
     return errors
 
 
+def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
+    """Layout v2: piezas insertadas en placas y puentes de hueco a hueco.
+
+    A diferencia de la v1 no hay ``at`` inventado por pieza ni estrella desde
+    el Uno: la geometria la resuelve ``layout_v2`` (que placa, que columna, que
+    renglon) y los cables ya vienen en el lenguaje del puente (``"12d"``,
+    ``"b1/7h"``, ``"u1.1Y"``), asi que aca solo se valida y se arma la llamada.
+
+    Se rechaza el build entero en vez de construir a medias cuando: una pata
+    queda sin hole, dos nets comparten media columna (un corto que la foto no
+    muestra) o una net necesita cruzar el canal y no hay columna libre.
+    """
+    problems = _series_resistor_errors(fixture)
+    if problems:
+        raise BuildError("; ".join(problems))
+    try:
+        layout = plan_layout_v2(fixture)
+    except LayoutError as exc:
+        raise BuildError(str(exc)) from exc
+    if layout["unplaced"]:
+        raise BuildError(
+            "sin layout para: " + ", ".join(str(ref) for ref in layout["unplaced"])
+        )
+    if layout["errors"]:
+        raise BuildError("; ".join(layout["errors"]))
+
+    placements = layout["placements"]
+    nets = plan_nets_v2(fixture, placements)
+    if nets["errors"]:
+        raise BuildError("; ".join(nets["errors"]))
+    conflicts = column_conflicts(nets)
+    if conflicts:
+        detalle = "; ".join(
+            f"placa {c['board']} columna {c['column']} ({c['half']}): "
+            + ", ".join(c["nets"])
+            for c in conflicts
+        )
+        raise BuildError("medias columnas con dos nets: " + detalle)
+
+    type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
+    parts = []
+    for ref, placement in placements.items():
+        ctype = type_by_ref.get(ref)
+        if ctype not in _TYPE_BY_SLUG and ctype not in _BUILDER_ONLY_TYPES:
+            raise BuildError(f"type sin nombre conocido para ref {ref!r}: {ctype!r}")
+        did = DID_BY_TYPE.get(ctype)
+        if did is None:
+            raise BuildError(f"type sin DID conocido para ref {ref!r}: {ctype!r}")
+        if "free" in placement:
+            part = {"ref": ref, "did": did, "free": dict(placement["free"])}
+            angle = placement.get("angle")
+            if angle is not None:
+                part["angle"] = angle
+            parts.append(part)
+            continue
+        part = {
+            "ref": ref,
+            "did": did,
+            "at": _with_board(placement["at"], placement.get("board") or 0),
+            "pin": placement["pin"],
+            "angle": placement["angle"],
+        }
+        if placement.get("board"):
+            part["board"] = placement["board"]
+        parts.append(part)
+
+    return {
+        "parts": parts,
+        "wires": [
+            {"from": w["from"], "to": w["to"], "color": w["color"]}
+            for w in nets["wires"]
+        ],
+        "boards": [
+            {"x": b["x"], "y": b["y"], "did": b["did"]} for b in layout["boards"]
+        ],
+        "code": code,
+    }
+
+
 def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     """Convierte una fixture en {"parts", "wires", "code"} para el puente.
 
@@ -863,6 +947,8 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     a medias), si un type colocado no tiene DID conocido, o si una net usa
     un pin cuya geometria de huecos se desconoce.
     """
+    if isinstance(fixture, dict) and fixture.get("layout") == "v2":
+        return _fixture_to_model_call_v2(fixture, code)
     problems = _series_resistor_errors(fixture)
     if problems:
         raise BuildError("; ".join(problems))

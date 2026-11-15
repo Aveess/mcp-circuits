@@ -133,9 +133,30 @@ _DIP14 = {
     "Vcc": (0, "f"),
 }
 
-# El 555 tiene las dos hileras a 3 filas (30 unidades), no a 2: anclado por
-# `CTRL` en la fila de abajo, la otra hilera queda en `e`. Anclarlo en `e`
-# deja `Vcc` y `GND` en la misma mitad (corto medido en la Small).
+# El 74HC04 (Hex Inverter, medido en vivo el 2026-11-15 en 2rI5SQHDHcD) ocupa
+# el mismo DIP-14 pero con OTRA numeracion: seis compuertas de una entrada, asi
+# que 1A/1Y van en las columnas 0 y 1 y no en 0 y 2. Comparte geometria, no
+# nombres: por eso tiene su propia tabla.
+_DIP14_NOT = {
+    "1A": (0, "e"),
+    "1Y": (1, "e"),
+    "2A": (2, "e"),
+    "2Y": (3, "e"),
+    "3A": (4, "e"),
+    "3Y": (5, "e"),
+    "GND": (6, "e"),
+    "4Y": (6, "f"),
+    "4A": (5, "f"),
+    "5Y": (4, "f"),
+    "5A": (3, "f"),
+    "6Y": (2, "f"),
+    "6A": (1, "f"),
+    "Vcc": (0, "f"),
+}
+
+# El 555 tambien tiene las hileras a 30 unidades (30 y no 20): anclado por
+# `CTRL` en la fila de abajo la otra hilera queda arriba, una en cada mitad.
+# Anclarlo en `e` deja `Vcc` y `GND` en la misma mitad (corto medido).
 _DIP8_555 = {
     "CTRL": (0, "f"),
     "THR": (-1, "f"),
@@ -148,6 +169,27 @@ _DIP8_555 = {
 }
 
 _RESISTOR = {"1": (0, "e"), "2": (0, "g")}
+# El 74HC73 (medido en vivo el 2026-11-15, fqm2OOLKTr3) tambien tiene las dos
+# hileras a 30 unidades: anclado por `1J` en la fila de abajo, la otra queda
+# arriba. Ojo: no es la huella del DIP-14 de compuertas, cuyas hileras caen en
+# `e` y `f`; aca la de arriba es `e` y la de abajo `f`, pero repartidas al
+# reves (1J abajo).
+_DIP14_JK = {
+    "1J": (0, "f"),
+    "1NQ": (1, "f"),
+    "1Q": (2, "f"),
+    "GND": (3, "f"),
+    "2K": (4, "f"),
+    "2Q": (5, "f"),
+    "2NQ": (6, "f"),
+    "1CP": (0, "e"),
+    "1R": (1, "e"),
+    "1K": (2, "e"),
+    "Vcc": (3, "e"),
+    "2CP": (4, "e"),
+    "2R": (5, "e"),
+    "2J": (6, "e"),
+}
 
 # 10 patas en 5 columnas, una por media columna: la fila `e` para cinco
 # segmentos y la `i` para los otros cinco. No hay dos patas en el mismo nodo.
@@ -166,12 +208,33 @@ _DISPLAY_7SEG = {
 
 FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip14": _DIP14,
+    "dip14-jk": _DIP14_JK,
+    "dip14-not": _DIP14_NOT,
     "dip8-555": _DIP8_555,
     "resistor": _RESISTOR,
     "display-7seg": _DISPLAY_7SEG,
+}
+
+# Huella por tipo de pieza de la fixture. Las compuertas comparten el DIP-14
+# de 74HC00/08/32/86 (mismos nombres de pin y mismas hileras e/f).
+_FOOTPRINT_BY_TYPE: Dict[str, str] = {
+    "and-gate": "dip14",
+    "or-gate": "dip14",
+    "not-gate": "dip14-not",
+    "xor-gate": "dip14",
+    "nand-gate": "dip14",
+    "flip-flop-jk": "dip14-jk",
+    "timer-555": "dip8-555",
+    "seven-segment": "display-7seg",
+    "resistor": "resistor",
 }
 
 
 def footprint(name: str) -> Dict[str, Tuple[int, str]]:
     """Copia de la huella de una pieza (nadie muta la tabla del layout)."""
     return dict(FOOTPRINTS[name])
+
+
+def footprint_for(ctype: str) -> Dict[str, Tuple[int, str]]:
+    """Huella de un tipo de la fixture (``"and-gate"`` -> DIP-14 de compuertas)."""
+    return footprint(_FOOTPRINT_BY_TYPE[ctype])
