@@ -24,7 +24,31 @@ from .services.simulation_sampler_service import SimulationSamplerService
 from .config import logger
 
 # Initialize MCP Server
-server = MCPServer("tinkercad-circuits")
+def _server_version() -> str:
+    """Version real del servidor, sin escribirla a mano dos veces.
+
+    Si el paquete esta instalado se lee de sus metadatos; si se corre desde el
+    fuente (el caso normal aqui) se lee del `pyproject.toml`. El handshake
+    reportaba version vacia, y con dos copias del repo abiertas eso deja al
+    cliente sin saber cual esta hablando.
+    """
+    try:
+        from importlib.metadata import version as _dist_version
+
+        return _dist_version("tinkercad-mcp-server")
+    except Exception:
+        pass
+    try:
+        import tomllib
+        from pathlib import Path
+
+        with (Path(__file__).resolve().parents[1] / "pyproject.toml").open("rb") as fh:
+            return str(tomllib.load(fh)["project"]["version"])
+    except Exception:
+        return "dev"
+
+
+server = MCPServer("tinkercad-circuits", version=_server_version())
 
 # Initialize backend services
 browser = BrowserManager.get_instance()

@@ -146,7 +146,7 @@ server over stdio, performs the MCP handshake, lists the tools and calls one
 ```bash
 python examples/check_mcp_stdio.py
 ```
-Expected output: `handshake: tinkercad-circuits`, `tools: 50`, `authenticated: True`, `OK`.
+Expected output: `handshake: tinkercad-circuits 1.1.0`, `tools: 50`, `authenticated: True`, `OK`.
 
 ### 7. Run End-to-End Example (Optional)
 To programmatically build, wire, program, and simulate a complete temperature-controlled servo circuit:
