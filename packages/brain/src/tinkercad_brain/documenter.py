@@ -115,7 +115,13 @@ def render_build_report(
                     "y no se capturó nada, así que no hay prueba de comportamiento."
                 )
         else:
-            lines.append("- Sin marcas declaradas y el sketch no usa `Serial`.")
+            if oracle.get("has_code") is False:
+                lines.append(
+                    "- Circuito **sin sketch**: no hay monitor serial que verificar; "
+                    "el comportamiento se comprueba en el circuito (display, LED, movimiento)."
+                )
+            else:
+                lines.append("- Sin marcas declaradas y el sketch no usa `Serial`.")
         lines.append("")
     if route_violations is not None:
         measured = (routes or {}).get("measured", 0)

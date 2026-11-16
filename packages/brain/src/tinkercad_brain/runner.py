@@ -492,6 +492,9 @@ def run_build(
             "found": serial_check["found"],
             "missing": serial_check["missing"],
             "ok": serial_check["ok"],
+            # Sin codigo no hay sketch: el reporte lo dice en vez de hablar de
+            # un sketch que no existe (un circuito 100 % hardware).
+            "has_code": bool(code),
             "serial_required": serial_required,
             "serial_lines": len([ln for ln in serial.splitlines() if ln.strip()]),
         },

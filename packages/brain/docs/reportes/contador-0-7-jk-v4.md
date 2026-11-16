@@ -18,7 +18,7 @@
 ```
 
 ## Oráculo
-- Sin marcas declaradas y el sketch no usa `Serial`.
+- Circuito **sin sketch**: no hay monitor serial que verificar; el comportamiento se comprueba en el circuito (display, LED, movimiento).
 
 ## Ruteo
 - Sin tramos sobre el cuerpo de una placa (185 de 185 cables medidos, 7 ruteados).
@@ -28,13 +28,13 @@
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 15.7 | 15.7 |
+| tinkercad_build_circuit_model | 1 | 15.5 | 15.5 |
 | tinkercad_inspect_circuit | 1 | 0.2 | 0.2 |
-| tinkercad_open_circuit | 2 | 15.7 | 16.1 |
-| tinkercad_read_serial_monitor | 1 | 8.0 | 8.0 |
-| tinkercad_set_component_property_model | 13 | 1.3 | 6.0 |
-| tinkercad_start_simulation | 1 | 32.6 | 32.6 |
-| tinkercad_stop_simulation | 1 | 3.7 | 3.7 |
+| tinkercad_open_circuit | 2 | 16.2 | 18.3 |
+| tinkercad_read_serial_monitor | 1 | 7.6 | 7.6 |
+| tinkercad_set_component_property_model | 13 | 1.3 | 3.4 |
+| tinkercad_start_simulation | 1 | 32.7 | 32.7 |
+| tinkercad_stop_simulation | 1 | 4.0 | 4.0 |
 
 ## Fallos
 Sin fallos.

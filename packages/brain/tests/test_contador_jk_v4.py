@@ -220,6 +220,49 @@ def test_el_builder_rechaza_una_v4_sin_fuente():
         fixture_to_model_call(sin_fuente, code=None)
 
 
+def test_el_reporte_no_habla_de_un_sketch_que_no_existe():
+    """Sin micro no hay sketch: el reporte lo dice, no lo da por sentado."""
+    from tinkercad_brain.documenter import render_build_report
+
+    texto = render_build_report(
+        title="Contador v4",
+        circuit_url="https://www.tinkercad.com/things/3akmw1EaG0p/editel",
+        fidelity={"score": 1.0},
+        sim_summary="{}",
+        records=[],
+        oracle={
+            "expected": [],
+            "found": [],
+            "missing": [],
+            "ok": True,
+            "has_code": False,
+            "serial_required": False,
+            "serial_lines": 0,
+        },
+    )
+    assert "sin sketch" in texto
+    assert "el sketch no usa" not in texto
+
+
+def test_el_runner_marca_que_no_hay_codigo():
+    """`run_build` con `code=None` deja `oracle["has_code"] = False`."""
+    from tinkercad_brain.runner import run_build
+
+    def call_tool(tool, arguments):
+        if tool == "tinkercad_create_circuit":
+            return json.dumps({"circuit_id": "abc12345678"})
+        if tool == "tinkercad_build_circuit_model":
+            return json.dumps({"success": True, "persisted": True})
+        if tool == "tinkercad_inspect_circuit":
+            return json.dumps({"components": [], "wires": []})
+        return json.dumps({"success": True})
+
+    resultado = run_build(_fixture(), None, call_tool, "Contador v4")
+
+    assert resultado["oracle"]["has_code"] is False
+    assert resultado["oracle"]["serial_required"] is False
+
+
 def test_el_build_pide_quitar_el_uno_que_sobra():
     """El puente crea el Uno siempre; `no_arduino` lo quita al final."""
     fixture = _fixture()
