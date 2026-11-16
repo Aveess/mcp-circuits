@@ -114,6 +114,13 @@ el plan manda `route` explicito y el JS lo respeta.
 - Que una pata este en el hueco correcto no significa que el cable este
   bonito: el ruteo se mide aparte (`route_debug`, diagonales, tramos sobre
   placa).
+- **Un cable del diseño es vertical u horizontal; los giros son de 90°.** La
+  unica excepcion es el puente de hueco a hueco de la **misma** placa, que se
+  deja recto. Y se mide sobre lo que el editor **guardo**:
+  `route_debug[*].actual` (puntos de `w.objects` → `endpoint()`), no sobre
+  `points`, que es lo que el build pidio. Medido el 2026-11-16: el lint decia
+  `0 diagonales` sobre un diseño con dos cables en diagonal porque medía la
+  intención.
 
 ## 3. Geometria de las placas (medida)
 
@@ -142,6 +149,26 @@ el plan manda `route` explicito y el JS lo respeta.
 
 ## 4. Piezas con trampa
 
+- **Piezas creadas por el MCP: no se mueven ni se editan.** Las que entran por
+  el modelo (`createDeviceInstance` + `devices.add`) **no se seleccionan** al
+  hacer clic ni se arrastran; tampoco las placas. Medido el 2026-11-16 con
+  tres sondas: una placa agregada desde la **paleta** sí se arrastra; una
+  creada por el **modelo** no se movió en 2 intentos; y en `3akmw1EaG0p` las
+  tres placas quedaron idénticas tras arrastrarlas. Los **cables sí** se
+  mueven (nacen de `BendableWireData`, que el editor registra como
+  interactivo). No es un permiso de la cuenta: las piezas del build entran por
+  una vía que el editor no marca para selección. Para cambiar el layout se
+  cambia el **generador** y se reconstruye (el build es determinista y reusa
+  `tinkercad_id`); para sacar una pieza suelta, borrarla y agregarla desde la
+  paleta.
+- **Cables torcidos: se miden en el editor, no en el plan.** `route_debug[*]`
+  trae desde la fase 51 dos polilíneas por cable ruteado: `points` (lo que
+  pidió el build) y `actual` (lo que el editor **guardó**, leído de
+  `w.objects` → `endpoint()`). Medido el 2026-11-16: dos cables guardaban
+  puntos fraccionarios (`k/97`) que el build no calculó y se dibujaban en
+  diagonal, con `points` perfectamente ortogonal. Un rebuild los dejó exactos.
+  Editar los quiebres a mano no sirve: `removePoint` lanza excepción y deja un
+  punto huérfano.
 - **Display 7 segmentos** (`129710`): solo entra en la placa grande **girado
   180°**, y girarlo gira el dibujo de los segmentos (la pata `d` queda donde
   el dibujo pone la `a`). Electricamente puede estar perfecto y mostrar el

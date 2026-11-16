@@ -857,6 +857,30 @@ _BUILD_JS = r"""
       if (off) return off;
       return null;
     }
+    // Lo que el editor GUARDO en el cable, no lo que le pedimos. `w.objects`
+    // es la lista de PathObjectData del cable y `endpoint()` da el punto en
+    // coordenadas del modelo. Hace falta porque un quiebre puede quedar en
+    // otro sitio del que se pidio (medido el 2026-11-16: dos cables entre
+    // placas guardaron puntos fraccionarios y uno de ellos se dibujo en
+    // diagonal). `route_debug[*].actual` es la unica medida del dibujo que
+    // el cerebro puede leer sin mirar pixeles.
+    function wireActualPoints(w) {
+      try {
+        const list = w && w.objects;
+        if (!list || typeof list.size !== 'function') return null;
+        const n = list.size();
+        const out = [];
+        for (let i = 0; i < n; i++) {
+          let o = (typeof list.get === 'function') ? list.get(i) : null;
+          if (o && o.val !== undefined) o = o.val;
+          if (!o || typeof o.endpoint !== 'function') return null;
+          const p = o.endpoint();
+          if (!p || !isFinite(p.x) || !isFinite(p.y)) return null;
+          out.push([Number(p.x), Number(p.y)]);
+        }
+        return out;
+      } catch (e) { return null; }
+    }
     function coordCtor() {
       for (const dev of [bbDevs[0], uno]) {
         try {
@@ -1107,8 +1131,16 @@ _BUILD_JS = r"""
               }
             }
             if (didRoute) {
-              route_debug.push({ wire: wireLabel, routed: true, reason: 'ok',
-                                 points: routePoints });
+              // `actual` solo viaja cuando el editor dejo leer la lista de
+              // puntos: en un DOM falso o sin objetos, no hay medida que dar.
+              const actual = wireActualPoints(w);
+              if (actual) {
+                route_debug.push({ wire: wireLabel, routed: true, reason: 'ok',
+                                   points: routePoints, actual: actual });
+              } else {
+                route_debug.push({ wire: wireLabel, routed: true, reason: 'ok',
+                                   points: routePoints });
+              }
             } else {
               route_debug.push({ wire: wireLabel, routed: false, reason: reason || 'unknown' });
               errors.push('wire ' + wireLabel + ': route_failed: ' + (reason || 'unknown'));

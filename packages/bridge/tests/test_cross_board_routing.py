@@ -102,6 +102,22 @@ class CrossBoardRoutingTest(unittest.TestCase):
         # El cerebro mide diagonales y tramos sobre placa con esta polilinea.
         self.assertIn("[pA.x, pA.y],\n                                 [pB.x, pB.y]", self.js)
 
+    def test_el_build_reporta_los_puntos_que_guardo_el_editor(self):
+        """`route_debug[*].actual` es la medida del dibujo, no la intencion.
+
+        Medido el 2026-11-16 en `3akmw1EaG0p`: dos cables entre placas
+        guardaron puntos que el build no calculo (coordenadas fraccionarias
+        `k/97`) y uno de ellos salio dibujado en diagonal, mientras
+        `route_debug[*].points` -la polilinea que pidio el build- era
+        ortogonal. Sin esta lectura el lint del cerebro dice "0 diagonales"
+        sobre un dibujo torcido.
+        """
+        self.assertIn("function wireActualPoints(w)", self.js)
+        self.assertIn("actual: actual", self.js)
+        # Lee la lista real de puntos del cable, no la polilinea intentada.
+        self.assertIn("const list = w && w.objects;", self.js)
+        self.assertIn("o.endpoint()", self.js)
+
     def test_el_js_sigue_siendo_javascript_valido(self):
         import shutil
         import subprocess

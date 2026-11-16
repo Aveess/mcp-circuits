@@ -83,6 +83,18 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
    - Un cable entre huecos de la **misma** placa se deja recto a proposito (es
      un puente corto sobre el plastico); el ruteo en Z solo aplica entre
      placas distintas.
+   - **Angulos rectos, sin excepciones:** todo cable es vertical u horizontal
+     y cada giro es de 90°. Antes de dar por bueno un diseño, compara
+     `route_debug[*].actual` con `points` en los cables ruteados: si el editor
+     guardo otro punto, el cable esta torcido aunque el reporte diga
+     `0 diagonal(es)`. Se arregla **reconstruyendo**, no editando los quiebres
+     a mano (`removePoint` lanza excepcion y deja puntos huerfanos).
+   - **Las piezas creadas por este MCP no se pueden mover ni editar** en el
+     editor: entran por el modelo (`createDeviceInstance`) y no quedan
+     seleccionables (medido el 2026-11-16: 0 cambios tras 2 intentos de
+     arrastre). Las de la **paleta** sí se arrastran, y los **cables** también.
+     Si hay que cambiar el layout, se cambia en el generador y se reconstruye
+     el mismo `tinkercad_id`; no pierdas tiempo arrastrando piezas del build.
 4. `tinkercad_set_component_property_model` por **nombre real** de la parte
    (con siete resistencias, "Resistor" es ambiguo y el preset se pierde).
 5. `tinkercad_set_code` (espera el flush y relee: no lo saltes).
