@@ -73,6 +73,16 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
      solo cambia con un clic en el simulador. Para que algo se vea
      funcionando al abrir el diseno, la clave `1` va a la posicion activa
      (medido en vivo, build `3akmw1EaG0p`: el display se quedo en 0).
+   - Los `boards` pueden estar **apilados** (misma `x`, distinta `y`), no solo
+     uno al lado del otro. Un cable entre huecos de placas con distinta `y`
+     sale diagonal si se deja recto: el build lo rutea en Z por el carril que
+     cae en el aire entre las dos (`crossBoardPair`). Deja **aire suficiente**
+     entre los cuerpos: la banda arranca a 130 del origen de la placa de abajo
+     y avanza de 8 en 8, y el cuerpo mide +-110, asi que dos placas a menos de
+     ~240 de distancia dejan pocos carriles.
+   - Un cable entre huecos de la **misma** placa se deja recto a proposito (es
+     un puente corto sobre el plastico); el ruteo en Z solo aplica entre
+     placas distintas.
 4. `tinkercad_set_component_property_model` por **nombre real** de la parte
    (con siete resistencias, "Resistor" es ambiguo y el preset se pierde).
 5. `tinkercad_set_code` (espera el flush y relee: no lo saltes).

@@ -89,6 +89,16 @@ Donde la regla no se puede cumplir entera, se dice:
 - En la **placa chica** los cuatro rieles son nodos distintos y la regla se
   cumple completa: dos rieles por lado y los dos cables de borde.
 
+Placas **apiladas** (fase 50): los `boards` no tienen que estar uno al lado
+del otro. Si dos placas comparten `x` y difieren en `y`, un cable entre
+huecos de una y otra se tiende recto como una diagonal larga sobre las dos
+proboards. El puente lo rutea en Z (`crossBoardPair`) por el carril que cae
+en el aire entre las dos, y deja **aire suficiente**: la banda arranca a 130
+del origen de la placa de abajo y avanza de 8 en 8, con el cuerpo en +-110,
+asi que menos de ~240 entre las dos deja pocos carriles. La decision de
+rutear se toma en `plan_wire_style(..., boards=...)`, **no** solo en el JS:
+el plan manda `route` explicito y el JS lo respeta.
+
 ## 2. Lo que se mide y lo que no
 
 - `tinkercad_build_circuit_model` devuelve una **fidelidad pin a pin**: que

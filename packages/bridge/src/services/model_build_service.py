@@ -155,6 +155,50 @@ def _is_breadboard_endpoint(ep: str) -> bool:
     return bool(_HOLE_RE.match(s) or _RAIL_RE.match(s))
 
 
+_BOARD_OF_EP = re.compile(r"^b([1-9])/")
+
+
+def _endpoint_board(ep: str) -> Optional[int]:
+    """Placa de un extremo de hueco/riel; None si es el pin de una parte.
+
+    "5g" y "T+3" son de la placa 0 (sin prefijo); "b2/10a" es de la 2. Un pin
+    de parte ("ps1.Vcc", "sw1.2") no es de ninguna placa: viaja por el ruteo
+    de partes libres.
+    """
+    s = str(ep or "").strip()
+    if "." in s or not _is_breadboard_endpoint(s):
+        return None
+    match = _BOARD_OF_EP.match(s)
+    return int(match.group(1)) if match else 0
+
+
+def _endpoints_on_different_boards(frm: str, to: str, boards: Any = None) -> bool:
+    """Dos huecos/rieles de placas distintas **que no comparten altura**.
+
+    Con las placas apiladas (misma `x`, distinta `y`) la recta entre dos huecos
+    es una diagonal larga encima de las dos protoboards, asi que el cable se
+    rutea con un quiebre por el aire que queda entre ellas.
+
+    Si las dos placas comparten `y` la recta ya sale horizontal: se deja como
+    estaba (las dos placas grandes tienen 20 puentes asi desde la v2 y
+    marcarlos como ruteados haria que el lint los contara como tramos sobre la
+    placa, cosa que no son: el cable pasa por las filas, no por el plastico).
+    Sin `boards` no hay altura que comparar y se mantiene el comportamiento
+    viejo (recto).
+    """
+    a, b = _endpoint_board(frm), _endpoint_board(to)
+    if a is None or b is None or a == b:
+        return False
+    if not boards:
+        return False
+    try:
+        y_a = float(boards[a].get("y", 0))
+        y_b = float(boards[b].get("y", 0))
+    except (IndexError, TypeError, AttributeError, ValueError):
+        return False
+    return abs(y_a - y_b) >= 1
+
+
 def _is_free_endpoint(ep: str, free_norms: set) -> bool:
     if "." not in str(ep or "") or not free_norms:
         return False
@@ -182,7 +226,9 @@ def _convention_color(ep: str) -> Optional[str]:
     return None
 
 
-def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
+def plan_wire_style(
+    wires: Any, free_refs: Any = None, boards: Any = None
+) -> List[Dict[str, Any]]:
     """Normalize wires to {"from", "to", "color", "route", "lane"} dicts.
 
     Accepts pairs ``[a, b]`` and objects ``{"from", "to", "color"}``.
@@ -190,8 +236,10 @@ def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
     5V/3V3/VIN/positive rail -> red, else a rotating palette that never
     repeats the immediately previous wire's color. ``route`` is True for
     Uno <-> breadboard hole/rail wires, free-part terminal <-> breadboard
-    hole/rail or Uno wires, and free-part <-> free-part wires (hole<->hole
-    stays straight);
+    hole/rail or Uno wires, free-part <-> free-part wires, and hole <-> hole
+    wires between **two boards stacked at different ``y``** (la recta seria
+    una diagonal larga). Hole <-> hole on the same board, or between boards
+    that share ``y``, stays straight: ``boards`` es lo que permite saberlo;
     routed wires get distinct lanes 0, 1, 2, ... in arrival order, and
     non-routed wires get lane -1. ``free_refs`` holds the refs of parts
     placed with ``free`` (unknown/free-less callers keep the old routes).
@@ -247,6 +295,10 @@ def plan_wire_style(wires: Any, free_refs: Any = None) -> List[Dict[str, Any]]:
                 _is_free_endpoint(frm, free_norms)
                 and _is_free_endpoint(to, free_norms)
             )
+            # Dos huecos de placas distintas: con la placa chica apilada
+            # arriba, esa recta es una diagonal larga sobre las dos
+            # protoboards. El puente la baja al carril que queda entre ellas.
+            or _endpoints_on_different_boards(frm, to, boards)
         )
         wire_lane = lane if route else -1
         if route:
@@ -745,6 +797,21 @@ _BUILD_JS = r"""
       if (rail) return rail.side[0] === 'T';
       return /^T/i.test(String(ep || '').trim());
     }
+    // Placa de un extremo de hueco o de riel (null si no es de placa).
+    function epBoard(ep) {
+      const hole = parseHole(ep);
+      if (hole) return hole.board;
+      const rail = parseRail(ep);
+      if (rail) return rail.board;
+      return null;
+    }
+    // Dos extremos de placa en placas DISTINTAS. Solo esos cables necesitan
+    // ruteo entre placas; un salto dentro de la misma placa se deja recto a
+    // proposito (es un puente corto sobre el plastico).
+    function crossBoardPair(from, to) {
+      const a = epBoard(from), b = epBoard(to);
+      return a !== null && b !== null && a !== b;
+    }
     function devPos(dev) {
       try {
         const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
@@ -828,7 +895,11 @@ _BUILD_JS = r"""
           : (((isUnoEp(from) && isBbEp(to)) || (isBbEp(from) && isUnoEp(to)))
             || ((isFreeEp(from) && (isBbEp(to) || isUnoEp(to)))
               || (isFreeEp(to) && (isBbEp(from) || isUnoEp(from))))
-            || (isFreeEp(from) && isFreeEp(to)));
+            || (isFreeEp(from) && isFreeEp(to))
+            // Dos huecos de placas distintas que no comparten altura: la
+            // recta seria una diagonal larga sobre las dos protoboards. Se
+            // rutea con un quiebre por el hueco entre ellas.
+            || crossBoardPair(from, to));
         let lane = (typeof spec.lane === 'number' && spec.lane >= 0) ? spec.lane : -1;
         if (shouldRoute) {
           if (lane < 0) lane = fallbackLane;
@@ -959,6 +1030,44 @@ _BUILD_JS = r"""
                   const endPt = freeIsFrom ? destPos : freePos;
                   routePoints = [[startPt.x, startPt.y]].concat(
                     pts.map((p) => [p.x, p.y]), [[endPt.x, endPt.y]]);
+                  didRoute = true;
+                } catch (e) {
+                  reason = 'addpoint_error: ' + e.toString();
+                }
+              }
+            } else if (crossBoardPair(from, to)) {
+              // Dos protoboards apiladas: se sale del hueco al carril del
+              // hueco que queda entre las dos placas, se corre en horizontal
+              // y se baja al otro hueco. Sin esto Tinkercad dibuja una recta
+              // de una placa a la otra: diagonal larga encima del plastico.
+              const posA = bbAbs(from), posB = bbAbs(to);
+              const boardA = epBoard(from), boardB = epBoard(to);
+              if (!posA) reason = 'free_pos_null';
+              else if (!posB) reason = 'dest_pos_null';
+              else if (Math.abs(posA.y - posB.y) < 1) {
+                // Misma altura: la recta ya es horizontal, no hay quiebre.
+                routePoints = [[posA.x, posA.y], [posB.x, posB.y]];
+                didRoute = true;
+              } else {
+                const yA = boardOrigin(boardA).y, yB = boardOrigin(boardB).y;
+                // El carril vive **por encima** de la placa de abajo (la de
+                // `y` mayor): cae en el aire que queda entre las dos y no
+                // pisa el plastico de ninguna. Es el mismo carril base que
+                // usa la banda de las partes libres, y comparte contador
+                // para que dos cables no se dibujen uno encima del otro.
+                const laneHere = Math.max(yA, yB) - LANE_BASE
+                  - sideLanes.top * LANE_STEP;
+                sideLanes.top++;
+                const pA = { x: posA.x, y: laneHere }, pB = { x: posB.x, y: laneHere };
+                const C = coordCtor();
+                try {
+                  for (let i = 0; i < 2; i++) {
+                    const pt = i === 0 ? pA : pB;
+                    const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
+                    if (r === false) throw new Error('addPoint returned false');
+                  }
+                  routePoints = [[posA.x, posA.y], [pA.x, pA.y],
+                                 [pB.x, pB.y], [posB.x, posB.y]];
                   didRoute = true;
                 } catch (e) {
                   reason = 'addpoint_error: ' + e.toString();
@@ -1326,7 +1435,7 @@ class ModelBuildService:
         plan: Dict[str, Any] = {
             "boards": board_list or [{"x": 870.0, "y": 0.0, "did": BREADBOARD_DID}],
             "parts": parts or [],
-            "wires": plan_wire_style(wires, free_refs=free_refs),
+            "wires": plan_wire_style(wires, free_refs=free_refs, boards=board_list),
             "code": code,
             "remove_unused_uno": bool(remove_unused_uno),
         }
