@@ -39,7 +39,8 @@ BREADBOARD_DID = 111211
 #   - Large (116648): 62 columnas utiles (x -295..315; el modelo nombra
 #     "A98/A99" las dos extremas -315/-305 y no se usan) y cuatro filas de
 #     riel de **50** huecos: y -95/-85 abajo (el modelo rotula las dos "X") y
-#     +85/+95 arriba ("Y"/"Z").
+#     +85/+95 arriba ("Y"/"Z"). Los 50 huecos **no son las primeras 50
+#     columnas**: faltan en 6, 12, 18, 24, 30, 31, 37, 43, 49, 55, 61 y 62.
 # Las filas son las mismas en las dos (paso 10, a = +55 ... j = -55); la
 # grande las nombra al reves (A = -55) pero el puente trabaja en y.
 ROW_Y: Dict[str, int] = {
@@ -61,6 +62,8 @@ BOARD_KINDS: Dict[int, Dict[str, Any]] = {
         "x0": -145,
         "rails": {"T-": -95, "T+": -85, "B-": 85, "B+": 95},
         "rail_columns": 30,
+        # Vacio = todos los huecos de la placa tienen riel.
+        "rail_holes": [],
     },
     # La grande trae cuatro filas de riel de 50 huecos (medido 2026-11-15,
     # sonda sobre un diseno desechable: y=-95/-85 son el par de abajo y el
@@ -73,9 +76,18 @@ BOARD_KINDS: Dict[int, Dict[str, Any]] = {
         "columns": 62,
         "x0": -295,
         "rails": {"T+": 85, "T-": 95, "B+": -85, "B-": -95},
-        # Los rieles de la grande son de 50 huecos (x -295..195), no de 62:
-        # pedir la columna 51 sobre un riel no resuelve a nada.
-        "rail_columns": 50,
+        # Los rieles de la grande llegan hasta la columna 60 (el ultimo hueco
+        # esta en x=295), pero **no estan seguidos**: medido el 2026-11-15
+        # sobre un build real, faltan en 6, 12, 18, 24, 30, 31, 37, 43, 49,
+        # 55, 61 y 62 (saltos cada seis). Un cable a un hueco que no existe no
+        # resuelve: "B+24" y "T+43" fallan aunque la columna este en rango. La
+        # lista de huecos manda; `rail_columns` es solo el tope del riel.
+        "rail_columns": 60,
+        "rail_holes": [
+            1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21,
+            22, 23, 25, 26, 27, 28, 29, 32, 33, 34, 35, 36, 38, 39, 40, 41,
+            42, 44, 45, 46, 47, 48, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60,
+        ],
     },
 }
 
@@ -398,10 +410,18 @@ _BUILD_JS = r"""
     const col = parseInt(m[4], 10);
     const kind = boardKind(board);
     // Un riel que la placa no declara no es destino: "T+5" sobre la Small sin
-    // esa fila tiene que seguir fallando.
+    // esa fila tiene que seguir fallando. Y una columna cuenta solo si esa
+    // fila de riel tiene hueco ahi: la grande salta columnas (6, 12, 24...).
     if (!(side in (kind.rails || {}))) return null;
-    const railCols = kind.rail_columns || kind.columns;
-    if (!(col >= 1 && col <= railCols)) return null;
+    const railHoles = kind.rail_holes || [];
+    if (railHoles.length) {
+      // Con tabla de huecos ella manda: la grande llega hasta la columna 60
+      // pero solo 50 de esas columnas tienen hueco, y no son las primeras 50.
+      if (!railHoles.includes(col)) return null;
+    } else {
+      const railCols = kind.rail_columns || kind.columns;
+      if (!(col >= 1 && col <= railCols)) return null;
+    }
     return { board, side, col };
   }
   function holeName(col, y, boardIndex) {

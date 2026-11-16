@@ -1,0 +1,134 @@
+# AGENTS.md — reglas para el agente que usa este MCP
+
+Este repositorio es un servidor MCP que maneja **Tinkercad Circuits** a traves
+del editor real (Playwright). Antes de usarlo, lee
+[RESTRICCIONES.md](./RESTRICCIONES.md): ahi esta lo que el editor mide y lo que
+no, y las trampas ya pagadas.
+
+Estas reglas no son sugerencias. Si algo de aca se rompe, el circuito se ve
+bien en la foto y no funciona en la simulacion.
+
+---
+
+## 1. Palabra del usuario manda, pero la alimentacion tiene una sola forma
+
+Eddie fijo la regla de alimentacion y es **obligatoria** en todo circuito que
+se construya o se modifique:
+
+1. La fuente es la pieza **Power Supply** (`did 111724`, pines `Vcc` y `GND`).
+   **Nunca** se reparte alimentacion desde el pin de 5 V del Arduino.
+2. **Rojo** = positivo, **negro** = tierra. Esos dos colores no se usan para
+   senales, sin excepciones.
+3. De la fuente salen dos cables al riel de la placa: rojo al positivo, negro
+   al negativo, entrando por el borde (columna 1), no por el medio.
+4. Dos cables mas, del mismo color, van al riel del **borde opuesto** para que
+   la placa quede alimentada entera. Si esa placa no puede llevar esa
+   polaridad en ese borde (ver RESTRICCIONES §1), se dice en el reporte y se
+   usa fila de bus; no se inventa un cable decorativo y se calla.
+5. Cada componente toca el riel de **su propia mitad** con un cable corto en
+   su misma columna. Nada de tiradas largas hasta la fuente.
+6. Una placa extra se alimenta **de la placa ya alimentada**, no de la fuente.
+
+Si te piden algo que contradice esto, hazlo pero **dilo antes**: "esto rompe
+la regla de alimentacion porque ...". No lo hagas en silencio.
+
+## 2. Verificar antes de afirmar
+
+- "Fidelidad 1.0" y "funciona" son dos cosas distintas. La primera la dice el
+  build; la segunda la dice el **serial** y la **captura**.
+- Un `0.0` solo vale como "medi y no estaba". Si el editor no monto el
+  diseno, es `success: false` con `reason: "editor_not_mounted"` y **no** es
+  un cableado mal hecho. No conviertas un "no pude leer" en un cero.
+- Antes de declarar terminado: fidelidad, 0 diagonales, las marcas del serial
+  **en orden**, y captura cuando el resultado es visual. Si falta una, di
+  cual.
+- Un circuito que explota sigue contando pines: la fidelidad no prueba
+  validez electrica. Para eso estan la simulacion y el serial.
+
+## 3. Como se construye (orden que funciona)
+
+1. `tinkercad_auth_status` y, si hace falta, `tinkercad_login`.
+2. `tinkercad_create_circuit` (o `tinkercad_open_circuit` con el id guardado:
+   reusar por id, **nunca** crear un duplicado por titulo).
+3. `tinkercad_build_circuit_model` con `parts`, `wires`, `boards` y `code`.
+   Los extremos son huecos (`"12d"`, `"b1/7h"`) o rieles (`"T+5"`,
+   `"b2/B-40"`), no pines inventados.
+4. `tinkercad_set_component_property_model` por **nombre real** de la parte
+   (con siete resistencias, "Resistor" es ambiguo y el preset se pierde).
+5. `tinkercad_set_code` (espera el flush y relee: no lo saltes).
+6. `tinkercad_start_simulation` y `tinkercad_read_serial_monitor` **sondeando**
+   hasta que aparezcan las marcas, con tope. El simulador va a 0,05–1×.
+7. `tinkercad_simulate_samples` / `tinkercad_take_screenshot` para lo visual.
+
+## 4. Descubrir una pieza se mide, no se adivina
+
+`tinkercad_list_available_components` **no** es el catalogo real (no lista
+"Power supply", por ejemplo). Para saber si una pieza existe y como se llaman
+sus pines:
+
+1. crea un circuito **desechable** con un titulo que empiece con `BORRAR -`;
+2. `tinkercad_add_component` con el nombre que crees que tiene;
+3. `tinkercad_inspect_circuit` y lee `type`, `did` y los pines reales;
+4. `tinkercad_delete_circuit` para borrarlo;
+5. anota el did y los alias en el catalogo del cerebro, con la fecha y el
+   circuito donde se midio.
+
+Un did inventado no falla con un error claro: coloca otra cosa.
+
+## 5. Errores que ya pagamos (no los repitas)
+
+- **Display 7 segmentos**: solo entra girado 180°, y girarlo intercambia las
+  patas (`a`↔`d`, `b`↔`e`, `c`↔`f`). Se verifica con captura, no con el
+  netlist.
+- **Comunes del display**: declara uno; los dos bajan la fidelidad sin que
+  falte un cable.
+- **Nombres de pines**: el guardado usa nombres humanos (`Power`, `Ground`,
+  `Common`, `Row 1`, `Terminal 1`). Sin alias por tipo, la conectividad mide
+  a medias.
+- **Nombres de partes**: el editor deduplica (`r2` → `r21`). Usa el nombre
+  que devuelve el build.
+- **Potenciometro**: la posicion del knob es estado de simulacion, no
+  propiedad del modelo. No intentes fijarla.
+- **Serial incompleto al arrancar**: si la simulacion arranco antes de que el
+  codigo estuviera listo, reintenta `stop` + `start` antes de culpar al
+  cableado.
+- **Rieles salteados en la placa grande**: tiene 50 huecos de riel repartidos
+  en 60 columnas, no 50 seguidos. `B+24`, `T+37`, `B+49`, `T+43` no existen
+  aunque la columna este en rango; el build responde `endpoint not resolved`
+  y el cable simplemente no se tiende. Antes de cablear a un riel, consulta
+  `rail_holes` de `BOARD_KINDS` (o usa solo columnas 1..5, 7..11, 13..17...).
+
+## 6. Prohibido
+
+- Escribir credenciales, cookies o el contenido de `.tinkercad_profile/` en
+  reportes, commits, capturas o respuestas.
+- Correr dos builds en paralelo contra la misma cuenta: comparten la pagina y
+  se pisan.
+- Borrar disenos que no creaste tu. `tinkercad_delete_circuit` no pregunta.
+- Declarar "funciona" sin serial y sin captura.
+- Tocar los circuitos ya entregados (v1 `4bJNKia4pfj`, v2 `jWUw1co8IZH`) ni
+  sus fixtures: si hay que cambiar algo, se hace una version nueva.
+- `git add -A` a ciegas: puede haber trabajo a medias de otra sesion.
+
+## 7. Higiene del repositorio
+
+- Un commit por cambio con sentido, con el motivo: que cambio y por que.
+- Suite real antes de empujar: `python -m unittest discover tests` (336 tests)
+  y `python examples/check_mcp_stdio.py` para el camino MCP por stdio.
+- Si un test viejo fija un contrato que la medicion nueva contradice,
+  reescribelo **dejando el motivo escrito**; no lo borres.
+- Un cambio de geometria o de alias se re-verifica en vivo: la tabla que vive
+  solo en el JS no se prueba sin navegador.
+
+## 8. Donde esta la verdad
+
+| Que | Donde |
+|---|---|
+| Fixtures y cableado esperado | repo del cerebro: `fixtures/fase0/circuits.json` |
+| El circuito medido y su URL | repo del cerebro: `docs/reportes/<id>.md` |
+| Geometria de las placas | `src/services/model_build_service.py` (`BOARD_KINDS`, `ROW_Y`) |
+| Reglas de layout y reparto de rieles | cerebro: `layout_v3.py` |
+| Este documento | `AGENTS.md` |
+
+Si una afirmacion de estos documentos ya no se sostiene contra el codigo,
+corrigela en el mismo commit que tu cambio.

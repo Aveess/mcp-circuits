@@ -1500,6 +1500,46 @@ class TestRielesDeLaPlacaGrande(unittest.TestCase):
         # y un hueco normal sigue resolviendo a la fila
         self.assertEqual(salida["hueco"], {"board": 0, "col": 5, "row": "e"})
 
+    def test_los_huecos_de_riel_no_son_las_primeras_50_columnas(self):
+        """La grande salta columnas: pedir una sin hueco no es un destino.
+
+        Medido el 2026-11-15 en el build de la v3: los cinco cables que no
+        resolvieron (`37f -> B+37`, `B+49 -> 49j`, `43e -> T+43`, `49e ->
+        T+49`, `T+24 -> 24a`) caian justo en columnas sin hueco de riel. La
+        tabla decia 50 huecos y el puente los aceptaba de 1 a 50.
+        """
+        from src.services import model_build_service as mbs
+
+        huecos = mbs.board_kinds()[116648]["rail_holes"]
+        self.assertEqual(len(huecos), 50)
+        self.assertEqual(
+            [c for c in range(1, 63) if c not in huecos],
+            [6, 12, 18, 24, 30, 31, 37, 43, 49, 55, 61, 62],
+        )
+
+    def test_un_riel_sin_hueco_en_esa_columna_no_resuelve(self):
+        from src.services import model_build_service as mbs
+
+        salida = self._run_js()
+        # 23 tiene hueco, 24 no; 36 si, 37 no; 48 si, 49 no.
+        self.assertEqual(salida["con_hueco"], {"board": 0, "side": "B+", "col": 23})
+        for clave in ("sin_hueco_24", "sin_hueco_37", "sin_hueco_49", "sin_hueco_43"):
+            self.assertIsNone(salida[clave], f"{clave} deberia ser None")
+        # El riel llega a la columna 60: 58 y 60 tienen hueco y resuelven. Si
+        # `rail_columns` vale 50 (el numero de huecos en vez de la ultima
+        # columna), estos dos se rechazan y el build pierde cuatro cables.
+        self.assertEqual(salida["ultimo_hueco"], {"board": 0, "side": "B+", "col": 60})
+        self.assertEqual(salida["penultimo_hueco"], {"board": 0, "side": "B+", "col": 58})
+        self.assertIsNone(salida["sin_riel_61"])
+
+    def test_los_rieles_de_la_placa_chica_siguen_completos(self):
+        from src.services import model_build_service as mbs
+
+        self.assertEqual(mbs.board_kinds()[111211]["rail_holes"], [])
+        salida = self._run_js()
+        self.assertEqual(salida["small_30"], {"board": 2, "side": "T-", "col": 30})
+        self.assertIsNone(salida["small_31"])
+
     def test_el_nombre_del_riel_sale_en_el_lenguaje_del_puente(self):
         from src.services import model_build_service as mbs
 
@@ -1521,7 +1561,7 @@ const src = __SRC__;
 const start = src.indexOf('const BOARD_KINDS =');
 const end = src.indexOf('function bbTerminal');
 if (start < 0 || end <= start) throw new Error('chunk de geometria no encontrado');
-const plan = { boards: [{ x: 870, y: 0, did: 116648 }, { x: 1470, y: 0, did: 116648 }] };
+const plan = { boards: [{ x: 870, y: 0, did: 116648 }, { x: 1470, y: 0, did: 116648 }, { x: 2070, y: 0, did: 111211 }] };
 const api = new Function(src.slice(start, end) + '\nreturn { parseRail, parseHole, holeName };')();
 const pick = (r) => (r ? { board: r.board, side: r.side, col: r.col } : null);
 const pickHole = (r) => (r ? { board: r.board, col: r.col, row: r.row } : null);
@@ -1532,6 +1572,16 @@ console.log(JSON.stringify({
   col63: pick(api.parseRail('T+63')),
   hueco: pickHole(api.parseHole('5e')),
   nombre: api.holeName(5, 85, 0),
+  con_hueco: pick(api.parseRail('B+23')),
+  sin_hueco_24: pick(api.parseRail('B+24')),
+  sin_hueco_37: pick(api.parseRail('B+37')),
+  sin_hueco_49: pick(api.parseRail('B+49')),
+  sin_hueco_43: pick(api.parseRail('T+43')),
+  ultimo_hueco: pick(api.parseRail('B+60')),
+  penultimo_hueco: pick(api.parseRail('B+58')),
+  sin_riel_61: pick(api.parseRail('B+61')),
+  small_30: pick(api.parseRail('b2/T-30')),
+  small_31: pick(api.parseRail('b2/T-31')),
 }));
 """
         script = harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))

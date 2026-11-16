@@ -9,7 +9,9 @@ This server enables AI assistants (such as Claude Desktop, Cursor, Antigravity, 
 ## 🤖 AI Agent Quick Reference & Prompts
 
 * **[Agent Instructions (`instructions.md`)](instructions.md)** — Core tool usage rules, canonical component & pin names, and best practices.
-* **[Complete Agent Guide (`AGENT_GUIDE.md`)](AGENT_GUIDE.md)** — Full 1-call `tinkercad_build_circuit` examples, pinout references, and conversion formulas.
+* **[Agent Guide (`AGENT_GUIDE.md`)](AGENT_GUIDE.md)** — Full 1-call `tinkercad_build_circuit` examples, pinout references, and conversion formulas.
+* **[Reglas para agentes (`AGENTS.md`)](AGENTS.md)** — Las reglas obligatorias al construir: alimentacion por fuente y rieles, verificacion real y errores ya pagados.
+* **[Restricciones (`RESTRICCIONES.md`)](RESTRICCIONES.md)** — Lo que el editor mide y lo que no, geometria de las placas y limites duros. Para personas.
 
 ---
 

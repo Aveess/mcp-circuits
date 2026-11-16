@@ -49,8 +49,11 @@ class BoardGeometryTest(unittest.TestCase):
         self.assertEqual(
             grande["rails"], {"T+": 85, "T-": 95, "B+": -85, "B-": -95}
         )
-        # Los rieles son de 50 huecos aunque la placa tenga 62 columnas.
-        self.assertEqual(grande["rail_columns"], 50)
+        # El riel llega hasta la columna 60 (no hasta la 50): el ultimo hueco
+        # con riel es x=295, o sea la columna 60 de las 62. Los 50 huecos son
+        # 50 columnas **salteadas** dentro de 1..60, y eso lo dice `rail_holes`.
+        self.assertEqual(grande["rail_columns"], 60)
+        self.assertEqual(len(grande["rail_holes"]), 50)
 
     def test_la_placa_chica_sigue_con_30_columnas_y_sus_rieles(self):
         small = board_kinds()[SMALL]
