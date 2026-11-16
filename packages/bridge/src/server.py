@@ -1089,6 +1089,7 @@ async def tinkercad_build_circuit_model(
     code: Optional[str] = None,
     clear_existing: bool = False,
     boards: Optional[List[Dict[str, Any]]] = None,
+    remove_unused_uno: bool = False,
 ) -> str:
     """Build a circuit by breadboard holes directly in the editor's internal model.
 
@@ -1104,6 +1105,9 @@ async def tinkercad_build_circuit_model(
         clear_existing: If True, first remove all wires and devices except the
             Arduino Uno (breadboard included; recreated if the plan needs it),
             wait for persistence, then build. Result includes "cleared": bool.
+        remove_unused_uno: If True, remove the Uno at the end when no wire of
+            the plan touches it. For 100% hardware circuits: no empty Arduino
+            left on the canvas. Result includes "removed_uno": bool.
     """
     try:
         res = await model_build_service.build_from_holes(
@@ -1112,6 +1116,7 @@ async def tinkercad_build_circuit_model(
             code=code,
             clear_existing=clear_existing,
             boards=boards,
+            remove_unused_uno=remove_unused_uno,
         )
         return json.dumps(res, indent=2)
     except Exception as e:

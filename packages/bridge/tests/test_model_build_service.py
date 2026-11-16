@@ -108,6 +108,33 @@ class TestModelBuildEvaluate(unittest.IsolatedAsyncioTestCase):
         plan = mock_page.evaluate.call_args_list[0].args[1]
         self.assertIsNone(plan["code"])
 
+    async def test_remove_unused_uno_is_opt_in_and_reaches_the_plan(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": []})
+        await svc.build_from_holes(
+            parts=[{"ref": "r1", "did": 53184, "at": "5e", "pin": "1"}], wires=[]
+        )
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertFalse(plan["remove_unused_uno"])
+
+        svc, _, mock_page = make_service(
+            {"placed": {}, "errors": [], "removed_uno": True}
+        )
+        res = await svc.build_from_holes(
+            parts=[{"ref": "r1", "did": 53184, "at": "5e", "pin": "1"}],
+            wires=[],
+            remove_unused_uno=True,
+        )
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertTrue(plan["remove_unused_uno"])
+        self.assertTrue(res["removed_uno"])
+
+    async def test_removed_uno_defaults_to_false_when_js_does_not_report_it(self):
+        svc, _, _ = make_service({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(
+            parts=[{"ref": "r1", "did": 53184, "at": "5e", "pin": "1"}], wires=[]
+        )
+        self.assertFalse(res["removed_uno"])
+
 
 class TestModelBuildPersistence(unittest.IsolatedAsyncioTestCase):
     PARTS = [{"ref": "led1", "did": 58422, "at": "9i", "pin": "anode"}]
@@ -297,6 +324,18 @@ class TestModelBuildRouting(unittest.IsolatedAsyncioTestCase):
         self.assertIn("breadboardPos", js)
         self.assertIn("termOffset(term)", js)  # device pos + terminal offset
         self.assertIn("devPos(dev)", js)
+
+    def test_build_js_can_remove_the_unused_uno(self):
+        """El build crea el Uno siempre; `remove_unused_uno` lo quita.
+
+        Solo si ningun cable del plan lo toca: un circuito 100 % hardware no
+        debe dejar un Arduino vacio en el lienzo.
+        """
+        js = mbs._BUILD_JS
+        self.assertIn("remove_unused_uno", js)
+        self.assertIn("removed_uno", js)
+        self.assertIn("data.devices.remove(uno)", js)
+        self.assertLess(js.index("remove_unused_uno"), js.index("removed_uno = true"))
 
     def test_build_js_syntax_with_node_if_available(self):
         import shutil

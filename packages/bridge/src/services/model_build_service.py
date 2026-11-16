@@ -316,6 +316,7 @@ _BUILD_JS = r"""
   const placed = {};
   const route_debug = [];
   let routed = 0;
+  let removed_uno = false;
   const ce = window.circuit_editor;
   if (!ce || !ce.data) return { placed, errors: ['circuit_editor not available'], routed, route_debug };
   const data = ce.data;
@@ -1033,13 +1034,37 @@ _BUILD_JS = r"""
         }
       } catch (e) {}
     }
+
+    // Un circuito 100 % hardware no necesita el micro. El build siempre
+    // crea el Uno (ensureDevice), asi que si el plan lo pide y ningun cable
+    // lo usa, se quita: dejarlo vacio en el lienzo confunde al que arma.
+    // Opt-in: solo cuando `remove_unused_uno` viene en el plan.
+    if (plan.remove_unused_uno) {
+      const usaUno = (plan.wires || []).some((raw) => {
+        const spec = wireSpec(raw);
+        return isUnoEp(spec.from) || isUnoEp(spec.to);
+      });
+      if (!usaUno && uno) {
+        try {
+          if (data.devices && typeof data.devices.remove === 'function') {
+            data.devices.remove(uno);
+            removed_uno = true;
+          } else if (typeof uno.remove === 'function') {
+            uno.remove();
+            removed_uno = true;
+          } else {
+            errors.push('uno remove unavailable');
+          }
+        } catch (e) { errors.push('uno remove: ' + e.toString()); }
+      }
+    }
   } catch (e) {
     errors.push(e.toString());
   } finally {
     try { if (root && typeof root.stopRec === 'function') root.stopRec(); } catch (e) {}
     try { if (root && typeof root.save === 'function') root.save(); } catch (e) {}
   }
-  return { placed, errors, routed, route_debug };
+  return { placed, errors, routed, route_debug, removed_uno };
 }
 """
 
@@ -1104,6 +1129,7 @@ class ModelBuildService:
         code: str | None = None,
         clear_existing: bool = False,
         boards: list[dict] | None = None,
+        remove_unused_uno: bool = False,
     ) -> dict:
         """Place parts so their pins land in breadboard holes, then wire endpoints.
 
@@ -1128,6 +1154,13 @@ class ModelBuildService:
         with a D13 terminal; the breadboard is removed too and recreated
         by the build if the plan needs it), then waits for persistence
         before building. The result always carries ``"cleared": bool``.
+
+        With ``remove_unused_uno=True`` the Uno that the build creates
+        anyway is removed at the end **if no wire of the plan touches it**.
+        That is what a 100% hardware circuit wants: no empty Arduino
+        sitting on the canvas. The result carries ``"removed_uno": bool``.
+        It is opt-in on purpose: a circuit that keeps the Uno empty to
+        program it later must not lose it.
 
         Returns {"success": bool, "placed": {...}, "errors": [...],
         "persisted": bool, "routed": int, "route_debug": [...],
@@ -1295,6 +1328,7 @@ class ModelBuildService:
             "parts": parts or [],
             "wires": plan_wire_style(wires, free_refs=free_refs),
             "code": code,
+            "remove_unused_uno": bool(remove_unused_uno),
         }
         await self._wait_for_editor(page)
         result = await page.evaluate(_BUILD_JS, plan)
@@ -1337,6 +1371,7 @@ class ModelBuildService:
                 ):
                     js_errors.append(f"route_failed: {label}: {reason}")
         placed = result.get("placed") or {}
+        removed_uno = bool(result.get("removed_uno"))
         raw_routed = result.get("routed")
         routed = (
             int(raw_routed)
@@ -1353,6 +1388,7 @@ class ModelBuildService:
                 "routed": routed,
                 "route_debug": route_debug,
                 "cleared": cleared,
+                "removed_uno": removed_uno,
             }
 
         persisted, last_pending = await self._wait_for_persistence(page)
@@ -1365,6 +1401,7 @@ class ModelBuildService:
                 "routed": routed,
                 "route_debug": route_debug,
                 "cleared": cleared,
+                "removed_uno": removed_uno,
             }
         return {
             "success": False,
@@ -1380,4 +1417,5 @@ class ModelBuildService:
             "routed": routed,
             "route_debug": route_debug,
             "cleared": cleared,
+            "removed_uno": removed_uno,
         }

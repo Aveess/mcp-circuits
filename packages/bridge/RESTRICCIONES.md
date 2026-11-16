@@ -66,6 +66,19 @@ porque maneja EN (D8) y RESET (D9), lee el reloj del 555 en D2 y emite
 largos de alimentacion que antes salian del Uno desaparecieron: pasaron de
 18 tiradas a 2.
 
+Ejemplo medido: en el contador 0-7 **v4** (`3akmw1EaG0p`) el Uno **no esta**.
+EN lo mueve un interruptor deslizante y RESET un pulsador con pull-down e
+inversor (ver `docs/organizacion-cables.md`, regla v4). Como el build
+**siempre crea el Uno** (`ensureDevice`), la fixture lo declara con
+`"no_arduino": true` y el puente lo quita al final con
+`remove_unused_uno: true`. Sin ese paso el Arduino vacio baja la fidelidad de
+piezas a 26/27 (96.3 %) aunque el cableado este al 100 %: el Uno cuenta como
+componente que la fixture no declara.
+
+Lo que se pierde al quitar el micro se dice antes: **no hay monitor serial**.
+La evidencia pasa a ser la captura del display. Si alguien pide `TEST:DIGITO`
+en un circuito sin micro, ese dato ya no existe.
+
 Donde la regla no se puede cumplir entera, se dice:
 
 - En la **placa grande** las dos filas de riel de abajo se llaman las dos `X`

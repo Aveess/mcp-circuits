@@ -60,6 +60,19 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
 3. `tinkercad_build_circuit_model` con `parts`, `wires`, `boards` y `code`.
    Los extremos son huecos (`"12d"`, `"b1/7h"`) o rieles (`"T+5"`,
    `"b2/B-40"`), no pines inventados.
+   - Un circuito **sin micro** se construye sin `code` (o con `code: null`) y
+     con `remove_unused_uno: true`: el build crea el Uno igual, y esa opcion
+     lo quita al final si ningun cable del plan lo toca. El resultado trae
+     `removed_uno`. Sin ella, el Arduino vacio resta fidelidad de piezas.
+   - Los pines de una **parte libre** se piden por la **clave del modelo**,
+     no por el nombre de la UI. Medido: `Slide Switch` usa `1`/`2`/`3`
+     (3 = Common) y `Pushbutton` usa `1`..`4` (1/2 un lado, 3/4 el otro).
+     "Common" o "Terminal 2a" fallan con `endpoint_not_resolved`.
+   - Un **interruptor deslizante** nace con el comun en la clave `1`: si de
+     esa posicion cuelga el estado "apagado", el circuito arranca muerto y
+     solo cambia con un clic en el simulador. Para que algo se vea
+     funcionando al abrir el diseno, la clave `1` va a la posicion activa
+     (medido en vivo, build `3akmw1EaG0p`: el display se quedo en 0).
 4. `tinkercad_set_component_property_model` por **nombre real** de la parte
    (con siete resistencias, "Resistor" es ambiguo y el preset se pierde).
 5. `tinkercad_set_code` (espera el flush y relee: no lo saltes).
