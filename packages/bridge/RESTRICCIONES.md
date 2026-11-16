@@ -40,6 +40,32 @@ cable de alimentacion mal puesto se ve perfecto en la foto y no funciona.
 5. Una placa adicional se alimenta **de la placa ya alimentada**, con los
    mismos dos cables y los mismos colores. La fuente alimenta una sola placa.
 
+### 1.1 Cuando aparece el Arduino (y cuando no)
+
+La fuente reemplaza al Uno **como fuente de energia**, no como controlador.
+Son dos papeles distintos y conviene no confundirlos:
+
+- **Por defecto no hay Arduino.** Un circuito que se resuelve con hardware
+  (reloj, compuertas, display, LEDs) se arma sin placa programable.
+- **El Uno entra solo si el proyecto necesita programa**: leer o escribir
+  pines, hablar por el monitor serial, atender un sensor, o manejar senales
+  de control como EN y RESET. En ese caso se dice en la descripcion del
+  circuito por que esta.
+- **Cuando esta, no alimenta nada.** Sus pines de 5 V y GND no reparten
+  energia: eso lo hace la fuente. Lo unico que se cuelga es su `GND` como
+  referencia comun, y si el proyecto lo pide, su `5V` recibe de la fuente.
+- **El panel de control y la evidencia tambien son motivo.** Si el taller
+  pide demostrar la secuencia por el monitor serial, sin micro no hay
+  monitor. Si te piden quitar el Arduino, avisa que se pierden las senales
+  de control y el serial: el circuito puede seguir contando solo, pero deja
+  de poder demostrarse.
+
+Ejemplo medido: en el contador 0-7 v3 (`kSakfQXHtmU`) el Uno **se queda**
+porque maneja EN (D8) y RESET (D9), lee el reloj del 555 en D2 y emite
+`TEST:DIGITO` por serial; la energia sale de la `Power Supply`. Los cables
+largos de alimentacion que antes salian del Uno desaparecieron: pasaron de
+18 tiradas a 2.
+
 Donde la regla no se puede cumplir entera, se dice:
 
 - En la **placa grande** las dos filas de riel de abajo se llaman las dos `X`

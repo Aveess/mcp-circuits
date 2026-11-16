@@ -29,6 +29,13 @@ se construya o se modifique:
    su misma columna. Nada de tiradas largas hasta la fuente.
 6. Una placa extra se alimenta **de la placa ya alimentada**, no de la fuente.
 
+**El Arduino no es la fuente.** Por defecto **no se pone**: solo entra si el
+proyecto necesita programa (leer/escribir pines, serial, sensores, EN/RESET) y
+en ese caso se dice por que esta. Cuando esta, sigue siendo un consumidor: sus
+5 V y GND no reparten energia y solo su GND se cuelga como referencia comun.
+Si te piden quitar el Arduino de un circuito que lo usa para control o para
+el monitor serial, avisa que se pierden esas dos cosas antes de quitarlo.
+
 Si te piden algo que contradice esto, hazlo pero **dilo antes**: "esto rompe
 la regla de alimentacion porque ...". No lo hagas en silencio.
 
@@ -97,6 +104,14 @@ Un did inventado no falla con un error claro: coloca otra cosa.
   aunque la columna este en rango; el build responde `endpoint not resolved`
   y el cable simplemente no se tiende. Antes de cablear a un riel, consulta
   `rail_holes` de `BOARD_KINDS` (o usa solo columnas 1..5, 7..11, 13..17...).
+- **Un tap de alimentacion en la media columna de una pata ajena quema el
+  integrado.** La placa une los cinco huecos de la mitad, asi que bajar el 5V
+  al hueco `a58` es conectar el 5V a la pata que este en `e58`/`f58`. En el
+  contador v3 (`kSakfQXHtmU`) el bus del 5V bajo por la columna de `x1.4Y`
+  (salida del XOR en bajo) y el 74HC86 revento en la simulacion **sin** que
+  la secuencia del display se viera afectada. Si una pata queda en una
+  columna sin hueco de riel, el cable va **directo al hueco de riel mas
+  cercano**, no por una fila de bus.
 
 ## 6. Prohibido
 
