@@ -3323,8 +3323,9 @@
     "notes": [
       "Interpretacion y diagnostico (punto 6):",
       "- La frecuencia del 555 es f = 1.44 / ((R1 + 2 R2) C). Con R1=10k,",
-      "  R2=68k y C=10 uF da ~0.99 Hz. El valor real se mide en la",
-      "  simulacion y se imprime en TEST:PERIODO.",
+      "  R2=22k y C=10 uF da ~2.7 Hz: un digito cada 0,37 s, pensado para",
+      "  que el conteo se vea tambien con el simulador lento. El valor real",
+      "  se mide y se imprime en TEST:PERIODO.",
       "- Q0 conmuta a f/2, Q1 a f/4 y Q2 a f/8: cada etapa divide entre",
       "  dos. Por eso el numero cambia a la frecuencia del reloj pero cada",
       "  bit lo hace a la suya; el contador avanza un digito por flanco.",
