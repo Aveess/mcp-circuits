@@ -33,21 +33,21 @@
 - Observado: todas las marcas aparecieron en orden.
 
 ## Ruteo
-- Sin tramos sobre el cuerpo de una placa (191 de 191 cables medidos, 16 ruteados).
-- Sin tramos diagonales en 191 cables medidos.
+- Sin tramos sobre el cuerpo de una placa (189 de 189 cables medidos, 16 ruteados).
+- Sin tramos diagonales en 189 cables medidos.
+- 5 salto(s) recto(s) entre huecos de la placa (max. 70 unidades); son puentes, se dejan.
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 15.3 | 15.3 |
-| tinkercad_inspect_circuit | 1 | 0.4 | 0.4 |
-| tinkercad_list_circuits | 1 | 7.6 | 7.6 |
-| tinkercad_open_circuit | 2 | 13.1 | 13.2 |
-| tinkercad_read_serial_monitor | 6 | 1.5 | 3.2 |
-| tinkercad_set_code | 1 | 17.4 | 17.4 |
-| tinkercad_set_component_property_model | 12 | 1.3 | 6.6 |
-| tinkercad_start_simulation | 1 | 21.6 | 21.6 |
-| tinkercad_stop_simulation | 1 | 2.3 | 2.3 |
+| tinkercad_build_circuit_model | 1 | 16.8 | 16.8 |
+| tinkercad_inspect_circuit | 1 | 0.3 | 0.3 |
+| tinkercad_open_circuit | 2 | 14.2 | 15.5 |
+| tinkercad_read_serial_monitor | 7 | 1.5 | 3.3 |
+| tinkercad_set_code | 1 | 17.0 | 17.0 |
+| tinkercad_set_component_property_model | 12 | 1.3 | 5.8 |
+| tinkercad_start_simulation | 1 | 21.3 | 21.3 |
+| tinkercad_stop_simulation | 1 | 7.5 | 7.5 |
 
 ## Fallos
 Sin fallos.
@@ -57,6 +57,7 @@ Sin fallos.
 ```
 CONTADOR / CIRCUITO: Contador 0-7 v3: alimentacion por fuente y rieles
 Fixture del cerebro: contador-0-7-jk-v3
+Diseno en Tinkercad: /things/kSakfQXHtmU/editel
 
 QUE HACE
  *   Taller 3 - Contador 0 a 7 con flip-flops JK (v3).

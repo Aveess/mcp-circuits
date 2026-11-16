@@ -281,6 +281,82 @@ def test_ni_dos_nets_en_una_media_columna_ni_patas_sin_hueco():
             assert endpoint in nets["leg_holes"], f"{endpoint} quedo sin hueco"
 
 
+def _cell_owner(fixture: dict, leg_holes: dict) -> dict:
+    """{(placa, columna, mitad): net o pata} de **cada** pata colocada.
+
+    Incluye las patas que no estan en ninguna net (las compuertas sobrantes
+    del decodificador): tambien ocupan su media columna y un cable ajeno ahi
+    es un corto.
+    """
+    name_of = {}
+    for net in fixture["nets"]:
+        name = _net_name(net)
+        for endpoint in net:
+            name_of[endpoint] = name
+    owner = {}
+    for endpoint, hole in leg_holes.items():
+        board_index, col, row = hole
+        owner[(board_index, col, half(row))] = name_of.get(endpoint, endpoint)
+    return owner
+
+
+def _cell_of(endpoint: str):
+    """Media columna de un hueco, o ``None`` si el extremo es un riel o un pin."""
+    board_index, rest = _parse(endpoint)
+    if _is_rail(rest):
+        return None
+    match = re.fullmatch(r"(\d+)([a-j])", rest)
+    if match is None:
+        return None
+    return (board_index, int(match.group(1)), half(match.group(2)))
+
+
+@pytest.mark.parametrize("name", sorted(COLORES))
+def test_ningun_cable_de_alimentacion_toca_la_media_columna_de_otra_net(name):
+    """Cada chip tiene una pata por media columna: tocar el hueco es tocar la pata.
+
+    La placa une los cinco huecos de la mitad, asi que un cable de 5V que baje
+    en la media columna de una salida le mete 5V a la salida. El simulador no
+    lo reporta como error de armado: quema el integrado y sigue. Por eso se
+    verifica en el plan, antes de construir.
+    """
+    fixture, _, nets = _plan()
+    owner = _cell_owner(fixture, nets["leg_holes"])
+
+    for wire in _power(nets, name):
+        for key in ("from", "to"):
+            cell = _cell_of(wire[key])
+            if cell is None:
+                continue
+            duena = owner.get(cell)
+            assert duena in (None, name), (
+                f"{name}: el cable a {wire[key]} cae en la media columna de "
+                f"{duena} (cortocircuito)"
+            )
+
+
+def test_el_5v_no_baja_por_la_media_columna_de_una_salida_del_xor():
+    """Regresion del build del 2026-11-15: el bus del 5V bajo por x1.4Y.
+
+    En ``kSakfQXHtmU`` el 5V tenia dos patas en columnas sin hueco de riel (37
+    y 55) y el bus eligio bajar en la 58, que es la media columna de la salida
+    ``4Y`` del XOR. Quedo 5V contra una salida en bajo: el 74HC86 revento en
+    la simulacion y el display seguia contando, asi que el sintoma no se veia
+    en la secuencia. Ahora esas patas van con un cable directo al hueco de
+    riel mas cercano.
+    """
+    fixture, _, nets = _plan()
+    owner = _cell_owner(fixture, nets["leg_holes"])
+    celda_4y = _cell_of(f"{nets['leg_holes']['x1.4Y'][1]}f")
+    assert owner[celda_4y] == "x1.4Y"
+
+    for wire in _power(nets, "5V"):
+        for key in ("from", "to"):
+            assert _cell_of(wire[key]) != celda_4y, (
+                f"el 5V vuelve a tocar la salida 4Y por {wire[key]}"
+            )
+
+
 # --------------------------------------------------------------------------
 # Los huecos de riel que existen de verdad
 # --------------------------------------------------------------------------

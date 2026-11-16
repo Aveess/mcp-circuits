@@ -10,7 +10,8 @@ verdad):
 3. desde el borde opuesto salen otros dos (uno de cada color) para que la
    placa quede alimentada de punta a punta;
 4. cada pieza toca el riel de su propia mitad con un cable corto en su misma
-   columna, en vez de tirar una tirada hasta la fuente;
+   columna (si esa columna no tiene hueco de riel, al hueco de riel mas
+   cercano, en linea recta), en vez de tirar una tirada hasta la fuente;
 5. una placa extra se alimenta **de la placa ya alimentada**, no de la fuente,
    con los mismos dos cables y los mismos colores.
 
@@ -33,9 +34,16 @@ de la otra mitad bajan a el (o a una fila de bus si no hay riel libre).
 Limites **medidos** del modelo, que este layout respeta:
 
 - en la **placa grande** las dos filas del par de abajo se llaman las dos ``X``
-  y son un solo nodo: ese lado solo puede llevar **una** polaridad. Sus rieles
-  son de **50** huecos aunque la placa tenga 62 columnas; lo que cae fuera va
-  por fila de bus;
+  y son un solo nodo: ese lado solo puede llevar **una** polaridad. El riel
+  llega hasta la columna 60 pero **solo 50 columnas tienen hueco** (faltan 6,
+  12, 18, 24, 30, 31, 37, 43, 49, 55, 61 y 62): una pata en una de esas
+  columnas no puede bajar en vertical, y el cable va al hueco de riel mas
+  cercano;
+- **una media columna que ya tiene una pata es de esa pata**: la placa une los
+  cinco huecos de la mitad, asi que bajar el 5V al hueco ``a58`` es conectar
+  el 5V a la pata que este en ``e58``/``f58``. Un bus que aterrice ahi quema
+  el integrado (paso el 2026-11-15 con la salida ``4Y`` del XOR). Por eso el
+  plan se valida contra las patas antes de construir;
 - en la **placa chica** los cuatro rieles son nodos distintos y el cable del
   borde opuesto es el que une los dos del mismo lado, como en una placa real.
 
@@ -47,6 +55,7 @@ sus patas de ese lado; la tierra de esa mitad llega por fila de bus.
 
 from __future__ import annotations
 
+import re
 from typing import Dict, List, Optional, Tuple
 
 from tinkercad_brain import layout_v2
@@ -76,6 +85,9 @@ _BUS_ROWS = {"5V": ("d", "j"), "GND": ("a", "i")}
 # la placa grande rotula "X" las dos filas de abajo. Ese lado no puede llevar
 # dos polaridades y el cable que las uniria no crea nada.
 _SINGLE_NODE_SIDES = {("large", "bottom")}
+
+# Nombre de hueco en el lenguaje de los cables: ``"58f"`` o ``"b1/58f"``.
+_HOLE_NAME = re.compile(r"^(?:b(\d+)/)?(\d+)([a-j])$")
 
 
 # --------------------------------------------------------------------------
@@ -201,6 +213,46 @@ def plan_nets_v3(fixture: dict, placements: dict) -> dict:
     }
 
 
+def _cell_owner(leg_holes: dict, owner_by_endpoint: dict) -> Dict[Tuple[int, int, str], str]:
+    """{(placa, columna, mitad): net duena} a partir de las patas colocadas.
+
+    Cada pata ocupa una media columna entera (los cinco huecos de esa mitad
+    son el mismo nodo), asi que la clave es la media columna y no el hueco.
+    """
+    owner: Dict[Tuple[int, int, str], str] = {}
+    for endpoint, hole in (leg_holes or {}).items():
+        board_index, col, row = hole
+        name = owner_by_endpoint.get(endpoint)
+        if name is None:
+            # Una pata que no esta en ninguna net (un pin sin usar) tambien
+            # reserva su media columna: nadie mas puede bajar ahi.
+            name = f"pata:{endpoint}"
+        owner[(board_index, col, half(row))] = name
+    return owner
+
+
+def _foreign_cell_errors(wires: List[dict],
+                         cell_owner: Dict[Tuple[int, int, str], str]) -> List[str]:
+    """Cables de alimentacion que aterrizan en la media columna de otra net."""
+    errors: List[str] = []
+    for wire in wires:
+        name = str(wire.get("net"))
+        for key in ("from", "to"):
+            match = _HOLE_NAME.match(str(wire.get(key) or ""))
+            if match is None:
+                continue
+            board_index = int(match.group(1) or 0)
+            col = int(match.group(2))
+            row = match.group(3)
+            owner = cell_owner.get((board_index, col, half(row)))
+            if owner is not None and owner != name:
+                errors.append(
+                    f"{name}: el cable a {wire[key]} cae en la media columna "
+                    f"de {owner} (cortocircuito)"
+                )
+    return errors
+
+
 def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
     boards = layout_v2._boards(fixture)
     components = {
@@ -260,10 +312,26 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
     home = _home_sides(taps)
     powered = sorted({0} | {index for name in _POWER_NAMES for index in taps[name]})
 
+    # Dueno de cada pata: la net de la fixture a la que pertenece. Sirve para
+    # dos cosas: no dejar que un bus baje en una media columna ajena (un chip
+    # tiene una pata por media columna, asi que tocar su hueco es tocar su
+    # pata) y para el chequeo final de cortos.
+    owner_by_endpoint: Dict[str, str] = {}
+    for net in fixture.get("nets") or []:
+        name = layout_v2._net_name(net)
+        for endpoint in net:
+            owner_by_endpoint[endpoint] = name
+    cell_owner = _cell_owner(leg_holes, owner_by_endpoint)
+
     # Quien es dueno de cada media columna: senales y patas de alimentacion.
     occupied: Dict[Tuple[int, int, str], set] = {
         key: set(owners) for key, owners in (signal_claims or {}).items()
     }
+    # Las patas de TODAS las piezas, no solo las de alimentacion: una media
+    # columna que ya tiene una pata no se puede usar como bajada de bus aunque
+    # el trazado de senales no la haya reclamado.
+    for cell, owner in cell_owner.items():
+        occupied.setdefault(cell, set()).add(owner)
     for name in _POWER_NAMES:
         for index, sides in taps[name].items():
             for side, cols in sides.items():
@@ -327,6 +395,12 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
             sides = taps[name].get(index) or {}
             _distribute(name, index, kind, home[name], other[name], sides,
                         occupied, claims, taken, wires, errors)
+
+    # 5) Un cable de alimentacion que aterrice en la media columna de una pata
+    #    ajena es un corto: la placa une los cinco huecos de la mitad, asi que
+    #    tocar el hueco es tocar la pata. Se falla antes de construir (el
+    #    simulador, si no, quema el integrado).
+    errors.extend(_foreign_cell_errors(wires, cell_owner))
 
     return {"wires": wires, "claims": claims, "errors": errors}
 
@@ -394,9 +468,10 @@ def _distribute(name: str, index: int, kind: str, side: str, other_side: str,
         cols = sides.get(half_side) or {}
         if not cols:
             continue
-        target = home_rail if half_side == side else far_rail
+        same_side = half_side == side
+        target = home_rail if same_side else far_rail
         # Un tap vertical solo vale si el riel tiene hueco en esa columna: en
-        # la placa grande faltan seis (24, 37, 43...). El resto baja por bus.
+        # la placa grande faltan seis (24, 37, 43...).
         direct = {
             col: row
             for col, row in cols.items()
@@ -405,6 +480,25 @@ def _distribute(name: str, index: int, kind: str, side: str, other_side: str,
         rest = {col: row for col, row in cols.items() if col not in direct}
         for col, row in sorted(direct.items()):
             wires.append(_wire(_hole(index, col, row), _rail(index, target, col), name))
+            taken.setdefault(index, set()).add(col)
+        if rest and target is not None and same_side:
+            # La pata ya esta del lado de su riel: el cable va del hueco de la
+            # pata al hueco de riel mas cercano, sin pasar por ningun hueco de
+            # dato ajeno. Un bus aqui seria un corto por construccion: la
+            # media columna de la bajada es la pata de otro.
+            for col, row in sorted(rest.items()):
+                rail_col = _nearest_rail_column(kind, col, taken.setdefault(index, set()))
+                if rail_col is None:
+                    errors.append(
+                        f"{name}: sin hueco de riel cerca de la columna {col} "
+                        f"en la placa {index}"
+                    )
+                    continue
+                wires.append(
+                    _wire(_hole(index, col, row), _rail(index, target, rail_col), name)
+                )
+                taken[index].add(rail_col)
+            rest = {}
         if rest:
             _bus(name, index, kind, home_rail, side, half_side, rest,
                  occupied, claims, taken, wires, errors)
@@ -419,6 +513,15 @@ def _distribute(name: str, index: int, kind: str, side: str, other_side: str,
             )
         else:
             wires.append(_wire(_rail(index, home_rail, col), _rail(index, far_rail, col), name))
+
+
+def _nearest_rail_column(kind: str, col: int, used: set) -> Optional[int]:
+    """Hueco de riel mas cercano a ``col`` que no este ocupado por otro cable."""
+    holes = sorted(_rail_holes(kind), key=lambda hole: (abs(hole - col), hole))
+    for hole in holes:
+        if hole not in used:
+            return hole
+    return None
 
 
 def _same_rail_node(kind: str, first: str, second: str) -> bool:
@@ -460,31 +563,32 @@ def _drop_column(index: int, kind: str, name: str, home_y: int, half_side: str,
     """
     used = taken.setdefault(index, set())
     crossing = _side_of_y(home_y) != half_side
-    sides = ("top", "bottom") if crossing else (half_side,)
     rail_set = _rail_hole_set(kind)
 
-    def usable(col: int, own: bool) -> bool:
+    def usable(col: int, own: bool, halves: tuple) -> bool:
         if col in used or col not in rail_set:
             return False
-        if own:
-            for other in sides:
-                owners = occupied.get((index, col, other)) or set()
+        for other in halves:
+            owners = occupied.get((index, col, other)) or set()
+            if own:
                 if owners - {name}:
                     return False
-            return True
-        for other in sides:
-            if (index, col, other) in occupied:
+            elif owners:
                 return False
         return True
 
-    for col in sorted(set(cols) & rail_set, reverse=True):
-        if usable(col, own=True):
-            used.add(col)
-            return col
-    for col in sorted(rail_set, reverse=True):
-        if usable(col, own=False):
-            used.add(col)
-            return col
+    # Orden de preferencia: columna del propio net (la bajada queda pegada a
+    # sus patas), luego una libre. Cuando la bajada viene del otro lado se
+    # prefiere ademas una columna con las dos mitades despejadas, pero no se
+    # exige: el cable lo rutea el puente por carril, y exigirlo dejaba sin
+    # bajada a cualquier placa con las dos mitades ocupadas por integrados.
+    passes = [("top", "bottom"), (half_side,)] if crossing else [(half_side,)]
+    for own in (True, False):
+        for halves in passes:
+            for col in sorted(set(cols) & rail_set, reverse=True) if own else sorted(rail_set, reverse=True):
+                if usable(col, own, halves):
+                    used.add(col)
+                    return col
     return None
 
 

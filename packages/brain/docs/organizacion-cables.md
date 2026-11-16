@@ -30,10 +30,16 @@ Esta es la regla vigente en los layout `v2`/`v3` (implementada en
 3. Dos cables más, uno de cada color, al riel del **borde opuesto**: la placa
    queda alimentada de punta a punta.
 4. Cada pata baja al riel de **su propia mitad** con un cable corto, en su
-   misma columna, cuando esa columna tiene hueco de riel. Si no lo tiene, baja
-   a la **fila de bus** de su mitad (`_BUS_ROWS`) y el bus la conecta.
+   misma columna, cuando esa columna tiene hueco de riel. Si no lo tiene, el
+   cable va **directo al hueco de riel más cercano**; solo las patas de la
+   mitad contraria usan la **fila de bus** (`_BUS_ROWS`), porque para ellas el
+   riel está en el otro lado. Un bus nunca aterriza en una media columna que
+   ya tenga una pata ajena: esa media columna es la pata, y tocarla es un
+   corto (quemó un 74HC86 el 2026-11-15).
 5. Una placa adicional se alimenta de la placa ya alimentada, nunca de la
    fuente.
+6. El **Arduino no es la fuente**: por defecto no se pone, y solo entra si el
+   proyecto necesita programa (pines, serial, sensores, EN/RESET).
 
 Restricciones geométricas que la regla respeta (medidas el 2026-11-15):
 
