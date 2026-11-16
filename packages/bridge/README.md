@@ -131,7 +131,7 @@ python -m src.cli.login_cli
 * Once you land on your Tinkercad dashboard, the CLI will automatically detect your login, save your session cookies in `.tinkercad_profile/`, and exit.
 
 ### 4. Verify Registered Tools
-To inspect the 45 registered MCP tools:
+To inspect the 50 registered MCP tools:
 ```bash
 python -m src.cli.list_tools_cli
 ```
@@ -157,6 +157,37 @@ python examples/build_temperature_circuit.py
 ```
 
 ---
+
+## 🤝 Usarlo en otra máquina o con otra persona
+
+El servidor no tiene claves ni cuenta propia: **maneja el navegador de quien lo
+corre**, con la sesión de Tinkercad de esa persona. Por eso compartirlo es
+compartir el código, no la sesión.
+
+Lo que **sí** se comparte: el repositorio (o un zip del código). Lo que **no**
+se comparte nunca: `.venv/`, `.tinkercad_profile/`, `screenshots/`.
+
+Pasos para la otra persona:
+
+1. Clonar el repo (o descomprimir el zip) en su máquina.
+2. Python 3.10+ y `python -m venv .venv`, activarlo, `pip install -r
+   requirements.txt`, `playwright install chromium`.
+3. `python -m src.cli.login_cli` → entra con **su** cuenta de Tinkercad. Queda
+   su sesión en su `.tinkercad_profile/` (gitignored, `700`).
+4. Apuntar su cliente MCP al **python del venv** con `cwd` en la raíz del repo
+   (ver "Connecting to MCP Clients"). En OpenCode:
+   `"command": ["/ruta/al/repo/.venv/bin/python", "-m", "src.main"]`.
+5. Comprobar antes de tocar nada: `python examples/check_mcp_stdio.py` →
+   `handshake: tinkercad-circuits 1.1.0`, `tools: 50`, `authenticated: True`,
+   `OK`.
+
+Los diseños que construya van a **su** cuenta, no a la del dueño del repo. Dos
+personas no pueden compartir un `.tinkercad_profile/`: sería operar sobre la
+cuenta ajena (y el propio README lo prohíbe en "Known Limitations" §4).
+
+Antes de construir algo serio, leer [AGENTS.md](./AGENTS.md) (reglas
+obligatorias) y [RESTRICCIONES.md](./RESTRICCIONES.md) (lo que el editor mide y
+lo que no). Sin esas dos, el circuito se ve bien en la foto y no funciona.
 
 ## 🔌 Connecting to MCP Clients
 
