@@ -2,69 +2,35 @@
 - Circuito: https://www.tinkercad.com/things/2ly9vcxYUyc/editel
 
 ## Verificación
-- Fidelidad: 100.0%
-- Componentes: 100.0% / Conectividad: 100.0%
+- Fidelidad: 0.0%
+- Componentes: 0.0% / Conectividad: 0.0%
+- Build: **no se aplicó** (ver Fallos); lo que sigue mide el circuito que ya estaba en el editor, no uno nuevo.
 - Simulación: {
   "success": true,
-  "total_lines": 37,
-  "lines": [
-    "READY",
-    "TEST:DIST=7.29",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON",
-    "TEST:DIST=7.50",
-    "TEST:LED=ON",
-    "TEST:DIST=7.65",
-    "TEST:LED=ON",
-    "TEST:DIST=7.46",
-    "TEST:LED=ON"
-  ],
-  "raw_output": "READY\nTEST:DIST=7.29\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON\nTEST:DIST=7.50\nTEST:LED=ON\nTEST:DIST=7.65\nTEST:LED=ON\nTEST:DIST=7.46\nTEST:LED=ON",
-  "message": "Retrieved 37 lines from Serial Monitor."
+  "total_lines": 0,
+  "lines": [],
+  "raw_output": "",
+  "message": "Retrieved 0 lines from Serial Monitor."
 }
 
+## Oráculo
+- Sin marcas declaradas; el sketch imprime (7 líneas).
+
 ## Ruteo
-- Sin tramos sobre el cuerpo de una placa (7 de 7 cables medidos, 6 ruteados).
-- Sin tramos diagonales en 7 cables medidos.
+- Sin tramos sobre el cuerpo de una placa (0 de 7 cables medidos, 0 ruteados).
+- Sin tramos diagonales en 0 cables medidos.
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 4.7 | 4.7 |
-| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_open_circuit | 2 | 8.8 | 9.7 |
-| tinkercad_read_serial_monitor | 1 | 1.1 | 1.1 |
-| tinkercad_set_code | 1 | 15.5 | 15.5 |
-| tinkercad_set_component_property_model | 1 | 1.2 | 1.2 |
-| tinkercad_start_simulation | 1 | 5.4 | 5.4 |
-| tinkercad_stop_simulation | 1 | 1.4 | 1.4 |
+| tinkercad_build_circuit_model | 1 | 30.0 | 30.0 |
+| tinkercad_inspect_circuit | 1 | 8.1 | 8.1 |
+| tinkercad_open_circuit | 2 | 26.2 | 26.8 |
+| tinkercad_read_serial_monitor | 1 | 0.2 | 0.2 |
+| tinkercad_set_code | 1 | 20.9 | 20.9 |
+| tinkercad_set_component_property_model | 1 | 24.5 | 24.5 |
+| tinkercad_start_simulation | 1 | 0.1 | 0.1 |
+| tinkercad_stop_simulation | 1 | 0.1 | 0.1 |
 
 ## Fallos
 Sin fallos.

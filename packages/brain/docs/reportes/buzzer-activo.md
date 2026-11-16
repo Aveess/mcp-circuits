@@ -2,66 +2,19 @@
 - Circuito: https://www.tinkercad.com/things/93Dj8w6iEv1/editel
 
 ## Verificación
-- Fidelidad: 100.0%
-- Componentes: 100.0% / Conectividad: 100.0%
+- Fidelidad: 0.0%
+- Componentes: 0.0% / Conectividad: 0.0%
+- Build: **no se aplicó** (ver Fallos); lo que sigue mide el circuito que ya estaba en el editor, no uno nuevo.
 - Simulación: {
   "success": true,
-  "total_lines": 67,
-  "lines": [
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO",
-    "TEST:SILENCIO"
-  ],
-  "raw_output": "TEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO\nTEST:SILENCIO",
-  "message": "Retrieved 50 lines from Serial Monitor."
+  "total_lines": 0,
+  "lines": [],
+  "raw_output": "",
+  "message": "Retrieved 0 lines from Serial Monitor."
 }
+
+## Oráculo
+- Sin marcas declaradas; el sketch imprime (7 líneas).
 
 ## Ruteo
 - Sin tramos sobre el cuerpo de una placa (0 de 4 cables medidos, 0 ruteados).
@@ -70,13 +23,13 @@
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 0.0 | 0.0 |
-| tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_open_circuit | 2 | 8.8 | 10.6 |
-| tinkercad_read_serial_monitor | 1 | 1.2 | 1.2 |
-| tinkercad_set_code | 1 | 19.9 | 19.9 |
-| tinkercad_start_simulation | 1 | 5.5 | 5.5 |
-| tinkercad_stop_simulation | 1 | 1.3 | 1.3 |
+| tinkercad_build_circuit_model | 1 | 30.1 | 30.1 |
+| tinkercad_inspect_circuit | 1 | 8.1 | 8.1 |
+| tinkercad_open_circuit | 2 | 25.6 | 28.5 |
+| tinkercad_read_serial_monitor | 1 | 0.2 | 0.2 |
+| tinkercad_set_code | 1 | 3.3 | 3.3 |
+| tinkercad_start_simulation | 1 | 0.1 | 0.1 |
+| tinkercad_stop_simulation | 1 | 0.1 | 0.1 |
 
 ## Fallos
 Sin fallos.

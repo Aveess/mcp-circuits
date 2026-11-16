@@ -6,7 +6,7 @@
 - Componentes: 100.0% / Conectividad: 100.0%
 - Simulación: {
   "success": true,
-  "total_lines": 37,
+  "total_lines": 38,
   "lines": [
     "TEST:COMPUERTAS=LISTO",
     "TEST:DIGITO=0",
@@ -44,10 +44,11 @@
     "TEST:DIGITO=0",
     "TEST:DIGITO=1",
     "TEST:DIGITO=2",
-    "TEST:DIGITO=3"
+    "TEST:DIGITO=3",
+    "TEST:DIGITO=4"
   ],
-  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3",
-  "message": "Retrieved 37 lines from Serial Monitor."
+  "raw_output": "TEST:COMPUERTAS=LISTO\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4\nTEST:DIGITO=5\nTEST:DIGITO=6\nTEST:DIGITO=7\nTEST:DIGITO=0\nTEST:DIGITO=1\nTEST:DIGITO=2\nTEST:DIGITO=3\nTEST:DIGITO=4",
+  "message": "Retrieved 38 lines from Serial Monitor."
 }
 
 ## Ruteo
@@ -58,14 +59,14 @@
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 8.4 | 8.4 |
+| tinkercad_build_circuit_model | 1 | 8.1 | 8.1 |
 | tinkercad_inspect_circuit | 1 | 0.1 | 0.1 |
-| tinkercad_open_circuit | 2 | 10.2 | 11.4 |
-| tinkercad_read_serial_monitor | 1 | 2.5 | 2.5 |
-| tinkercad_set_code | 1 | 16.6 | 16.6 |
-| tinkercad_set_component_property_model | 9 | 1.0 | 2.8 |
-| tinkercad_start_simulation | 1 | 28.9 | 28.9 |
-| tinkercad_stop_simulation | 1 | 2.5 | 2.5 |
+| tinkercad_open_circuit | 2 | 9.4 | 11.3 |
+| tinkercad_read_serial_monitor | 1 | 2.6 | 2.6 |
+| tinkercad_set_code | 1 | 16.2 | 16.2 |
+| tinkercad_set_component_property_model | 9 | 1.3 | 2.5 |
+| tinkercad_start_simulation | 1 | 29.2 | 29.2 |
+| tinkercad_stop_simulation | 1 | 2.4 | 2.4 |
 
 ## Fallos
 Sin fallos.

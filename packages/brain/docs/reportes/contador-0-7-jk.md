@@ -39,15 +39,14 @@
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 9.7 | 9.7 |
-| tinkercad_inspect_circuit | 1 | 0.2 | 0.2 |
-| tinkercad_list_circuits | 1 | 7.9 | 7.9 |
-| tinkercad_open_circuit | 2 | 10.2 | 11.3 |
-| tinkercad_read_serial_monitor | 1 | 1.3 | 1.3 |
-| tinkercad_set_code | 1 | 13.7 | 13.7 |
-| tinkercad_set_component_property_model | 11 | 1.3 | 2.6 |
-| tinkercad_start_simulation | 1 | 55.7 | 55.7 |
-| tinkercad_stop_simulation | 1 | 1.4 | 1.4 |
+| tinkercad_build_circuit_model | 1 | 21.3 | 21.3 |
+| tinkercad_inspect_circuit | 1 | 0.7 | 0.7 |
+| tinkercad_open_circuit | 2 | 24.5 | 29.6 |
+| tinkercad_read_serial_monitor | 1 | 2.5 | 2.5 |
+| tinkercad_set_code | 1 | 30.2 | 30.2 |
+| tinkercad_set_component_property_model | 11 | 1.4 | 3.0 |
+| tinkercad_start_simulation | 1 | 58.3 | 58.3 |
+| tinkercad_stop_simulation | 1 | 2.1 | 2.1 |
 
 ## Fallos
 Sin fallos.
