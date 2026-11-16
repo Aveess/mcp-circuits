@@ -2041,30 +2041,24 @@ def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
     cuerpo_demo: list[str] = ["void loop() {", "  delay(100);", "}"]
     if demo:
         cabecera.append(
-            "// El display cuenta desde el arranque: el loop anuncia cada digito"
+            "// El sketch no bloquea el conteo: suelta el contador en el arranque"
         )
         cabecera.append(
-            "// nuevo y, despues de los primeros, corre una vez las cuatro pruebas."
+            "// y despues solo lee, verifica el decodificador y anuncia cada digito."
         )
         extras = ["const int DEMO_MAX = 12;  // digitos que se anuncian por serial",
-                  "const int DEMO_ANTES = 4;  // digitos vistos antes de las pruebas",
                   "int demoCuenta = 0;"]
         cuerpo_demo = [
             "void loop() {",
-            "  // Lo primero que se ve es el contador: el 555 ya esta libre y el",
-            "  // display avanza solo. Las pruebas del taller corren despues, una",
-            "  // sola vez, para no dejar la pantalla en 0 mientras se miden.",
+            "  // El display lo mueve el hardware (555 + JK); el sketch no toca EN",
+            "  // ni RESET aqui. Cada digito nuevo se confirma 8 ms despues, porque",
+            "  // el acarreo asincrono entre JK deja transitorios de microsegundos.",
             "  static int anterior = -1;",
-            "  static int arranque = 0;",
-            "  static bool pruebasHechas = false;",
             "  int valor = leeValor();",
             "  if (valor == anterior) {",
             "    delay(15);",
             "    return;",
             "  }",
-            "  // El acarreo entre JK es asincrono: un cambio puede ser un",
-            "  // transitorio de microsegundos. Se confirma 8 ms despues antes de",
-            "  // darlo por digito nuevo.",
             "  delay(8);",
             "  int estable = leeValor();",
             "  if (estable != valor) return;",
@@ -2075,14 +2069,6 @@ def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
             "    Serial.println(estable);",
             "    demoCuenta++;",
             '    if (demoCuenta == DEMO_MAX) Serial.println("TEST:DEMO=OK");',
-            "  }",
-            "  if (!pruebasHechas) {",
-            "    if (arranque < DEMO_ANTES) {",
-            "      arranque++;",
-            "      return;",
-            "    }",
-            "    pruebasHechas = true;",
-            "    correPruebas();",
             "  }",
             "}",
         ]
@@ -2107,19 +2093,17 @@ def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
         "",
     ]
     if demo:
-        # Las pruebas viven en su propia funcion y el loop las llama despues de
-        # los primeros digitos: el setup solo deja el contador andando.
+        # El sketch no bloquea el conteo: setup suelta el contador y el loop
+        # solo mira. Las cuatro pruebas del taller (RESET, EN, ciclo y reset
+        # intermedio) se quedan en la v1: aca movian EN y RESET y dejaban la
+        # pantalla en 0 durante toda la medicion.
         cuerpo_setup = [
             *setup_comun,
-            "  // El contador arranca libre: el display cuenta desde el primer",
-            "  // segundo y las pruebas corren despues, una sola vez, desde el loop.",
+            "  // Un pulso de RESET deja el contador en 000 y se suelta: de ahi en",
+            "  // adelante el conteo lo lleva el hardware, no el sketch.",
             "  pulsaReset();",
             "  delay(60);",
             "  digitalWrite(EN, HIGH);",
-            "}",
-            "",
-            "void correPruebas() {",
-            *pruebas,
             "}",
         ]
     else:
@@ -2222,22 +2206,25 @@ def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
             "  return millis() - inicio;",
             "}",
             "",
-            "int esperaCambio(int actual, unsigned long tope) {",
-            "  unsigned long inicio = millis();",
-            "  while (millis() - inicio < tope) {",
-            "    if (leeValor() != actual) return leeEstable();",
-            "    delay(20);",
-            "  }",
-            "  return -1;",
-            "}",
-            "",
+            *([
+                "int esperaCambio(int actual, unsigned long tope) {",
+                "  unsigned long inicio = millis();",
+                "  while (millis() - inicio < tope) {",
+                "    if (leeValor() != actual) return leeEstable();",
+                "    delay(20);",
+                "  }",
+                "  return -1;",
+                "}",
+                "",
+            ] if not demo else []),
             "void pulsaReset() {",
             "  digitalWrite(RST, HIGH);",
             "  delay(80);",
             "  digitalWrite(RST, LOW);",
             "}",
             "",
-            "bool pruebaCiclo() {",
+            *([
+                "bool pruebaCiclo() {",
             "  int valor = leeEstable();",
             "  if (valor != 0) return false;",
             f"  for (int i = 1; i < {ciclo_pasos}; i++) {{",
@@ -2275,6 +2262,7 @@ def contador_jk_sketch(sense_high: bool = False, demo: bool = False,
             "  return leeEstable() == 0;",
             "}",
             "",
+            ] if not demo else []),
             *cuerpo_setup,
             "",
             *([*cuerpo_demo] if demo else ["void loop() {", "  delay(100);", "}"]),

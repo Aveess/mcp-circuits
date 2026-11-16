@@ -344,53 +344,53 @@ def test_el_sketch_v2_lee_high_y_cuenta_en_vivo():
     assert v1.rstrip().endswith("void loop() {\n  delay(100);\n}")
     assert 'Serial.print("TEST:DIGITO=")' not in v1
 
-    # v2: el display cuenta desde el primer segundo y las cuatro pruebas
-    # corren despues, una sola vez. El setup no ejecuta ninguna prueba: si
-    # volviera a meterlas ahi, la pantalla se quedaria en 0 los primeros
-    # segundos, que es justo el sintoma reportado.
+    # v2: el display cuenta desde el primer segundo y el sketch no vuelve a
+    # mover EN ni RESET. Las cuatro pruebas del taller quedan fuera: eran
+    # justo el tramo donde la pantalla se quedaba en 0.
     assert 'Serial.print("TEST:DIGITO=")' in v2
     assert "if (demoCuenta < DEMO_MAX)" in v2
     assert '"TEST:DEMO=OK"' in v2
-    assert "void correPruebas() {" in v2
-    assert "correPruebas();" in v2
-    assert "if (!pruebasHechas) {" in v2
-    assert "if (arranque < DEMO_ANTES) {" in v2
-    assert "void correPruebas" not in v1
+    for fuera in ("pruebaCiclo", "pruebaEn0",
+                  "pruebaReanuda", "pruebaResetMedio"):
+        assert fuera not in v2, fuera
+        assert fuera in v1, fuera
+    assert "correPruebas" not in v2
 
-    setup_v2 = v2[v2.index("void setup() {"):v2.index("void correPruebas() {")]
-    for marca in ("TEST:CICLO", "TEST:EN0", "TEST:REANUDA", "TEST:FIN="):
-        assert marca not in setup_v2, marca
-    assert "digitalWrite(EN, HIGH);" in setup_v2, "el setup suelta el contador"
-    # Las pruebas arrancan desde 0: `pruebaCiclo` exige el contador en 000.
-    assert "pulsaReset();\n  delay(60);" in setup_v2
+    # El setup suelta el contador una sola vez y no lo vuelve a tocar: si el
+    # loop escribiera EN o RST, el conteo dependeria del sketch otra vez.
+    setup_v2 = v2[v2.index("void setup() {"):v2.index("void loop() {")]
+    assert setup_v2.count("digitalWrite(EN, HIGH);") == 1
+    assert setup_v2.count("pulsaReset();") == 1
+    assert "digitalWrite(EN, LOW);" in setup_v2  # solo la linea de reposo
+    loop_v2 = v2[v2.index("void loop() {"):]
+    for escritura in ("digitalWrite(EN", "digitalWrite(RST", "pulsaReset"):
+        assert escritura not in loop_v2, escritura
 
     # La rama sin cambio duerme: sin ese delay el loop lee tres pines miles
     # de veces por segundo y el simulador se arrastra.
     assert "if (valor == anterior) {\n    delay(15);\n    return;\n  }" in v2
-    # Una vuelta de prueba (0..7 y el rebote a 1) en vez de dos: cada paso
-    # cuesta un periodo del reloj.
-    assert "for (int i = 1; i < 10; i++)" in v2
+    # La v1 conserva sus pruebas en setup() y la vuelta larga.
     assert "for (int i = 1; i < 17; i++)" in v1
 
 
-def test_el_oraculo_tiene_las_ocho_marcas_en_orden():
+def test_el_oraculo_pide_los_ocho_digitos_en_orden():
+    # El oraculo ya no demuestra las pruebas del taller (no las corre el
+    # sketch de la v2): demuestra lo que Eddie pide ver, que el contador
+    # avance. Cada marca es un digito, y el sketch imprime el valor que
+    # acaba de leer, sin transformarlo, asi que pueden salir en orden.
     fixture = _fixture()
     marcas = fixture["oracle_serial"]
     sketch = contador_jk_v2_sketch()
 
-    assert marcas == [
-        "TEST:PERIODO=",
-        "TEST:RESET=OK",
-        "TEST:CICLO=OK",
-        "TEST:EN0=OK",
-        "TEST:REANUDA=OK",
-        "TEST:RESET_MEDIO=OK",
-        "TEST:DECODER=OK",
-        "TEST:FIN=OK",
+    assert marcas == ["TEST:PERIODO="] + [
+        f"TEST:DIGITO={digito}" for digito in range(8)
     ]
-    posiciones = [sketch.find(marca) for marca in marcas]
-    assert all(pos >= 0 for pos in posiciones), posiciones
-    assert posiciones == sorted(posiciones), posiciones
+    assert 'Serial.print("TEST:DIGITO=");' in sketch
+    assert "Serial.println(estable);" in sketch
+    # Sin prefijo DISTINTO ni sufijo: la marca del oraculo es exactamente lo
+    # que se imprime.
+    assert sketch.count("TEST:DIGITO=") == 1
+    assert sketch.count("Serial.println(estable);") == 1
 
 
 def test_el_lint_de_resistencia_serie_acepta_la_fixture():
