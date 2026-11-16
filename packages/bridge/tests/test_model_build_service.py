@@ -1469,5 +1469,79 @@ class TestBuildCircuitModelToolSchema(unittest.TestCase):
         self.assertEqual(param.default, False)
 
 
+class TestRielesDeLaPlacaGrande(unittest.TestCase):
+    """La placa grande (116648) tiene cuatro filas de riel de 50 huecos.
+
+    Medido en vivo el 2026-11-15 sobre un diseno desechable: y=-95 y y=-85 son
+    el par de abajo (el modelo rotula las dos "X"), y=+85 ("Y") y y=+95 ("Z")
+    el de arriba. Hasta hoy la tabla las declaraba inexistentes y el puente
+    rechazaba "T+5" sobre la grande, asi que no habia forma de alimentar una
+    placa grande por sus rieles. El "+" es siempre el riel interior (el que
+    esta pegado a las filas), igual que en la Small.
+    """
+
+    def test_la_tabla_declara_los_cuatro_rieles(self):
+        from src.services import model_build_service as mbs
+
+        rieles = mbs.board_kinds()[116648]["rails"]
+        self.assertEqual(
+            rieles, {"T+": 85, "T-": 95, "B+": -85, "B-": -95}
+        )
+
+    def test_los_rieles_se_resuelven_sobre_la_grande(self):
+        from src.services import model_build_service as mbs
+
+        salida = self._run_js()
+        self.assertEqual(salida["t_plus"], {"board": 0, "side": "T+", "col": 5})
+        self.assertEqual(salida["b_minus"], {"board": 0, "side": "B-", "col": 40})
+        self.assertEqual(salida["b2"], {"board": 2, "side": "T-", "col": 7})
+        # 62 columnas utiles: la 63 no existe
+        self.assertIsNone(salida["col63"])
+        # y un hueco normal sigue resolviendo a la fila
+        self.assertEqual(salida["hueco"], {"board": 0, "col": 5, "row": "e"})
+
+    def test_el_nombre_del_riel_sale_en_el_lenguaje_del_puente(self):
+        from src.services import model_build_service as mbs
+
+        salida = self._run_js()
+        self.assertEqual(salida["nombre"], "T+5")
+
+    def _run_js(self):
+        import json
+        import shutil
+        import subprocess
+
+        from src.services import model_build_service as mbs
+
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node not available")
+        harness = r"""
+const src = __SRC__;
+const start = src.indexOf('const BOARD_KINDS =');
+const end = src.indexOf('function bbTerminal');
+if (start < 0 || end <= start) throw new Error('chunk de geometria no encontrado');
+const plan = { boards: [{ x: 870, y: 0, did: 116648 }, { x: 1470, y: 0, did: 116648 }] };
+const api = new Function(src.slice(start, end) + '\nreturn { parseRail, parseHole, holeName };')();
+const pick = (r) => (r ? { board: r.board, side: r.side, col: r.col } : null);
+const pickHole = (r) => (r ? { board: r.board, col: r.col, row: r.row } : null);
+console.log(JSON.stringify({
+  t_plus: pick(api.parseRail('T+5')),
+  b_minus: pick(api.parseRail('B-40')),
+  b2: pick(api.parseRail('b2/T-7')),
+  col63: pick(api.parseRail('T+63')),
+  hueco: pickHole(api.parseHole('5e')),
+  nombre: api.holeName(5, 85, 0),
+}));
+"""
+        script = harness.replace("__SRC__", json.dumps(mbs._BUILD_JS))
+        out = subprocess.run(
+            [node, "-e", script], capture_output=True, text=True, timeout=60
+        )
+        if out.returncode != 0:
+            self.fail(f"node fallo: {out.stderr[:800]}")
+        return json.loads(out.stdout.strip().splitlines()[-1])
+
+
 if __name__ == "__main__":
     unittest.main()

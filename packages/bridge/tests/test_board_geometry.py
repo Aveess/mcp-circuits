@@ -37,11 +37,20 @@ class BoardGeometryTest(unittest.TestCase):
         self.assertEqual(ROW_Y["f"], -15)
         self.assertEqual(ROW_Y["j"], -55)
 
-    def test_la_placa_grande_no_publica_rieles(self):
-        # Los dos rieles de abajo comparten nombre "X" y el mismo nodo: usarlos
-        # para alimentacion seria un corto silencioso. La v2 va por medias
-        # columnas.
-        self.assertEqual(board_kinds()[LARGE]["rails"], {})
+    def test_la_placa_grande_publica_sus_cuatro_rieles(self):
+        # Medido el 2026-11-15 (sonda sobre un diseno desechable): la grande
+        # SI tiene cuatro filas de riel de 50 huecos. Antes se declaraba al
+        # reves mirando el nombre ("X" repetido en las dos filas de abajo), y
+        # sin tabla el puente no podia alimentar una placa grande por riel.
+        # El par de abajo comparte nombre en el modelo; si ademas compartiera
+        # nodo, puentearlo seria un corto: eso lo decide la simulacion del
+        # contador v3, no esta tabla.
+        grande = board_kinds()[LARGE]
+        self.assertEqual(
+            grande["rails"], {"T+": 85, "T-": 95, "B+": -85, "B-": -95}
+        )
+        # Los rieles son de 50 huecos aunque la placa tenga 62 columnas.
+        self.assertEqual(grande["rail_columns"], 50)
 
     def test_la_placa_chica_sigue_con_30_columnas_y_sus_rieles(self):
         small = board_kinds()[SMALL]

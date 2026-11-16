@@ -37,8 +37,9 @@ BREADBOARD_DID = 111211
 # (ver docs/superpowers/specs/2026-11-15-layout-v2-design.md):
 #   - Small (111211): 30 columnas, x -145..145, con rieles T+/T-/B+/B-.
 #   - Large (116648): 62 columnas utiles (x -295..315; el modelo nombra
-#     "A98/A99" las dos extremas -315/-305 y no se usan) y SIN rieles
-#     utilizables: los dos de abajo comparten nombre "X" y el mismo nodo.
+#     "A98/A99" las dos extremas -315/-305 y no se usan) y cuatro filas de
+#     riel de **50** huecos: y -95/-85 abajo (el modelo rotula las dos "X") y
+#     +85/+95 arriba ("Y"/"Z").
 # Las filas son las mismas en las dos (paso 10, a = +55 ... j = -55); la
 # grande las nombra al reves (A = -55) pero el puente trabaja en y.
 ROW_Y: Dict[str, int] = {
@@ -59,8 +60,23 @@ BOARD_KINDS: Dict[int, Dict[str, Any]] = {
         "columns": 30,
         "x0": -145,
         "rails": {"T-": -95, "T+": -85, "B-": 85, "B+": 95},
+        "rail_columns": 30,
     },
-    116648: {"columns": 62, "x0": -295, "rails": {}},
+    # La grande trae cuatro filas de riel de 50 huecos (medido 2026-11-15,
+    # sonda sobre un diseno desechable: y=-95/-85 son el par de abajo y el
+    # modelo rotula las dos "X"; y=+85 es "Y" y y=+95 "Z"). El "+" es el riel
+    # interior, el que esta pegado a las filas, igual que en la Small.
+    # Ojo: el par de abajo comparte nombre en el modelo; si ademas comparte
+    # nodo, puentearlo con rojo y negro en la misma placa es un corto. Eso se
+    # mide en la corrida en vivo del contador v3, no aqui.
+    116648: {
+        "columns": 62,
+        "x0": -295,
+        "rails": {"T+": 85, "T-": 95, "B+": -85, "B-": -95},
+        # Los rieles de la grande son de 50 huecos (x -295..195), no de 62:
+        # pedir la columna 51 sobre un riel no resuelve a nada.
+        "rail_columns": 50,
+    },
 }
 
 
@@ -296,7 +312,8 @@ _BUILD_JS = r"""
   // Geometria por placa (columnas, x del primer hueco, rieles). La inyecta
   // Python desde BOARD_KINDS: una sola tabla, probada sin navegador.
   // Small (111211): 30 columnas, x -145..145, rieles T+/T-/B+/B-.
-  // Large (116648): 62 columnas utiles (x -295..315) y sin rieles usables.
+  // Large (116648): 62 columnas utiles (x -295..315), rieles en y -95/-85
+  // (par de abajo, el modelo los rotula "X") y +85/+95 ("Y"/"Z").
   const BOARD_KINDS = __BOARD_KINDS__;
   const DEFAULT_BB_DID = 111211;
   // Placas: plan.boards = [{x, y, did}, ...]. La primera es la de siempre
@@ -380,9 +397,11 @@ _BUILD_JS = r"""
     const side = m[2].toUpperCase() + m[3];
     const col = parseInt(m[4], 10);
     const kind = boardKind(board);
-    // La grande no publica rieles: "T+5" sobre ella no es un destino valido.
+    // Un riel que la placa no declara no es destino: "T+5" sobre la Small sin
+    // esa fila tiene que seguir fallando.
     if (!(side in (kind.rails || {}))) return null;
-    if (!(col >= 1 && col <= kind.columns)) return null;
+    const railCols = kind.rail_columns || kind.columns;
+    if (!(col >= 1 && col <= railCols)) return null;
     return { board, side, col };
   }
   function holeName(col, y, boardIndex) {
