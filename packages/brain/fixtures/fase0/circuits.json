@@ -3895,8 +3895,8 @@
       },
       {
         "kind": "small",
-        "x": 2100,
-        "y": 0,
+        "x": 870,
+        "y": -360,
         "start": 9
       }
     ],
@@ -4373,16 +4373,6 @@
       "- Sin Arduino no hay monitor serial. Si alguien pide TEST:DIGITO, ese",
       "  dato ya no existe en este circuito: se mira el display."
     ],
-    "free_parts": {
-      "sw1": {
-        "x": 450,
-        "y": -250
-      },
-      "btn1": {
-        "x": 450,
-        "y": 250
-      }
-    },
     "no_arduino": true,
     "tinkercad_id": "3akmw1EaG0p"
   }

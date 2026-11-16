@@ -171,8 +171,12 @@ def test_las_huellas_usan_dos_filas_que_caen_en_mitades_distintas():
     # patas son huecos vecinos de la MISMA fila (`10f` -> `10f`/`11f`), o sea
     # que se inserta como un puente, no como un DIP. Exigirle dos mitades
     # seria pedirle que la placa una lo que el capacitor tiene que separar.
+    # El interruptor deslizante (did 58458) es el otro caso: sus tres patas
+    # estan en UNA fila (y = 0 en el modelo), asi que insertado ocupa tres
+    # columnas de la misma mitad. El pulsador si cruza el canal y queda bajo
+    # esta regla.
     for nombre, huella in FOOTPRINTS.items():
-        if nombre == "capacitor":
+        if nombre in ("capacitor", "slideswitch"):
             continue
         filas = {fila for _, fila in huella.values()}
         assert len({half(f) for f in filas}) == 2, (nombre, filas)

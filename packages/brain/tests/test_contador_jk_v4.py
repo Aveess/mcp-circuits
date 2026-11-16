@@ -34,6 +34,7 @@ from pathlib import Path
 import pytest
 
 from tinkercad_brain.builder import BuildError, fixture_to_model_call
+from tinkercad_brain.boards import footprint_for
 from tinkercad_brain.contador_jk_v2 import contador_jk_v2_fixture
 from tinkercad_brain.contador_jk_v3 import contador_jk_v3_fixture
 from tinkercad_brain.contador_jk_v4 import FIXTURE_ID, contador_jk_v4_fixture
@@ -138,27 +139,40 @@ def test_una_pata_esta_en_una_sola_net():
             vistas[endpoint] = net
 
 
-def test_el_builder_traduce_los_pines_libres_a_las_claves_del_modelo():
+def test_el_builder_pide_las_claves_del_modelo_y_no_los_nombres_de_la_ui():
     """Medido en vivo: `termByName` resuelve por clave exacta, no por nombre.
 
     Si vuelve "Common" o "Terminal 2a" el build falla con
     `route_failed: endpoint_not_resolved` (sonda cTHoVOIqZD6).
+
+    Desde la fase 50 el interruptor y el pulsador **no** son partes libres: van
+    insertados en la placa chica. El puente los ancla con la clave del modelo
+    (`3` = Common, `4` = Terminal 2a) y sus cables salen de los huecos, no del
+    terminal suelto.
     """
     call = fixture_to_model_call(_fixture(), code=None)
     por_ref = {part["ref"]: part for part in call["parts"]}
 
     for ref, did in (("sw1", 58458), ("btn1", 144786), ("ps1", 111724)):
         assert por_ref[ref]["did"] == did, ref
-        assert "free" in por_ref[ref], ref
 
-    cables = [
-        (wire["from"], wire["to"]) for wire in call["wires"]
-    ]
-    assert ("sw1.3", "b1/13j") in cables  # 3 = Common
-    assert any(from_ == "btn1.4" for from_, _ in cables)  # 4 = Terminal 2a
-    assert any(from_ == "btn1.2" for from_, _ in cables)  # 2 = Terminal 1a
-    assert not any(from_ == "sw1.common" for from_, _ in cables)
-    assert not any(from_ == "btn1.1" for from_, _ in cables)
+    assert por_ref["sw1"]["at"] == "b2/10e"
+    assert por_ref["sw1"]["pin"] == "3"       # 3 = Common
+    assert por_ref["sw1"]["board"] == 2
+    assert por_ref["btn1"]["at"] == "b2/16e"
+    assert por_ref["btn1"]["pin"] == "4"      # 4 = Terminal 2a (senal)
+    assert por_ref["btn1"]["board"] == 2
+    # La fuente sigue libre, a la izquierda de la primera placa.
+    assert por_ref["ps1"]["free"] == {"x": 450.0, "y": 0.0}
+
+    cables = [(wire["from"], wire["to"]) for wire in call["wires"]]
+    # Ni un extremo con el nombre de la UI: todo lo del mando sale de un hueco.
+    for from_, to_ in cables:
+        for extremo in (from_, to_):
+            assert not extremo.startswith(("sw1.common", "btn1.1")), cables
+    # Los dos mandos entran a la placa chica por su hueco.
+    assert any(to_ == "b2/10a" for _, to_ in cables)   # comun -> placa 1
+    assert any(to_ == "b2/16b" for _, to_ in cables)   # senal -> placa 1
 
 
 def test_las_dos_patas_del_pulsador_son_de_lados_distintos():
@@ -185,7 +199,7 @@ def test_el_layout_resuelve_sin_errores_ni_conflictos():
     assert len(nets["wires"]) > 150
 
 
-def test_la_alimentacion_sale_de_la_fuente_y_de_las_partes_libres():
+def test_la_alimentacion_sale_de_la_fuente_y_de_los_rieles():
     fixture = _fixture()
     nets = plan_nets_v3(fixture, plan_layout_v3(fixture)["placements"])
 
@@ -198,8 +212,11 @@ def test_la_alimentacion_sale_de_la_fuente_y_de_las_partes_libres():
             assert not extremo.startswith("uno."), wire
     assert any(wire["from"] == "ps1.Vcc" for wire in alimentacion)
     assert any(wire["from"] == "ps1.GND" for wire in alimentacion)
-    assert any(wire["from"] == "sw1.1" for wire in alimentacion)
-    assert any(wire["from"] == "btn1.2" for wire in alimentacion)
+    # El interruptor y el pulsador ya no cuelgan de un cable largo: su
+    # alimentacion es un tap corto al riel de la placa chica.
+    assert any(wire["from"] == "b2/9e" for wire in alimentacion)    # sw1.1
+    assert any(wire["from"] == "b2/14e" for wire in alimentacion)   # btn1.2
+    assert any(wire["from"] == "b2/11e" for wire in alimentacion)   # sw1.2
 
 
 def test_sin_micro_no_se_promete_oraculo_serial():
@@ -287,3 +304,100 @@ def test_la_v4_no_es_la_v2():
     assert len(v4["components"]) == len(v2["components"]) + 3  # +ps1, sw1, btn1, rpd -uno
     assert any("uno.D2" in net for net in v2["nets"])
     assert not any("uno.D2" in net for net in v4["nets"])
+
+
+# --- Fase 50: los mandos montados en la placa chica, apilada arriba de la 0 ---
+
+
+def test_los_dos_mandos_van_insertados_en_la_placa_chica():
+    """El interruptor y el pulsador dejan de colgar de un cable.
+
+    Antes vivian en `free_parts` en (450, ±250): dos piezas sueltas a la
+    izquierda del lienzo, y sus cables lo cruzaban entero hasta las placas de
+    la derecha. Ahora se montan en la placa chica, junto a los dos
+    capacitores, y sus cables salen de huecos.
+    """
+    fixture = _fixture()
+    assert "free_parts" not in fixture
+
+    placements = plan_layout_v3(fixture)["placements"]
+    for ref in ("sw1", "btn1", "c1", "c2"):
+        assert placements[ref]["board"] == 2, ref
+        # Insertada: se ancla por una pata (`pin`), no por `free`.
+        assert placements[ref]["pin"], ref
+
+    assert placements["sw1"]["at"] == "10e"
+    assert placements["btn1"]["at"] == "16e"
+    # Las dos piezas se anclan por la clave del modelo, no por el nombre de
+    # la fixture: 3 = Common del switch, 4 = Terminal 2a del pulsador.
+    assert placements["sw1"]["pin"] == "3"
+    assert placements["btn1"]["pin"] == "4"
+
+    # La huella del pulsador declara las cuatro patas: las dos que la fixture
+    # no cablea son el mismo nodo interno que una cableada, y si el ruteo
+    # metiera otro net ahi seria un corto que no se ve en el dibujo.
+    boton = footprint_for("pushbutton")
+    assert len(boton) == 4
+    assert {fila for _, fila in boton.values()} == {"e", "f"}
+
+    # El interruptor tiene las tres patas en una sola fila y en tres columnas
+    # seguidas: ninguna comparte media columna con otra.
+    switch = footprint_for("slideswitch")
+    assert len(switch) == 3
+    assert {fila for _, fila in switch.values()} == {"e"}
+    assert len({dcol for dcol, _ in switch.values()}) == 3
+
+
+def test_la_placa_chica_se_apila_arriba_y_deja_callejones_para_los_cables():
+    """El aire entre las dos placas tiene que admitir un carril por cable.
+
+    Los cables entre huecos de placas distintas ya no comparten altura (la
+    chica esta en otra `y`), asi que el puente los rutea con un quiebre por el
+    hueco que queda entre las dos. Si ese hueco no alcanza, el carril cae
+    sobre el plastico de una de las dos. `LANE_BASE`/`LANE_STEP` son los
+    mismos numeros que usa el JS del puente (`model_build_service`); el cuerpo
+    de la placa mide +-110.
+    """
+    boards = _fixture()["boards"]
+
+    assert boards[0]["kind"] == "large"
+    chica = boards[2]
+    assert chica["kind"] == "small"
+    # Apilada: misma columna que la placa de las compuertas, mas arriba.
+    assert chica["x"] == boards[0]["x"]
+    assert chica["y"] < boards[0]["y"]
+
+    fixture = _fixture()
+    nets = plan_nets_v3(fixture, plan_layout_v3(fixture)["placements"])
+
+    def altura(endpoint):
+        placa = _board_of(endpoint)
+        return None if placa is None else boards[placa]["y"]
+
+    # Solo los pares que NO comparten altura necesitan carril: la placa 0 y la
+    # 1 estan las dos en y=0 y su cable ya sale horizontal.
+    cruzados = [
+        wire for wire in nets["wires"]
+        if altura(wire["from"]) is not None
+        and altura(wire["to"]) is not None
+        and altura(wire["from"]) != altura(wire["to"])
+    ]
+    assert cruzados
+
+    LANE_BASE, LANE_STEP, BODY = 130, 8, 110
+    # El carril se mide desde el ORIGEN de la placa de abajo (la 0 y la 1
+    # estan en y=0) y sube: y crece hacia abajo, asi que "arriba" es restar.
+    primer_carril = boards[0]["y"] - LANE_BASE
+    ultimo_carril = primer_carril - LANE_STEP * (len(cruzados) - 1)
+    # Ni el primero ni el ultimo pisan el cuerpo de ninguna de las dos.
+    assert primer_carril < boards[0]["y"] - BODY
+    assert ultimo_carril > chica["y"] + BODY, (ultimo_carril, chica["y"] + BODY, len(cruzados))
+
+
+def _board_of(endpoint: str):
+    """Numero de placa de un hueco o riel; None si es el pin de una parte."""
+    if "." in endpoint:
+        return None
+    if endpoint.startswith("b") and endpoint[2:3] == "/":
+        return int(endpoint[1])
+    return 0

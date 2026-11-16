@@ -15,6 +15,7 @@ import re
 
 from tinkercad_brain.fase0.component_map import TYPE_MAP
 from tinkercad_brain.fase0.probe import ProbeStep, run_steps
+from tinkercad_brain.boards import MODEL_PIN, model_pin
 from tinkercad_brain.layout import LayoutError, plan_layout
 from tinkercad_brain.layout_v2 import (
     column_conflicts,
@@ -664,23 +665,42 @@ def _with_board(endpoint: str, board: int) -> str:
 
 
 def _free_endpoint(endpoint, placements, type_by_ref) -> str:
-    """Traduce el pin de una parte libre a la clave del modelo.
+    """Traduce el pin de la fixture a la clave que resuelve el puente.
 
     El camino v1 pasa todas las nets por `_translate_endpoint`, pero el
     camino v2/v3 arma los cables desde `plan_nets_v2`/`plan_nets_v3`, que
-    trabajan con los pines de la fixture. Una parte libre (interruptor,
-    pulsador) necesita el nombre que el puente resuelve en el modelo: sus
-    claves cortas, no los nombres de la UI. Solo se traducen los tipos que
-    tienen mapa en `_FREE_PART_PINS`; la fuente, las resistencias y los
-    integrados ya viajan con el nombre que el puente entiende.
+    trabajan con los pines de la fixture. Hay dos tipos de pieza que el
+    puente resuelve por **clave del modelo** y no por el nombre de la
+    fixture, porque la UI y el modelo no coinciden:
+
+    - las partes **libres** (interruptor, pulsador, integrados, actuadores),
+      que se cablean a su terminal real;
+    - las partes **insertadas en huecos** (fase 50: el interruptor y el
+      pulsador viven en la placa chica), donde `resolveEndpoint` busca
+      `placed[ref].holes[<pin>]` y ese diccionario viene con las claves del
+      modelo. Sin traducir, "common" no resuelve a un hueco y el cable sale
+      del terminal suelto en vez de entrar a la placa.
+
+    Solo se traducen los tipos con mapa en `_FREE_PART_PINS`; la fuente, las
+    resistencias y los integrados ya viajan con el nombre que el puente
+    entiende.
     """
     if not isinstance(endpoint, str) or "." not in endpoint:
         return endpoint
-    ref = endpoint.split(".", 1)[0]
+    ref, pin = endpoint.split(".", 1)
     placement = placements.get(ref)
-    if placement is None or "free" not in placement:
+    if placement is None:
         return endpoint
-    if type_by_ref.get(ref) not in _FREE_PART_PINS:
+    ctype = type_by_ref.get(ref)
+    if ctype in MODEL_PIN:
+        # Interruptor y pulsador: la fixture los nombra como la UI
+        # (common/1/2, 1/2) y el modelo usa claves cortas (3/1/2, 4/2). Se
+        # traduce igual si van libres o insertados, porque el puente resuelve
+        # por clave del modelo en los dos casos.
+        return f"{ref}.{model_pin(ctype, pin)}"
+    if "free" not in placement:
+        return endpoint
+    if ctype not in _FREE_PART_PINS:
         return endpoint
     return _translate_endpoint(endpoint, placements, type_by_ref)
 

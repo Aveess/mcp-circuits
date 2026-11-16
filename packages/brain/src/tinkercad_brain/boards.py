@@ -246,6 +246,51 @@ _DISPLAY_7SEG = {
     "e": (3, "i"),
 }
 
+# Las dos piezas del mando de la v4 se montan en la placa chica. Medido en
+# vivo el 2026-11-16 sobre un diseno desechable (sondeo de `name2terminal`
+# de los dos devices, `bbDesc.x/y` en unidades de la placa):
+#
+#   Slideswitch (did 58458): clave 1 (-10, 0), 3 (0, 0), 2 (+10, 0)
+#                            (3 = Common, y el switch nace con el comun en 1)
+#   Pushbutton  (did 144786): clave 1 (-10,-15), 2 (-10,+15),
+#                                  3 (+10,-15), 4 (+10,+15)
+#                             (1-2 un nodo interno, 3-4 el otro)
+#
+# OJO con los dos espacios de nombres: la **fixture** llama a las patas del
+# pulsador `1` (senal) y `2` (Vcc), que en el modelo son las claves `4` y `2`;
+# al interruptor lo llama `common`/`1`/`2` y el modelo usa `3`/`1`/`2`. Las
+# huellas de abajo van en el espacio de la FIXTURE (el layout y las nets
+# hablan ese), y `MODEL_PIN` traduce a la clave del modelo cuando hay que
+# pedirsela al puente.
+#
+# El interruptor tiene las tres patas en **una sola fila** (y = 0 relativo a
+# su origen): insertado, las tres caen en la fila del ancla y en tres columnas
+# seguidas. El pulsador cae justo en las filas `e` (+15) y `f` (-15), o sea
+# una pata por mitad del canal: cada nodo interno queda en UNA columna, con
+# las dos mitades puenteadas por dentro de la pieza. Por eso la huella del
+# pulsador declara tambien las dos patas que la fixture no cablea (`m1`/`m3`,
+# las claves 1 y 3 del modelo): su media columna es el mismo nodo que una
+# pata cableada, y si el ruteo metiera otro net ahi seria un corto invisible.
+_SLIDESWITCH = {"1": (-1, "e"), "common": (0, "e"), "2": (1, "e")}
+_PUSHBUTTON = {
+    "1": (0, "e"),     # modelo 4 (Terminal 2a): senal del RESET
+    "2": (-2, "e"),    # modelo 2 (Terminal 1a): Vcc
+    "m1": (-2, "f"),   # modelo 1: mismo nodo interno que "2"
+    "m3": (0, "f"),    # modelo 3: mismo nodo interno que "1"
+}
+
+# Pata de la fixture -> clave del modelo (lo que resuelve el puente).
+MODEL_PIN: Dict[str, Dict[str, str]] = {
+    "slideswitch": {"common": "3", "1": "1", "2": "2"},
+    "pushbutton": {"1": "4", "2": "2"},
+}
+
+
+def model_pin(ctype: str, pin: str) -> str:
+    """Clave del modelo para una pata de la fixture (identidad si no hay mapa)."""
+    return MODEL_PIN.get(str(ctype), {}).get(str(pin), str(pin))
+
+
 FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip14": _DIP14,
     "dip14-jk": _DIP14_JK,
@@ -254,6 +299,8 @@ FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "resistor": _RESISTOR,
     "capacitor": _CAPACITOR,
     "display-7seg": _DISPLAY_7SEG,
+    "slideswitch": _SLIDESWITCH,
+    "pushbutton": _PUSHBUTTON,
 }
 
 # Huella por tipo de pieza de la fixture. Las compuertas comparten el DIP-14
@@ -269,6 +316,8 @@ _FOOTPRINT_BY_TYPE: Dict[str, str] = {
     "seven-segment": "display-7seg",
     "resistor": "resistor",
     "capacitor": "capacitor",
+    "slideswitch": "slideswitch",
+    "pushbutton": "pushbutton",
 }
 
 

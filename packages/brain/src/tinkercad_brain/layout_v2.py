@@ -35,7 +35,15 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
-from tinkercad_brain.boards import ROW_Y, board, footprint_for, half, hole, x_of
+from tinkercad_brain.boards import (
+    ROW_Y,
+    board,
+    footprint_for,
+    half,
+    hole,
+    model_pin,
+    x_of,
+)
 from tinkercad_brain.layout import LayoutError
 
 __all__ = ["column_conflicts", "footprint_for", "plan_layout_v2", "plan_nets_v2"]
@@ -55,6 +63,12 @@ _ANCHOR: Dict[str, str] = {
     "seven-segment": "a",
     "resistor": "1",
     "capacitor": "1",
+    # El interruptor se ancla por el comun y el pulsador por la pata `1` de la
+    # fixture (clave `4` del modelo): las dos anclas quedan en la fila `e`
+    # (mitad de arriba) y las demas patas caen solas en las columnas y filas
+    # que reporto el modelo (ver `boards.py`).
+    "slideswitch": "common",
+    "pushbutton": "1",
 }
 
 # Angulo medido por pieza (el resto va a 0). El display solo encaja girado:
@@ -78,6 +92,10 @@ _BOARD_BY_TYPE: Dict[str, int] = {
     "seven-segment": 1,
     "resistor": 1,
     "capacitor": 2,
+    # Los dos mandos viven con los capacitores en la placa chica: son las
+    # piezas que el usuario pidio ver montadas y no colgando de un cable.
+    "slideswitch": 2,
+    "pushbutton": 2,
 }
 
 # Partes que no se insertan: van libres y el puente las rutea. En la v2 no
@@ -238,7 +256,9 @@ def plan_layout_v2(fixture: dict) -> dict:
         row = huella[_ANCHOR[ctype]][1]
         placements[ref] = {
             "at": hole(boards[board_index]["kind"], anchor, row),
-            "pin": _ANCHOR[ctype],
+            # El puente ancla por la CLAVE del modelo, no por el nombre de la
+            # fixture (ver `MODEL_PIN` en `boards.py`).
+            "pin": model_pin(ctype, _ANCHOR[ctype]),
             "angle": _ANGLE.get(ctype, 0),
             "board": board_index,
         }

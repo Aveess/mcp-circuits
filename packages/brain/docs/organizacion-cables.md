@@ -75,7 +75,7 @@ que no necesite programa.
 - El builder **rechaza** una fixture `no_arduino` con endpoints `uno.*`: es
   contradictorio pedir que se quite y cablearlo.
 
-### Pines de las partes libres: se usan las claves del modelo
+### Pines de las piezas cableadas: se usan las claves del modelo
 
 Medido el 2026-11-15 con una sonda que volcó `dev.name2terminal` en vivo. El
 puente resuelve un pin por **coincidencia exacta de clave** y solo después por
@@ -93,6 +93,43 @@ puente resuelve un pin por **coincidencia exacta de clave** y solo después por
 El pulsador tiene **dos patas por lado unidas internamente**: hay que cablear
 una de cada lado o el botón queda puenteado. En la fixture, `btn1.1` (señal)
 va a la clave `4` y `btn1.2` (tierra/Vcc) a la `2`.
+
+Como la fixture habla el idioma de la UI y el puente el del modelo, hay **dos
+espacios de nombres** y una tabla que los une: `boards.MODEL_PIN` +
+`boards.model_pin(tipo, pata)`. El layout ancla la pieza con la clave del
+modelo (`placements[ref]["pin"]`) y `builder._free_endpoint` traduce cada
+cable; sin esa traducción los cables del interruptor salen del terminal suelto
+en vez de entrar a la placa.
+
+## Regla v5: mando montado en placa y placa apilada (fase 50)
+
+- El interruptor del EN y el pulsador del RESET **no cuelgan de un cable**:
+  van insertados en la placa chica, junto a los dos capacitores. Antes eran
+  `free_parts` en (450, ±250) y sus cables cruzaban el lienzo entero.
+- La placa chica va **apilada arriba de la placa 0** (la de las siete
+  compuertas): misma `x`, `y = -360`. Con eso el mando queda a un cable corto
+  de lo que gobierna y el diseño se lee de arriba abajo.
+- **Huellas medidas** el 2026-11-16 en un diseño desechable, con el offset de
+  `bbDesc.x/y` de cada pata:
+
+  | Pieza | Patas (col, fila) desde el ancla | Consecuencia |
+  | --- | --- | --- |
+  | Slide Switch | `1` (-1), `common` (0), `2` (+1), todas en fila `e` | Tres columnas seguidas de la misma mitad: no cruza el canal |
+  | Pushbutton | `1` (0,e), `2` (-2,e), `m1` (-2,f), `m3` (0,f) | Cada nodo interno queda en UNA columna con las dos mitades puenteadas por dentro |
+
+  El pulsador declara también las **dos patas que no se cablean** (`m1`/`m3`,
+  claves `1` y `3` del modelo). Son el mismo nodo que una pata cableada: si el
+  ruteo metiera otro net en esa media columna, el corto no se ve en el dibujo.
+- **Cables entre placas apiladas**: dos huecos de placas distintas casi nunca
+  comparten `y`, así que la recta sería una diagonal larga sobre las dos
+  protoboards. El puente los rutea en Z (`crossBoardPair`): sale del hueco al
+  carril que cae en el aire entre las dos placas, corre en horizontal y baja al
+  otro hueco. El carril se mide **desde el origen de la placa de abajo**
+  (`LANE_BASE = 130`, paso 8) y comparte contador con la banda de las partes
+  libres. Con la chica en `-360` el hueco libre va de `-110` (borde de la placa
+  0) a `-250` (borde de la chica): caben ~15 carriles y hoy se usan 6.
+- Los capacitores siguen en la placa chica, pero ahora al lado del mando
+  (`c1` en `19f`, `c2` en `23f`).
 
 ## Segunda protoboard
 

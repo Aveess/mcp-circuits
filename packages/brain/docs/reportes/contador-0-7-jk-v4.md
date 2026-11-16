@@ -21,20 +21,20 @@
 - Circuito **sin sketch**: no hay monitor serial que verificar; el comportamiento se comprueba en el circuito (display, LED, movimiento).
 
 ## Ruteo
-- Sin tramos sobre el cuerpo de una placa (185 de 185 cables medidos, 7 ruteados).
+- Sin tramos sobre el cuerpo de una placa (185 de 185 cables medidos, 8 ruteados).
 - Sin tramos diagonales en 185 cables medidos.
 - 6 salto(s) recto(s) entre huecos de la placa (max. 70 unidades); son puentes, se dejan.
 
 ## Herramientas
 | tool | n | mediana (s) | peor (s) |
 | --- | --- | --- | --- |
-| tinkercad_build_circuit_model | 1 | 15.5 | 15.5 |
+| tinkercad_build_circuit_model | 1 | 14.7 | 14.7 |
 | tinkercad_inspect_circuit | 1 | 0.2 | 0.2 |
-| tinkercad_open_circuit | 2 | 16.2 | 18.3 |
-| tinkercad_read_serial_monitor | 1 | 7.6 | 7.6 |
-| tinkercad_set_component_property_model | 13 | 1.3 | 3.4 |
+| tinkercad_open_circuit | 2 | 16.4 | 18.5 |
+| tinkercad_read_serial_monitor | 1 | 7.8 | 7.8 |
+| tinkercad_set_component_property_model | 13 | 3.3 | 8.3 |
 | tinkercad_start_simulation | 1 | 32.7 | 32.7 |
-| tinkercad_stop_simulation | 1 | 4.0 | 4.0 |
+| tinkercad_stop_simulation | 1 | 3.9 | 3.9 |
 
 ## Fallos
 Sin fallos.

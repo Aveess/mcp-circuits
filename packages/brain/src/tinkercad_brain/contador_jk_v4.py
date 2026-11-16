@@ -37,13 +37,10 @@ __all__ = ["FIXTURE_ID", "contador_jk_v4_fixture"]
 
 FIXTURE_ID = "contador-0-7-jk-v4"
 
-# Posicion de las dos piezas sueltas: a la izquierda de la primera placa, en
-# columna, alineadas con la fuente. El interruptor arriba y el pulsador abajo
-# para que no se toquen los cuerpos ni los cables.
-_FREE_AT = {
-    "sw1": {"x": 450, "y": -250},
-    "btn1": {"x": 450, "y": 250},
-}
+# Piezas libres: en la v4 ya no queda ninguna. El interruptor, el pulsador y
+# los dos capacitores van **insertados** en la placa chica (fase 50): colgados
+# de un cable cruzaban el lienzo de lado a lado y se veian sueltos. El
+# interruptor y el pulsador tienen huella propia en `boards.py`.
 
 _EN_RESET_DOC = [
     "SIN ARDUINO (v4). El contador es 100 % hardware: 555 como reloj, tres",
@@ -102,6 +99,20 @@ def contador_jk_v4_fixture() -> dict:
         "Contador 0-7 v4: sin Arduino, EN por interruptor y RESET por pulsador"
     )
     fixture["layout"] = "v3"
+
+    # --- Placas: la chica deja el costado y se apila **arriba** de la placa 0
+    # (la de las siete compuertas), para que el interruptor y el pulsador
+    # queden a un cable corto de lo que mandan. ---------------------------
+    #
+    # La separacion en `y` no es estetica: los cables entre dos placas que no
+    # comparten altura se tienden con un quiebre por el **hueco** entre las
+    # dos (el puente los rutea con `crossBoardPair`, en
+    # `model_build_service`). Con la placa chica en `-360` el hueco libre va
+    # de -250 a -110: los carriles de ruteo (base 130, paso 8) caen ahi y no
+    # pisan el cuerpo de ninguna de las dos.
+    boards = [dict(entry) for entry in fixture["boards"]]
+    boards[2] = {"kind": "small", "x": 870, "y": -360, "start": 9}
+    fixture["boards"] = boards
 
     # --- Piezas: se va el Uno, entran la fuente, el switch, el pulsador y la
     # resistencia del pull-down. -------------------------------------
@@ -163,7 +174,11 @@ def contador_jk_v4_fixture() -> dict:
     nets.append(["btn1.1", "rpd.1", "u1.6A"])
 
     fixture["nets"] = nets
-    fixture["free_parts"] = dict(_FREE_AT)
+    # Ninguna pieza queda libre: el interruptor, el pulsador y los dos
+    # capacitores viven insertados en la placa chica. Antes el switch estaba
+    # en (450, ±250) y sus cables cruzaban el lienzo entero hasta las placas
+    # de la derecha.
+    fixture.pop("free_parts", None)
     # El build siempre crea el Uno; con este campo el puente lo quita al
     # final porque ningun cable lo usa. Es la unica forma de que el lienzo
     # quede sin micro, que es lo que pide un circuito 100 % hardware.
