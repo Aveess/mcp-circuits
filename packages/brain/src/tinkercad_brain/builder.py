@@ -87,6 +87,9 @@ DID_BY_TYPE: dict[str, int] = {
     # Power Supply (fuente de la placa) verificado en vivo: did 111724, pines
     # Vcc y GND. Es la fuente de la regla de alimentacion v3.
     "power-supply": 111724,
+    # Slide Switch (SPDT) medido en el circuito del companero 47d2dZVCX5m:
+    # did 58458, terminales "Common", "Terminal 1" y "Terminal 2".
+    "slideswitch": 58458,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -327,6 +330,24 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     "capacitor": _CAPACITOR_REAL_PINS,
     "binary-counter": _BINARY_COUNTER_REAL_PINS,
     "decade-counter": _DECADE_COUNTER_REAL_PINS,
+    # El interruptor del EN y el pulsador del RESET van libres cuando la
+    # fixture los declara en `free_parts` (v4 del contador): el ruteo los
+    # trata como cualquier parte suelta y los cables terminan en su
+    # terminal real.
+    #
+    # Los nombres de abajo son las CLAVES del modelo, no los nombres que
+    # muestra la UI. Medido en vivo con una sonda (sondeo de
+    # `dev.name2terminal`, 2026-11-15): el puente resuelve el pin por
+    # coincidencia exacta de clave y solo despues por pinName/nombre, asi
+    # que "Common"/"Terminal 2a" no resuelven (`endpoint_not_resolved`).
+    #   Slideswitch did 58458 -> 1 "Terminal 1", 2 "Terminal 2", 3 "Common"
+    #   Pushbutton did 144786 -> 1 "Terminal 1b", 2 "Terminal 1a",
+    #                            3 "Terminal 2b", 4 "Terminal 2a"
+    # El pulsador tiene dos patas por lado (1 y 2 son el mismo nodo interno,
+    # 3 y 4 el otro): btn.1 (senal) va a la clave 4 y btn.2 (tierra/Vcc) a
+    # la 2, nunca dos del mismo lado o el boton queda puenteado.
+    "slideswitch": {"common": "3", "1": "1", "2": "2"},
+    "pushbutton": {"1": "4", "2": "2"},
 }
 
 # Con varias placas el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
@@ -642,6 +663,28 @@ def _with_board(endpoint: str, board: int) -> str:
     return endpoint
 
 
+def _free_endpoint(endpoint, placements, type_by_ref) -> str:
+    """Traduce el pin de una parte libre a la clave del modelo.
+
+    El camino v1 pasa todas las nets por `_translate_endpoint`, pero el
+    camino v2/v3 arma los cables desde `plan_nets_v2`/`plan_nets_v3`, que
+    trabajan con los pines de la fixture. Una parte libre (interruptor,
+    pulsador) necesita el nombre que el puente resuelve en el modelo: sus
+    claves cortas, no los nombres de la UI. Solo se traducen los tipos que
+    tienen mapa en `_FREE_PART_PINS`; la fuente, las resistencias y los
+    integrados ya viajan con el nombre que el puente entiende.
+    """
+    if not isinstance(endpoint, str) or "." not in endpoint:
+        return endpoint
+    ref = endpoint.split(".", 1)[0]
+    placement = placements.get(ref)
+    if placement is None or "free" not in placement:
+        return endpoint
+    if type_by_ref.get(ref) not in _FREE_PART_PINS:
+        return endpoint
+    return _translate_endpoint(endpoint, placements, type_by_ref)
+
+
 def _translate_endpoint(endpoint, placements, type_by_ref) -> str:
     if not isinstance(endpoint, str) or "." not in endpoint:
         raise BuildError(f"extremo de net invalido: {endpoint!r}")
@@ -910,6 +953,24 @@ def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
         )
         raise BuildError("medias columnas con dos nets: " + detalle)
 
+    # Circuito 100 % hardware: el build crea el Uno igual, pero se quita al
+    # final si la fixture lo declara con `no_arduino`. Se valida antes para no
+    # pedir "quita el Uno" y a la vez cablear algo a sus pines.
+    no_arduino = bool(fixture.get("no_arduino"))
+    if no_arduino:
+        cableado_al_uno = [
+            endpoint
+            for net in fixture.get("nets") or []
+            for endpoint in net
+            if isinstance(endpoint, str)
+            and (endpoint == "uno" or endpoint.startswith("uno."))
+        ]
+        if cableado_al_uno:
+            raise BuildError(
+                "fixture no_arduino con pines del Uno cableados: "
+                + ", ".join(cableado_al_uno)
+            )
+
     type_by_ref = {c["ref"]: c["type"] for c in fixture["components"]}
     parts = []
     for ref, placement in placements.items():
@@ -940,13 +1001,16 @@ def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
     return {
         "parts": parts,
         "wires": [
-            {"from": w["from"], "to": w["to"], "color": w["color"]}
+            {"from": _free_endpoint(w["from"], placements, type_by_ref),
+             "to": _free_endpoint(w["to"], placements, type_by_ref),
+             "color": w["color"]}
             for w in nets["wires"]
         ],
         "boards": [
             {"x": b["x"], "y": b["y"], "did": b["did"]} for b in layout["boards"]
         ],
         "code": code,
+        "remove_unused_uno": no_arduino,
     }
 
 

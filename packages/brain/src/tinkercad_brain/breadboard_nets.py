@@ -123,6 +123,17 @@ _PIN_ALIASES_BY_TYPE = {
         "Terminal 2a": "1",
         "Terminal 2b": "1",
     },
+    # Slide Switch (did 58458): tres terminales, el comun en el centro. Los
+    # cables guardados usan "Common"/"Terminal 1"/"Terminal 2" (medido en el
+    # circuito del companero 47d2dZVCX5m); la fixture los llama common/1/2.
+    "slideswitch": {
+        "Common": "common",
+        "common": "common",
+        "Terminal 1": "1",
+        "Terminal 2": "2",
+        "1": "1",
+        "2": "2",
+    },
     "ultrasonic-hcsr04": {
         "Power": "vcc",
         "Trigger": "trig",

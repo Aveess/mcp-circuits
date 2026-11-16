@@ -197,18 +197,28 @@ def plan_layout_v2(fixture: dict) -> dict:
     errors: List[str] = []
     free_index = 0
     free_x = max(b["x"] for b in boards) + _FREE_X
+    # Partes que la fixture saca de la placa a proposito. Puede ser una lista
+    # de refs (posicion automatica, como las `_FREE_TYPES`) o un dict
+    # `{ref: {x, y}}` cuando el dibujo necesita un sitio concreto.
+    free_spec = fixture.get("free_parts") or {}
+    if isinstance(free_spec, dict):
+        free_at: Dict[str, object] = dict(free_spec)
+    else:
+        free_at = {str(ref): None for ref in free_spec}
 
     for component in components:
         ref = component["ref"]
         ctype = component["type"]
         if ctype == _UNO:
             continue  # el puente crea el Uno; no es una parte del plan
-        if ctype in _FREE_TYPES:
-            placements[ref] = {
-                "free": {"x": free_x, "y": _FREE_Y - _FREE_STEP * free_index},
-                "angle": 0,
-            }
-            free_index += 1
+        if ctype in _FREE_TYPES or ref in free_at:
+            spot = free_at.get(ref)
+            if isinstance(spot, dict) and "x" in spot and "y" in spot:
+                free = {"x": float(spot["x"]), "y": float(spot["y"])}
+            else:
+                free = {"x": free_x, "y": _FREE_Y - _FREE_STEP * free_index}
+                free_index += 1
+            placements[ref] = {"free": free, "angle": 0}
             continue
         if ctype not in _ANCHOR:
             unplaced.append(ref)

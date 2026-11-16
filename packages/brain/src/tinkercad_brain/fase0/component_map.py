@@ -53,6 +53,12 @@ TYPE_MAP: dict[str, str] = {
     "PIR Sensor": "pir-sensor",  # Verificado en vivo (did 234203, out/vcc/gnd, cono de deteccion).
     # Verificado en vivo (did 203761): 4 filas + 4 columnas, sin alimentacion.
     "Keypad 4x4": "keypad-4x4",
+    # Slide Switch (did 58458): SPDT de tres terminales, "Common" en el
+    # centro. Medido en el circuito del taller del companero
+    # (47d2dZVCX5m): sus cables guardados se llaman "Common",
+    # "Terminal 1" y "Terminal 2".
+    "Slide Switch": "slideswitch",
+    "Slideswitch": "slideswitch",
     "Decade Counter": "decade-counter",  # Alias del buscador.
     # Fuente de la placa: el nombre que acepta el buscador del drawer medido en
     # vivo es "Power supply" (did 111724, pines Vcc/GND). El alias va primero

@@ -101,6 +101,16 @@ _PRESETS_BY_FIXTURE["contador-0-7-jk-v3"] = [
     dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v2"]
 ]
 
+# La v4 es la v3 sin Arduino: mismo reloj, mismo decodificador, mismos
+# presets, mas la resistencia del pull-down del pulsador de RESET (10k del
+# nodo del pulsador a GND). Sin ella el inversor queda con la entrada al aire
+# y los JK pueden arrancar en reset.
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v4"] = [
+    dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v3"]
+] + [
+    {"component": "rpd", "property": "resistance", "value": 10, "unit": "k"},
+]
+
 
 def select_presets(fixture: dict):
     """Presets de la fixture, o None si no tiene ninguno."""
@@ -339,6 +349,11 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("fixture_id", help="id de la fixture en fixtures/fase0/circuits.json")
     parser.add_argument("--bridge", default=str(DEFAULT_BRIDGE_PATH), help="ruta del puente tinkercad-mcp")
     parser.add_argument("--title", default=None, help="titulo del circuito (defecto: el de la fixture)")
+    parser.add_argument(
+        "--sin-sketch",
+        action="store_true",
+        help="construye sin sketch: circuitos sin microcontrolador (100%% hardware)",
+    )
     return parser.parse_args(argv)
 
 
@@ -351,10 +366,10 @@ def main(argv=None) -> int:
         return 2
 
     code = select_code(fixture)
-    if code is None:
+    if code is None and not args.sin_sketch:
         print(
             f"Error: la fixture {args.fixture_id!r} no tiene sketch conocido "
-            "(sin sketch); no se construye.",
+            "(sin sketch); si el circuito no lleva micro, pasar --sin-sketch.",
             file=sys.stderr,
         )
         return 2

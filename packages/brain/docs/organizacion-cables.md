@@ -52,6 +52,48 @@ Restricciones geométricas que la regla respeta (medidas el 2026-11-15):
   `B+24` o `T+43` no resuelve en el puente, así que el layout solo elige
   columnas de `boards.rail_holes(kind)`.
 
+## Regla v4: sin Arduino (EN y RESET en hardware)
+
+La v4 del contador aplica la regla 6 de arriba: el micro se va y los dos
+mandos que él movía pasan a piezas. Es la referencia para cualquier circuito
+que no necesite programa.
+
+- **EN** es un interruptor deslizante SPDT (`Slide Switch`, `did 58458`):
+  común a las J y K, un extremo a GND y el otro a Vcc. Con el común en GND
+  los flip-flops conservan el estado.
+  **El extremo que va a Vcc es la clave `1`**, porque el modelo nace con el
+  común en esa posición: así el diseño cuenta al abrirlo. Medido en vivo el
+  2026-11-15 con el build `3akmw1EaG0p`: cableado al revés, el display se
+  quedó en 0 durante 40 s de simulación y solo arrancó al deslizar el switch.
+- **RESET** es un pulsador (`Pushbutton`, `did 144786`) de Vcc a la entrada
+  de un inversor, con **pull-down de 10 kΩ a GND**. En reposo el inversor
+  entrega 1 y las R (activas en bajo) no actúan; al apretar entrega 0.
+- La fixture lo declara con `"no_arduino": true`. El puente **siempre crea
+  el Uno** (`ensureDevice`), así que el build lo quita al final con
+  `remove_unused_uno` si ningún cable del plan lo toca. Sin eso, el Arduino
+  vacío baja la fidelidad de piezas a 26/27 aunque el cableado esté al 100 %.
+- El builder **rechaza** una fixture `no_arduino` con endpoints `uno.*`: es
+  contradictorio pedir que se quite y cablearlo.
+
+### Pines de las partes libres: se usan las claves del modelo
+
+Medido el 2026-11-15 con una sonda que volcó `dev.name2terminal` en vivo. El
+puente resuelve un pin por **coincidencia exacta de clave** y solo después por
+`pinName`/nombre, así que los nombres que muestra la UI **no resuelven**
+(`wire ... endpoint_not_resolved`):
+
+| Pieza | Claves del modelo | Nombre en la UI |
+| --- | --- | --- |
+| Slide Switch | `1` | Terminal 1 |
+| | `2` | Terminal 2 |
+| | `3` | **Common** |
+| Pushbutton | `1` / `2` | Terminal 1b / 1a (un nodo interno) |
+| | `3` / `4` | Terminal 2b / 2a (el otro nodo) |
+
+El pulsador tiene **dos patas por lado unidas internamente**: hay que cablear
+una de cada lado o el botón queda puenteado. En la fixture, `btn1.1` (señal)
+va a la clave `4` y `btn1.2` (tierra/Vcc) a la `2`.
+
 ## Segunda protoboard
 
 Cuando la placa 1 no alcanza (el caso real: 8 resistencias de serie no entran en

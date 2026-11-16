@@ -200,7 +200,7 @@ def plan_nets_v3(fixture: dict, placements: dict) -> dict:
         "nets": [net for net, name in zip(nets, names) if name not in _POWER_NAMES],
     }
     signals = layout_v2.plan_nets_v2(signal_fixture, placements)
-    power = _plan_power(fixture, signals["leg_holes"], signals["claims"])
+    power = _plan_power(fixture, signals["leg_holes"], signals["claims"], placements)
     claims = {key: set(owners) for key, owners in (signals["claims"] or {}).items()}
     for key, owners in (power["claims"] or {}).items():
         claims.setdefault(key, set()).update(owners)
@@ -253,12 +253,19 @@ def _foreign_cell_errors(wires: List[dict],
     return errors
 
 
-def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
+def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict,
+                placements: Optional[dict] = None) -> dict:
     boards = layout_v2._boards(fixture)
     components = {
         component["ref"]: component
         for component in fixture.get("components") or []
         if isinstance(component, dict) and "ref" in component
+    }
+    # Una parte suelta (interruptor, pulsador, fuente) no tiene pata en un
+    # hueco: su cable de alimentacion sale de su terminal y va al riel.
+    free_refs = {
+        ref for ref, placement in (placements or {}).items()
+        if isinstance(placement, dict) and "free" in placement
     }
     sources = sorted(
         ref
@@ -296,11 +303,16 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
             board_index, col, row = hole
             taps[name].setdefault(board_index, {}).setdefault(half(row), {})[col] = row
 
-    # Sin pata propia solo puede colgarse la tierra del Uno: es la referencia
-    # comun, no un consumidor. Cualquier otra cosa es un error de la fixture.
+    # Sin pata propia solo pueden colgarse la tierra del Uno (referencia
+    # comun) y los terminales de una parte suelta, que se cablean directo al
+    # riel. Cualquier otra cosa es un error de la fixture.
+    free_power: Dict[str, List[str]] = {name: [] for name in _POWER_NAMES}
     for name in _POWER_NAMES:
         for endpoint in hung[name]:
             if endpoint == "uno.GND1" and name == "GND":
+                continue
+            if endpoint.split(".", 1)[0] in free_refs:
+                free_power[name].append(endpoint)
                 continue
             errors.append(
                 f"{name}: {endpoint} no es una pata colocada, ni la fuente, "
@@ -353,6 +365,7 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
                 name,
             )
         )
+        taken.setdefault(0, set()).add(_ENTRY_COLUMN)
 
     # 2) La tierra del Uno se cuelga del mismo riel, al lado de la fuente.
     if "uno.GND1" in hung["GND"]:
@@ -360,6 +373,28 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict) -> dict:
         wires.append(
             _wire("uno.GND1", _rail(0, rail, _UNO_GROUND_COLUMN), "GND")
         )
+        taken.setdefault(0, set()).add(_UNO_GROUND_COLUMN)
+
+    # 2b) Terminales de partes sueltas (el interruptor del EN, el pulsador del
+    #     RESET): cable directo de su terminal al riel de su net, entrando por
+    #     el borde izquierdo como la fuente.
+    for name in _POWER_NAMES:
+        if not free_power[name]:
+            continue
+        rail = rail_on_side(boards[0]["kind"], home[name])
+        if rail is None:
+            errors.append(f"{name}: la placa 0 no tiene riel para la alimentacion")
+            continue
+        used = taken.setdefault(0, set())
+        for endpoint in free_power[name]:
+            col = _nearest_rail_column(boards[0]["kind"], _ENTRY_COLUMN, used)
+            if col is None:
+                errors.append(
+                    f"{name}: sin hueco de riel para el cable de {endpoint}"
+                )
+                continue
+            wires.append(_wire(endpoint, _rail(0, rail, col), name))
+            used.add(col)
 
     # 3) Placa extra: dos cables desde la ultima placa ya alimentada, de riel a
     #    riel y a la misma altura, asi que salen rectos.

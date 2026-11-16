@@ -37,6 +37,7 @@ _FIXTURE_TYPES = {
     "pushbutton",
     "resistor",
     "servo",
+    "slideswitch",
     "tmp36",
     "transistor-npn",
     "ultrasonic-hcsr04",
@@ -50,6 +51,8 @@ PIN_TABLE: dict[str, frozenset[str]] = {
     "led": frozenset({"anode", "cathode"}),
     "resistor": frozenset({"1", "2"}),
     "pushbutton": frozenset({"1", "2"}),
+    # Slide Switch SPDT (did 58458): comun en el centro y dos extremos.
+    "slideswitch": frozenset({"common", "1", "2"}),
     "servo": frozenset({"signal", "vcc", "gnd"}),
     "potentiometer": frozenset({"1", "2", "3"}),
     "ultrasonic-hcsr04": frozenset({"vcc", "gnd", "trig", "echo"}),
