@@ -38,6 +38,12 @@ class CircuitsService:
         "&& document.querySelector('#breadboardTab'))"
     )
 
+    # Cargar la pagina no es montar el diseno. Con el servidor de edicion a
+    # medio arrancar se queda en "Initializing" y el modelo trae 0 devices; una
+    # recarga lo arregla casi siempre (medido 2026-11-14), asi que se reintenta
+    # solo antes de devolver el aviso al llamador.
+    MOUNT_ATTEMPTS = 3
+
     async def _wait_for_design_mounted(self, page: Any, timeout_s: float = 12.0) -> bool:
         """Espera a que el diseno este montado en la pagina. Best-effort, no lanza."""
         try:
@@ -337,6 +343,23 @@ class CircuitsService:
         # El canvas aparece antes de que el diseno este montado dentro del
         # editor: sin esta espera el primer inspect devuelve 0 componentes.
         mounted = await self._wait_for_design_mounted(page)
+        intentos = 1
+        while not mounted and intentos < self.MOUNT_ATTEMPTS:
+            intentos += 1
+            logger.info(
+                f"Design not mounted yet; reloading ({intentos - 1}/"
+                f"{self.MOUNT_ATTEMPTS - 1}) before reporting it"
+            )
+            try:
+                page = await self.browser.navigate(
+                    target_url, wait_until="domcontentloaded", timeout=45000
+                )
+                await self.browser.find_first_matching(
+                    EDITOR_SELECTORS["editor_canvas"], timeout=20000, page=page
+                )
+            except Exception as exc:
+                logger.debug(f"reload after unmounted design failed: {exc}")
+            mounted = await self._wait_for_design_mounted(page)
         await page.wait_for_timeout(300)
 
         # Proactively collapse code editor panel if open to prevent pointer interception
@@ -354,6 +377,7 @@ class CircuitsService:
             "title": title,
             "url": page.url,
             "mounted": mounted,
+            "mount_attempts": intentos,
             "message": f"Circuit '{title}' opened successfully in editor.",
         }
         # Navegar no es montar: si el diseno no aparecio, el llamador tiene

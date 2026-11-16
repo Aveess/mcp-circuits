@@ -96,6 +96,35 @@ class TestEsperaDelMontaje(unittest.IsolatedAsyncioTestCase):
         page.wait_for_function.assert_awaited()
 
 
+    async def test_open_circuit_reintenta_si_el_diseno_no_monto(self):
+        """Una pagina en "Initializing" se recarga sola antes de avisar.
+
+        Medido en vivo: cargar no es montar. Con el servidor de edicion a
+        medio arrancar, la primera carga devuelve 0 devices y una recarga lo
+        arregla. Reintentar aqui evita que el llamador tenga que abrir dos
+        veces el mismo circuito para poder leerlo.
+        """
+        page = AsyncMock()
+        page.url = "https://www.tinkercad.com/things/abc/editel"
+        page.is_closed = MagicMock(return_value=True)
+        # La primera espera falla; a partir de la segunda, el diseno monto.
+        page.wait_for_function = AsyncMock(
+            side_effect=[TimeoutError("Initializing"), True]
+        )
+
+        service = _service(page)
+        service.browser.navigate = AsyncMock(return_value=page)
+        service.browser.find_first_matching = AsyncMock(return_value=object())
+        service.browser.close_code_panel = AsyncMock()
+
+        res = await service.open_circuit("abc")
+
+        self.assertTrue(res["mounted"])
+        self.assertEqual(res["mount_attempts"], 2)
+        self.assertEqual(service.browser.navigate.await_count, 2)
+        self.assertEqual(page.wait_for_function.await_count, 2)
+
+
 if __name__ == "__main__":
     unittest.main()
 

@@ -139,7 +139,16 @@ python -m src.cli.list_tools_cli
 python -m unittest discover tests
 ```
 
-### 6. Run End-to-End Example (Optional)
+### 6. Check the MCP Protocol Itself
+The unit tests call the service layer directly. This script spawns the real
+server over stdio, performs the MCP handshake, lists the tools and calls one
+(no circuit is modified):
+```bash
+python examples/check_mcp_stdio.py
+```
+Expected output: `handshake: tinkercad-circuits`, `tools: 50`, `authenticated: True`, `OK`.
+
+### 7. Run End-to-End Example (Optional)
 To programmatically build, wire, program, and simulate a complete temperature-controlled servo circuit:
 ```bash
 python examples/build_temperature_circuit.py
@@ -191,7 +200,19 @@ npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
 
 ---
 
-## 📚 Complete Tools Reference (45 Tools)
+## ⚠️ Known Limitations & Operational Notes
+
+Read this before reporting a bug. These are properties of Tinkercad's editor and simulator, not of the MCP.
+
+1. **The simulator runs slower than real time.** A freshly loaded page advances at ~0.05× real time; once settled it goes to 0.2–1× depending on circuit size (a 23-part circuit with seven logic ICs stays around 0.2–1×). Consequence: a sketch that needs 20 s of simulated time can take **minutes** of wall clock. Never declare a circuit dead after a fixed `sleep`: start the simulation, read the serial monitor, and poll until the expected marks appear, with a time cap.
+2. **Opening a design sometimes leaves the editor unmounted.** The page stays in "Initializing" and there are zero components in the model. `tinkercad_open_circuit` now **reloads up to 3 times by itself** before giving up (`mount_attempts` in the response says how many it needed). If it still fails, the tools report it explicitly (`success: false`, `reason: "editor_not_mounted"`, plus `editor_state`) instead of returning an empty circuit. That is a Tinkercad server hiccup, not a wiring error.
+3. **One browser, one session.** The persistent profile (`.tinkercad_profile/`) holds a single logged-in context. Do not run two builds in parallel against the same account: they fight over the same page. Wait for one to finish.
+4. **The login is per machine and per person.** `python -m src.cli.login_cli` stores that user's Autodesk session. The profile cannot be copied from someone else's machine, and it is gitignored.
+5. **Saving code is debounced.** `tinkercad_set_code` waits for the ShareJS flush and re-reads the editor to confirm. ShareJS can leave a residual pending op that stays at 1 forever; it does not block saving, and a page reload returns it to 0.
+6. **Component names are not identities.** The editor renames duplicates on rebuild (`r2` becomes `r21`). Always use the names returned by the build (`placed[ref].name`) instead of assuming your refs survived.
+7. **Display/part orientation matters.** A 7-segment display only fits a large breadboard at 180°, which swaps its pins (`a`↔`d`, `b`↔`e`, `c`↔`f`). Electrically it can be perfect and still show mirror-image digits: verify orientation with a screenshot, not only with the netlist.
+
+## 📚 Complete Tools Reference (50 Tools)
 
 ### 1. Authentication & Session
 * `tinkercad_auth_status()`: Checks if current session is authenticated.
@@ -209,6 +230,8 @@ npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
 * `tinkercad_rename_circuit(new_title)`: Renames the currently open circuit.
 * `tinkercad_take_screenshot(filename, full_page)`: Captures a PNG screenshot of the workspace.
 * `tinkercad_switch_workspace_view(view)`: Switches the editor view between `'circuits'` (breadboard view), `'schematic'` (schematic diagram), and `'components'` (BOM component list).
+* `tinkercad_zoom_canvas(action, steps)`: Zooms the canvas (`action` `fit` or `zoom`, `steps` how many notches) to expand the workspace or fit all components.
+* `tinkercad_delete_circuit(circuit_id_or_url, circuit_id)`: Deletes a circuit design from the account (moves it to the recycle bin). Used to clean up probe/test circuits.
 * `tinkercad_validate_circuit_pre_simulation()`: Performs comprehensive pre-simulation checks: verifies component integrity, checks wire endpoints, detects electrical overcurrent violations (>40 mA limits), verifies motor driver presence, and checks Arduino code mode (Text vs Blocks).
 
 ### 3. Component Management
@@ -216,6 +239,7 @@ npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
 * `tinkercad_add_component(component_name, x, y, required_pins, min_pins)`: Places a component on canvas by exact stable identity, rejects ambiguous matches and hidden chevrons, verifies pin counts and required pins (e.g. 4-pin HC-SR04 vs 3-pin sensor), and cleans up mismatched components automatically.
 * `tinkercad_remove_component(component_name, x, y)`: Deletes a component from the canvas.
 * `tinkercad_set_component_property(property_name, value, unit)`: Adjusts component attributes (resistance, color, name).
+* `tinkercad_set_component_property_model(component_name, property_name, value, unit)`: Sets a property directly in the editor's internal model, without selecting the part on canvas. This is the reliable path for calibrated values (a 555 resistor to `22k`, a display to `common=cathode`) and the only one that survives components being re-created by a rebuild. For magnitudes, `unit` is the setProperty **prefix** (`k`, `u`, `n`, `m`) rather than the full unit string; for other properties it is whatever the model expects (e.g. `cm`).
 
 ### 4. Wiring & Connections
 * `tinkercad_connect_verified_netlist(connections, circuit_id, clear_existing, verify_each, verify_persistence)`: Verified, instance-aware netlist wiring workflow. Resolves exact instance IDs (e.g. `_269`, `_291`), normalizes pin aliases (`vcc`/`power`/`pos` -> power, `gnd`/`ground`/`neg` -> ground, `out`/`signal` -> signal, `anode`/`cathode`), scopes terminal resolution strictly to each component's SVG element, rejects power-to-ground shorts (`short_circuit=true`), same-component self-wires, direct motor connections, duplicate pairs, and suspicious mappings (`stale_terminal_mapping=true`). Wires one connection at a time with instant model verification and confirms all connections survive post-reload cloud persistence.
@@ -238,6 +262,7 @@ npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
 * `tinkercad_start_simulation(wait_seconds)`: Starts the circuit simulation and waits for active state.
 * `tinkercad_stop_simulation()`: Stops the simulation.
 * `tinkercad_get_simulation_status()`: Checks whether simulation is running, elapsed time, and errors.
+* `tinkercad_simulate_samples(samples_ms, led_component, read_serial, lit_threshold)`: Starts the simulation and samples a visual component state (an LED by default) at the given millisecond offsets, returning on/off per sample; `samples_ms` is required. Useful as a functional oracle when the circuit has no serial output. It measures the rendered part (body pixels, `lit_threshold` default 0.12), not the model.
 
 ### 7. Serial Monitor
 * `tinkercad_open_serial_monitor()`: Opens the Serial Monitor panel.
@@ -247,6 +272,7 @@ npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
 
 ### 8. Composite Workflows
 * `tinkercad_build_circuit(title, components_json, wires_json, arduino_code, run_simulation)`: High-level tool to build, wire, program, and simulate a circuit in a single operation.
+* `tinkercad_build_circuit_model(parts, wires, code, boards, clear_existing)`: Builds a circuit by **breadboard holes** directly in the editor's internal model: every part is placed at a hole address (`b1/12e`), every wire is a hole-to-hole or pin-to-hole pair, and the tool verifies persistence and returns the real part names. This is the path used for dense circuits (74HC chips inserted in a breadboard, 7-segment displays at 180°, capacitors on a second board) where canvas clicks are not precise enough. `boards` describes the breadboards (kind `large` with did 116648 and 640 usable holes, or `small` with did 111211 and 30 columns, plus the `x`/`y`/`start` origin); parts accept a `board` index and an `angle`. Requires `parts` and `wires`, and does not create the design: open or create one first.
 * `tinkercad_change_pin_and_update_code(component, component_pin, old_microcontroller_pin, new_microcontroller_pin, code_symbol, microcontroller_name, wire_color, verify_persistence)`: Atomically moves a physical wire connection to a new microcontroller pin and updates the pin number in the Arduino sketch with verified persistence.
 * `tinkercad_add_servo_with_distance_control(distance_threshold, angle_when_near, angle_when_far, signal_pin)`: Adds a Micro Servo, connects signal, power (5V), and ground (GND) to Arduino, and injects distance-triggered positioning code with persistence verification.
 * `tinkercad_build_robot_car(title, distance_threshold_cm, motor_driver_model, run_simulation)`: Builds an obstacle-avoiding 4-motor robot car using safe electrical architecture: Arduino Uno, 4 DC motors, L293D H-bridge motor driver, 4-pin HC-SR04 ultrasonic sensor, Breadboard Small with power/ground rails, 9V external motor supply, common ground, and verified persistent obstacle-stop Arduino code.
