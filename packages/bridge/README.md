@@ -158,36 +158,83 @@ python examples/build_temperature_circuit.py
 
 ---
 
-## 🤝 Usarlo en otra máquina o con otra persona
+## 🤝 Prestarle el servidor a otra persona (para que lo use, no para que lo toque)
 
-El servidor no tiene claves ni cuenta propia: **maneja el navegador de quien lo
-corre**, con la sesión de Tinkercad de esa persona. Por eso compartirlo es
-compartir el código, no la sesión.
+Esto es lo que le mandas a alguien que quiere **usar** el MCP en su propio
+proyecto, sin acceso al repositorio y sin poder subir cambios:
 
-Lo que **sí** se comparte: el repositorio (o un zip del código). Lo que **no**
-se comparte nunca: `.venv/`, `.tinkercad_profile/`, `screenshots/`.
+> **Qué te estoy dando.** Un servidor MCP que maneja el editor de Tinkercad
+> desde un agente (Claude Desktop, Cursor, OpenCode...). Sirve para armar
+> circuitos: colocar piezas en la protoboard, cablear por huecos, poner
+> sketch, simular y leer el serial. Es una **copia del código**, no un
+> repositorio: no tiene `.git`, así que no hay forma de que subas nada ni de
+> que toques el original. Tu copia es tuya: puedes trastear con ella todo lo
+> que quieras; lo que pase en tu carpeta no me llega.
+>
+> **Tu cuenta, no la mía.** El servidor no tiene cuenta propia: maneja **tu**
+> navegador con **tu** sesión de Tinkercad. Los diseños que construyas van a tu
+> cuenta. No copies ni pidas un `.tinkercad_profile/` ajeno: sería operar
+> sobre la cuenta de esa persona, y quien te lo diera te estaría dando su
+> contraseña.
+>
+> **Reglas del juego.** Si algo te falla o crees que hay un bug, cuéntamelo a
+> mí; no hace falta que lo arregles. Un build a la vez (un navegador, una
+> sesión): dos en paralelo se pisan.
 
-Pasos para la otra persona:
+### Puesta en marcha (5 pasos)
 
-1. Clonar el repo (o descomprimir el zip) en su máquina.
-2. Python 3.10+ y `python -m venv .venv`, activarlo, `pip install -r
-   requirements.txt`, `playwright install chromium`.
-3. `python -m src.cli.login_cli` → entra con **su** cuenta de Tinkercad. Queda
-   su sesión en su `.tinkercad_profile/` (gitignored, `700`).
-4. Apuntar su cliente MCP al **python del venv** con `cwd` en la raíz del repo
-   (ver "Connecting to MCP Clients"). En OpenCode:
-   `"command": ["/ruta/al/repo/.venv/bin/python", "-m", "src.main"]`.
-5. Comprobar antes de tocar nada: `python examples/check_mcp_stdio.py` →
-   `handshake: tinkercad-circuits 1.1.0`, `tools: 50`, `authenticated: True`,
-   `OK`.
+1. Descomprimir el zip en una carpeta propia. Necesitas Python 3.10 o más.
+2. Crear el entorno e instalar:
+   ```bash
+   cd tinkercad-mcp-bridge
+   python -m venv .venv
+   source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   playwright install chromium
+   ```
+3. Entrar a Tinkercad con **su** cuenta (abre Chrome; la sesión queda en su
+   `.tinkercad_profile/`, que no se comparte):
+   ```bash
+   python -m src.cli.login_cli
+   ```
+4. Conectar su cliente MCP al **python del venv**, con `cwd` en esa carpeta (ver
+   "Connecting to MCP Clients" aquí abajo). En OpenCode:
+   ```jsonc
+   "mcp": { "servers": { "tinkercad-circuits": {
+     "type": "local",
+     "command": ["/ruta/a/tinkercad-mcp-bridge/.venv/bin/python", "-m", "src.main"]
+   }}}
+   ```
+5. Comprobar que quedó bien, antes de pedirle nada al agente:
+   ```bash
+   python examples/check_mcp_stdio.py
+   # handshake: tinkercad-circuits 1.1.0 / tools: 50 / authenticated: True / OK
+   ```
 
-Los diseños que construya van a **su** cuenta, no a la del dueño del repo. Dos
-personas no pueden compartir un `.tinkercad_profile/`: sería operar sobre la
-cuenta ajena (y el propio README lo prohíbe en "Known Limitations" §4).
+### Lo primero que tiene que leer
 
-Antes de construir algo serio, leer [AGENTS.md](./AGENTS.md) (reglas
-obligatorias) y [RESTRICCIONES.md](./RESTRICCIONES.md) (lo que el editor mide y
-lo que no). Sin esas dos, el circuito se ve bien en la foto y no funciona.
+- [AGENTS.md](./AGENTS.md) — las reglas obligatorias al construir: la fuente es
+  la pieza *Power Supply*, rojo/negro no se usan para señales, sin Arduino
+  salvo que haya programa, y los cables van en ángulo recto.
+- [RESTRICCIONES.md](./RESTRICCIONES.md) — qué mide el editor y qué no, la
+  geometría real de las placas y las trampas ya pagadas.
+
+Sin esas dos, el circuito se ve bien en la foto y no funciona en la
+simulación. Es el error que más caro sale.
+
+### Lo que NO se le manda nunca
+
+`.venv/` (pesa y se rompe entre máquinas), `.tinkercad_profile/` (es su
+contraseña), `screenshots/` (no aporta) y, si el zip se genera desde el repo,
+tampoco `.git/`. `git archive` ya deja todo eso fuera; el zip de entrega son
+~270 KB.
+
+### Si además quiere el flujo completo
+
+Con el MCP solo, el agente construye a partir de un plan JSON (piezas, cables
+por hueco y `boards`). El que **genera** esos planes desde una fixture es otro
+repo (`tinkercad-brain`, del mismo dueño). Si lo necesita, se le pasa también
+como zip; igual que este, sin repositorio y sin permisos.
 
 ## 🔌 Connecting to MCP Clients
 
