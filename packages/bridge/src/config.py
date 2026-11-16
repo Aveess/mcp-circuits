@@ -24,6 +24,14 @@ SCREENSHOTS_DIR = Path(os.getenv("TINKERCAD_SCREENSHOTS_DIR", str(DEFAULT_SCREEN
 PROFILE_DIR.mkdir(parents=True, exist_ok=True)
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
+# El perfil guarda las cookies de sesion de Tinkercad: quien lo copie queda
+# logueado como su dueno. Chromium crea `Cookies` con 600, pero el directorio
+# salia 755 y cualquiera podia listar y navegar la estructura. 700 lo cierra.
+try:
+    PROFILE_DIR.chmod(0o700)
+except OSError:
+    pass
+
 HEADLESS_ENV = os.getenv("TINKERCAD_HEADLESS", "true").lower()
 DEFAULT_HEADLESS = HEADLESS_ENV not in ("0", "false", "no", "headed")
 
