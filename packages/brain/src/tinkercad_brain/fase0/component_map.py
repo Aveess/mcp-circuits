@@ -54,6 +54,11 @@ TYPE_MAP: dict[str, str] = {
     # Verificado en vivo (did 203761): 4 filas + 4 columnas, sin alimentacion.
     "Keypad 4x4": "keypad-4x4",
     "Decade Counter": "decade-counter",  # Alias del buscador.
+    # Fuente de la placa: el nombre que acepta el buscador del drawer medido en
+    # vivo es "Power supply" (did 111724, pines Vcc/GND). El alias va primero
+    # para que _TYPE_BY_SLUG conserve el nombre canonico.
+    "Power Supply": "power-supply",
+    "Power supply": "power-supply",
 }
 
 

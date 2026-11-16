@@ -21,6 +21,7 @@ from tinkercad_brain.layout_v2 import (
     plan_layout_v2,
     plan_nets_v2,
 )
+from tinkercad_brain.layout_v3 import plan_layout_v3, plan_nets_v3
 
 __all__ = ["BuildError", "DID_BY_TYPE", "fixture_to_model_call", "build_circuit"]
 
@@ -83,6 +84,9 @@ DID_BY_TYPE: dict[str, int] = {
     "pir-sensor": 234203,
     # Keypad 4x4 verificado en vivo: did 203761.
     "keypad-4x4": 203761,
+    # Power Supply (fuente de la placa) verificado en vivo: did 111724, pines
+    # Vcc y GND. Es la fuente de la regla de alimentacion v3.
+    "power-supply": 111724,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -877,7 +881,10 @@ def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
     if problems:
         raise BuildError("; ".join(problems))
     try:
-        layout = plan_layout_v2(fixture)
+        if fixture.get("layout") == "v3":
+            layout = plan_layout_v3(fixture)
+        else:
+            layout = plan_layout_v2(fixture)
     except LayoutError as exc:
         raise BuildError(str(exc)) from exc
     if layout["unplaced"]:
@@ -888,7 +895,10 @@ def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
         raise BuildError("; ".join(layout["errors"]))
 
     placements = layout["placements"]
-    nets = plan_nets_v2(fixture, placements)
+    if fixture.get("layout") == "v3":
+        nets = plan_nets_v3(fixture, placements)
+    else:
+        nets = plan_nets_v2(fixture, placements)
     if nets["errors"]:
         raise BuildError("; ".join(nets["errors"]))
     conflicts = column_conflicts(nets)
@@ -947,7 +957,7 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     a medias), si un type colocado no tiene DID conocido, o si una net usa
     un pin cuya geometria de huecos se desconoce.
     """
-    if isinstance(fixture, dict) and fixture.get("layout") == "v2":
+    if isinstance(fixture, dict) and fixture.get("layout") in ("v2", "v3"):
         return _fixture_to_model_call_v2(fixture, code)
     problems = _series_resistor_errors(fixture)
     if problems:

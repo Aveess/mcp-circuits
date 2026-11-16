@@ -663,8 +663,9 @@ def test_r17_los_ids_presentes_son_unicos():
     assert len(ids) == len(set(ids)), ids
     # Fase 38 sumo el contador 0-7 con 555 y compuertas; la fase 46 el
     # contador 0-7 con tres JK; la fase 47 la v2 del mismo contador con los
-    # chips insertados: 30 fixtures.
-    assert len(_fixtures()) == 30
+    # chips insertados; la fase 48 la v3 con la alimentacion por rieles:
+    # 31 fixtures.
+    assert len(_fixtures()) == 31
 
 
 @pytest.mark.parametrize(

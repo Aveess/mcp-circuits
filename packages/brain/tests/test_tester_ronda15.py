@@ -257,13 +257,28 @@ RAILED_IDS = [c["id"] for c in _fixtures() if c.get("wiring") == "rails"]
 # v2 (un nodo por net, colores por net, puentes cortos, sin medias columnas
 # compartidas). No es un skip por comodidad: es otro contrato.
 V2_SKIP = (
-    "{fixture_id}: layout v2 (fase 47), no usa la estrella ni la traduccion de "
-    "huecos de la v1; el equivalente fisico se prueba en tests/test_layout_v2.py"
+    "{fixture_id}: layout v2/v3 (fases 47 y 48), no usa la estrella ni la "
+    "traduccion de huecos de la v1; el equivalente fisico se prueba en "
+    "tests/test_layout_v2.py y tests/test_layout_v3.py"
 )
 
 
 def _v2(fixture):
-    return fixture.get("layout") == "v2"
+    # La v3 es la v2 con otra alimentacion: mismo contrato de cableado (huecos
+    # en la placa, sin estrella), asi que los tests del contrato v1 se saltan
+    # igual que en la v2.
+    return fixture.get("layout") in ("v2", "v3")
+
+
+def _plan_nets_de_placa(fixture):
+    """Las nets del cableado nuevo, sea v2 o v3."""
+    if fixture.get("layout") == "v3":
+        from tinkercad_brain.layout_v3 import plan_layout_v3, plan_nets_v3
+
+        return plan_nets_v3(fixture, plan_layout_v3(fixture)["placements"])
+    from tinkercad_brain.layout_v2 import plan_layout_v2, plan_nets_v2
+
+    return plan_nets_v2(fixture, plan_layout_v2(fixture)["placements"])
 
 
 def _net_name_is_power(net_name):
@@ -729,12 +744,10 @@ def test_r15_el_color_de_cada_cable_corresponde_a_su_grupo(fixture_id):
     fixture = _fixture(fixture_id)
 
     if _v2(fixture):
-        # En la v2 los extremos del cable son huecos, no pines: el color se
-        # decide por NET, no por el nombre del extremo. El oraculo es el
-        # mismo: 5V rojo, GND negro, el resto en la paleta de senal.
-        from tinkercad_brain.layout_v2 import plan_layout_v2, plan_nets_v2
-
-        nets = plan_nets_v2(fixture, plan_layout_v2(fixture)["placements"])
+        # En la v2 y la v3 los extremos del cable son huecos, no pines: el
+        # color se decide por NET, no por el nombre del extremo. El oraculo es
+        # el mismo: 5V rojo, GND negro, el resto en la paleta de senal.
+        nets = _plan_nets_de_placa(fixture)
         por_net = {}
         for wire in nets["wires"]:
             por_net.setdefault(wire["net"], set()).add(wire["color"])

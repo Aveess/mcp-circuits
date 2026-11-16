@@ -10,8 +10,10 @@ borrados). Ver ``docs/superpowers/specs/2026-11-15-layout-v2-design.md``:
 - Small (did 111211): 30 columnas, x de -145 a 145 a paso 10, rieles
   ``T+/T-/B+/B-`` en y -85/-95 y 85/95.
 - Large (did 116648): 62 columnas utiles, x de -295 a 315; el modelo rotula
-  las dos extremas ``A98/A99`` (x -315/-305) y no se usan. **Sin rieles
-  utilizables**: los dos de abajo comparten nombre ``X`` y son el mismo nodo.
+  las dos extremas ``A98/A99`` (x -315/-305) y no se usan. Tiene **cuatro
+  filas de riel de 50 huecos**: y +85 (``Y``) y +95 (``Z``) arriba, y -85/-95
+  abajo, donde **el modelo rotula las dos ``X``** (un solo nodo): ese par no
+  sirve para llevar positivo y tierra a la vez.
 - Filas: paso 10, ``a`` = +55 ... ``j`` = -55, en las dos placas. La grande
   las rotula al reves (``A`` = -55); el puente ubica los huecos por ``y``, asi
   que el cerebro habla siempre la convencion de abajo.
@@ -50,10 +52,32 @@ class Board(NamedTuple):
     x0: int
     row_y: Dict[str, int]
     rails: Dict[str, int]
+    # Huecos por riel. 0 = los mismos que tiene la placa. La grande declara
+    # 50: sus cuatro filas de riel son mas cortas que las 62 columnas.
+    rail_columns: int = 0
+    # Columnas que SI tienen hueco de riel, vacio = 1..columns. La grande no
+    # los tiene seguidos: medido el 2026-11-15, son 50 huecos repartidos en las
+    # primeras 60 columnas con un salto cada seis (6, 12, 18, 24, 30, 31, 37,
+    # 43, 49, 55) y dos al final (61, 62). Un cable a un hueco que no existe no
+    # se puede tender: el endpoint no resuelve y el build se cae a medias.
+    rail_holes: Tuple[int, ...] = ()
 
 
-SMALL = Board("small", 111211, 30, -145, ROW_Y, {"T-": -95, "T+": -85, "B-": 85, "B+": 95})
-LARGE = Board("large", 116648, 62, -295, ROW_Y, {})
+SMALL = Board(
+    "small", 111211, 30, -145, ROW_Y,
+    {"T-": -95, "T+": -85, "B-": 85, "B+": 95},
+    30, tuple(range(1, 31)),
+)
+LARGE = Board(
+    "large", 116648, 62, -295, ROW_Y,
+    {"T+": 85, "T-": 95, "B+": -85, "B-": -95},
+    # El riel llega hasta la columna 60 (ultimo hueco en x=295), y de esas 60
+    # columnas solo 50 tienen hueco: la lista de abajo manda.
+    60,
+    (1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17, 19, 20, 21, 22, 23,
+     25, 26, 27, 28, 29, 32, 33, 34, 35, 36, 38, 39, 40, 41, 42, 44, 45, 46,
+     47, 48, 50, 51, 52, 53, 54, 56, 57, 58, 59, 60),
+)
 
 _BY_KIND: Dict[str, Board] = {"small": SMALL, "large": LARGE}
 
@@ -66,6 +90,12 @@ def board(kind: str) -> Board:
 def columns(kind: str) -> range:
     """Columnas utiles, 1..N."""
     return range(1, board(kind).columns + 1)
+
+
+def rail_holes(kind: str) -> Tuple[int, ...]:
+    """Columnas que tienen hueco en el riel (la grande los tiene salteados)."""
+    b = board(kind)
+    return tuple(b.rail_holes) or tuple(columns(kind))
 
 
 def _check_col(kind: str, col: int) -> Board:

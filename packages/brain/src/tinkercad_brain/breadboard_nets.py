@@ -48,6 +48,15 @@ _PIN_ALIASES = {
 # Alias que dependen del tipo: p. ej. en un potenciómetro "Terminal 2"
 # es el pin "3" de fixture (term1), no el "2" como en una resistencia.
 _PIN_ALIASES_BY_TYPE = {
+    # La fuente de la placa guarda sus bornes como "Positive"/"Negative" en
+    # los cables, pero `inspect` los llama Vcc/GND (medido el 2026-11-15 en
+    # el contador v3, kSakfQXHtmU). Sin el alias, la net de 5V y la de tierra
+    # nunca cierran y la conectividad se queda en 39/41 aunque el cableado
+    # este perfecto.
+    "power-supply": {
+        "Positive": "Vcc",
+        "Negative": "GND",
+    },
     "servo": {
         "Power": "vcc",
         "Ground": "gnd",

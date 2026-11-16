@@ -50,10 +50,19 @@ def test_la_placa_chica_sigue_con_30_columnas_y_rieles():
     assert set(SMALL.rails) == {"T+", "T-", "B+", "B-"}
 
 
-def test_la_placa_grande_no_publica_rieles():
-    # Los dos rieles de abajo comparten nombre "X" y nodo: usarlos para
-    # alimentacion seria un corto silencioso.
-    assert LARGE.rails == {}
+def test_la_placa_grande_publica_sus_cuatro_rieles_de_50_huecos():
+    # Medido en vivo el 2026-11-15 sobre un diseno desechable: la grande tiene
+    # cuatro filas de riel de 50 huecos, y -95/-85 abajo (el modelo rotula las
+    # dos "X") y +85/+95 arriba ("Y"/"Z"). El par de abajo es un solo nodo, o
+    # sea que ahi solo puede ir una polaridad; el layout v3 lo respeta
+    # (`_SINGLE_NODE_SIDES`) en vez de prohibir los rieles enteros.
+    assert set(LARGE.rails) == {"T+", "T-", "B+", "B-"}
+    # El riel llega hasta la columna 60 (el ultimo hueco esta en x=295); son
+    # 50 huecos **salteados** dentro de 1..60, no las primeras 50 columnas.
+    assert LARGE.rail_columns == 60
+    assert len(LARGE.rail_holes) == 50
+    assert LARGE.rails["B+"] == -85 and LARGE.rails["B-"] == -95
+    assert LARGE.rails["T+"] == 85 and LARGE.rails["T-"] == 95
 
 
 def test_board_es_una_tabla_nombrada_y_se_busca_por_nombre():

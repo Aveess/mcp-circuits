@@ -13,8 +13,38 @@ aún no implementada en código.
 | 3 | Ruteo ortogonal: cables en ángulo recto, sin diagonales largas. Uno↔placa: cada cable baja/sube a su propio carril y no pasa sobre otro componente. | **En código y medido:** el puente rutea los cables Uno↔hueco, Uno↔riel y parte-libre↔placa con `addPoint` (fase 22/36). **Bandas por lado (fase 39):** `sideLanes.top/bottom`, paso 8; el lado lo decide el hueco (filas f..j y riel `T` arriba, e..a y `B` abajo) o la `y` de la parte libre. **Holgura (fase 40):** la banda arranca en ±130, no en ±115 — el cuerpo de la placa llega a ±110 y 5 unidades de aire se veían como un cable pegado al borde. Si una parte libre cae dentro de la banda, el carril se corre 30 más allá de la parte sin entrar nunca a la placa. El lint `builder.route_band_violations` mide la polilínea que devuelve el puente y falla el build si un tramo horizontal pasa por encima de una placa. **Libre↔libre (fase 41):** estos cables también se rutean, en Z (la vertical en la columna del medio, o a 70 del origen si las dos terminales son de la misma parte). El lint `builder.diagonal_segments` falla el build si un cable que toca una parte libre o el Uno tiene un tramo diagonal. |
 | 4 | Cables cortos dentro de la placa: rectos, por el hueco más cercano, sin rodeos. | **En código** para nets de 2 extremos (se dejan tal cual). Las de 3+ extremos van en estrella desde el hub: un cable hueco↔hueco lo dibuja recto el simulador y cruza los cuerpos. |
 | 5 | Separación en layout: 6 columnas por bloque LED+resistencia; bloques de 3 pines ocupan 3 columnas + 1 libre de separación; ningún bloque comparte columna de inicio con otro. | **En código:** `layout.BLOCK_WIDTH=6`, `THREE_PIN_WIDTH=4`, cursor compartido. Las resistencias del banco de la segunda placa van cada 4 columnas (`SECOND_BOARD_COLUMN_STEP`). |
-| 6 | Rieles: con más de 2 conexiones al mismo punto, usar riel: `T-` para tierra y `T+` para 5V, en vez de cables sueltos repetidos al Uno. | **En código (opt-in):** `"wiring": "rails"` en la fixture. Cada terminal baja al riel de su misma columna, el Uno lo alimenta una vez y los dos rieles del mismo tipo se puentean en la columna 30. Una parte de la segunda placa nunca baja al riel de la primera: va directa al pin del Uno. |
+| 6 | Rieles: con más de 2 conexiones al mismo punto, usar riel: `T-` para tierra y `T+` para 5V, en vez de cables sueltos repetidos al Uno. | **En código (opt-in):** `"wiring": "rails"` en la fixture. Cada terminal baja al riel de su misma columna, el Uno lo alimenta una vez y los dos rieles del mismo tipo se puentean en la columna 30. Una parte de la segunda placa nunca baja al riel de la primera: va directa al pin del Uno. **Superado por la regla v3** (abajo) en los layout `v2`/`v3`: ahí el riel es obligatorio y lo alimenta la fuente, no el Uno. |
 | 7 | Cada mazo en su zona: lo que alimenta al Uno y lo que sale del display no comparten banda. | **En código (fase 39):** la banda superior y la inferior tienen contadores separados. En el banco vertical de resistencias, el pin de abajo recibe el cable del Uno (banda inferior) y el de arriba alimenta el display (banda superior). |
+
+## Regla v3: alimentación por fuente y rieles
+
+Esta es la regla vigente en los layout `v2`/`v3` (implementada en
+`layout_v3.py`), y es la que reemplaza a la fila 6 de arriba:
+
+1. La fuente es la pieza **Power Supply** (`did 111724`, pines `Vcc`/`GND`).
+   El pin de 5 V del Arduino **no** reparte alimentación: el Uno es un
+   consumidor más. Su `GND1` sí cuelga del riel de tierra porque es la
+   referencia de las lecturas analógicas.
+2. **Rojo** de `Vcc` al riel positivo; **negro** de `GND` al riel negativo.
+   Rojo y negro no se usan para señales.
+3. Dos cables más, uno de cada color, al riel del **borde opuesto**: la placa
+   queda alimentada de punta a punta.
+4. Cada pata baja al riel de **su propia mitad** con un cable corto, en su
+   misma columna, cuando esa columna tiene hueco de riel. Si no lo tiene, baja
+   a la **fila de bus** de su mitad (`_BUS_ROWS`) y el bus la conecta.
+5. Una placa adicional se alimenta de la placa ya alimentada, nunca de la
+   fuente.
+
+Restricciones geométricas que la regla respeta (medidas el 2026-11-15):
+
+- En la **placa grande** el par de filas de abajo es **un solo nodo** (`X`):
+  solo una polaridad puede vivir ahí. Cuando el positivo va abajo, la tierra
+  de la mitad de abajo llega por fila de bus; el cable de borde de tierra no
+  existe en esa placa y el reporte lo dice.
+- Los **huecos de riel de la grande no son las primeras 50 columnas**: faltan
+  en 6, 12, 18, 24, 30, 31, 37, 43, 49, 55, 61 y 62. Un extremo de cable a
+  `B+24` o `T+43` no resuelve en el puente, así que el layout solo elige
+  columnas de `boards.rail_holes(kind)`.
 
 ## Segunda protoboard
 

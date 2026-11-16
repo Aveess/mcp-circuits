@@ -93,6 +93,14 @@ _PRESETS_BY_FIXTURE["contador-0-7-jk-v2"] = [
     {"component": "seg", "property": "common", "value": "cathode"},
 ]
 
+# La v3 es la v2 con la alimentacion por fuente y rieles: mismo reloj, mismo
+# decodificador, mismos presets. Se declara aparte (en vez de compartir lista)
+# para que un cambio de valores en la v3 no se lleve por delante a la v2, que
+# esta entregada y verificada en vivo.
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v3"] = [
+    dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v2"]
+]
+
 
 def select_presets(fixture: dict):
     """Presets de la fixture, o None si no tiene ninguno."""
@@ -131,6 +139,9 @@ _SKETCH_BY_FIXTURE = {
     "contador-555-compuertas": "gate_counter_sketch",
     "contador-0-7-jk": "contador_jk_sketch",
     "contador-0-7-jk-v2": "contador_jk_v2_sketch",
+    # La v3 no cambia el sistema, solo la alimentacion: mismo sketch que la v2
+    # (no corre pruebas en el setup; solo lee y anuncia TEST:DIGITO).
+    "contador-0-7-jk-v3": "contador_jk_v2_sketch",
 }
 
 

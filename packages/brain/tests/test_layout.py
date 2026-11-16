@@ -444,8 +444,9 @@ def test_motor_l293d_bateria_fixture_loads_and_places_without_overlap():
     # Fase 35 sumo el control de acceso (27); la fase 38 suma el
     # contador 0-7 con 555 y compuertas; la fase 46 suma el contador 0-7
     # con tres JK; la fase 47 suma la v2 del mismo contador (chips
-    # insertados, layout v2): 30 fixtures.
-    assert len(circuits) == 30
+    # insertados, layout v2) y la fase 48 la v3 (alimentacion por fuente y
+    # rieles): 31 fixtures.
+    assert len(circuits) == 31
     fixture = next(c for c in circuits if c["id"] == "motor-l293d-bateria")
 
     result = plan_layout(fixture)
