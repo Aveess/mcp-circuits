@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -29,7 +30,9 @@ from tinkercad_brain.circuit_doc import (  # noqa: E402
 from tinkercad_brain.documenter import render_build_report  # noqa: E402
 
 DEFAULT_FIXTURES_PATH = REPO_ROOT / "fixtures" / "fase0" / "circuits.json"
-DEFAULT_BRIDGE_PATH = Path("~/Documentos/StartUp/TInkercad/tinkercad-mcp").expanduser()
+DEFAULT_BRIDGE_PATH = Path(
+    os.environ.get("TINKERCAD_BRIDGE", "~/Documentos/StartUp/TInkercad/tinkercad-mcp")
+).expanduser()
 REPORTS_DIR = REPO_ROOT / "docs" / "reportes"
 
 # fixture_id -> presets a aplicar tras el build (valor calibrado en vivo)

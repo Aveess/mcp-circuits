@@ -26,11 +26,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
+# Ruta del puente: `TINKERCAD_BRIDGE` manda, para que el repo corra en otra
+# maquina sin editar el script. El default es donde vive hoy.
 BRIDGE = Path(
-    "/home/usuario/Documentos/StartUp/TInkercad/tinkercad-mcp"
+    os.environ.get(
+        "TINKERCAD_BRIDGE", "~/Documentos/StartUp/TInkercad/tinkercad-mcp"
+    )
 ).expanduser()
 sys.path.insert(0, str(BRIDGE))
 

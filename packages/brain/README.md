@@ -10,7 +10,7 @@ mano: esa es la regla de diseño número uno.
 
 | Pieza | Repo | Qué hace |
 |---|---|---|
-| El puente (las manos) | `Aveess/tinkercad-mcp-bridge` (privado) | Servidor MCP en Python/Playwright con 49 tools. Fork de ezhil-kumaran saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
+| El puente (las manos) | `Aveess/tinkercad-mcp-bridge` (privado) | Servidor MCP en Python/Playwright con 50 tools. Fork de ezhil-kumaran saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
 | El cerebro (este repo) | `Aveess/tinkercad-brain` (privado) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
 
 Las dos capas hablan **MCP sobre stdio**. El cerebro nunca importa al
@@ -89,6 +89,11 @@ cd ~/Documentos/StartUp/TInkercad/tinkercad-mcp
 .venv/bin/python -m src.cli.login_cli   # login interactivo, queda en el perfil
 .venv/bin/playwright install chromium
 ```
+
+Si el puente vive en otra ruta, `TINKERCAD_BRIDGE` manda sobre el default
+(`~/Documentos/StartUp/TInkercad/tinkercad-mcp`); `demo_build.py` también
+acepta `--bridge`. Ese default es solo el del `PATH` de proceso: no hay
+rutas absolutas de usuario en el código.
 
 Cerebro:
 
