@@ -131,6 +131,55 @@ en vez de entrar a la placa.
 - Los capacitores siguen en la placa chica, pero ahora al lado del mando
   (`c1` en `19f`, `c2` en `23f`).
 
+## Regla v6: ángulos rectos, sin diagonales (fase 51)
+
+Un cable se dibuja con tramos **verticales y horizontales**; cada giro es de
+90°. Nada de diagonales, ni largas ni cortas, salvo el puente de hueco a hueco
+de la misma placa (regla 4: es una recta de menos de una columna sobre el
+plástico y rutearlo lo haría peor que el problema).
+
+- **Entre placas apiladas** el cable es una Z de tres tramos: vertical desde el
+  hueco hasta el carril, horizontal por el carril, vertical hasta el otro
+  hueco (`crossBoardPair` en `model_build_service`). Con la placa chica en
+  `-360` los carriles caen entre `-110` y `-250`, o sea en el aire entre las
+  dos placas.
+- **La medida es el dibujo, no la intención.** Desde la fase 51 el build
+  devuelve `route_debug[*].actual`: los puntos que el editor **guardó** para
+  ese cable (`w.objects` → `endpoint()`), al lado de `points`, que es la
+  polilínea que el build **pidió**. Comparar los dos es lo que caza un cable
+  torcido cuando el plan es ortogonal: el 2026-11-16 el lint decía
+  "0 diagonales" sobre un diseño con dos cables en diagonal, porque medía la
+  intención.
+- **Un cable torcido se arregla reconstruyendo, no a mano.** Medido el
+  2026-11-16 en `3akmw1EaG0p`: dos cables guardaban puntos fraccionarios
+  (`k/97`, p. ej. `[1654.2577,-99.9588]`) que el build nunca calculó —
+  geometría vieja que sobrevivió al guardado — y el rebuild los dejó exactos
+  en `[1545,55] → [1545,-178] → [815,-178] → [815,-305]`. Editar los quiebres
+  a mano no es confiable: `removePoint` lanza excepción y deja un punto
+  huérfano (probado el mismo día).
+- **Cada cable de la placa chica (mando y capacitores) sale vertical** a su
+  propio riel o al hueco que comparte nodo con su pata: `sw1` (común en
+  `10e`, lleva a `b2/10a`), `btn1` (señal en `16e`, lleva a `b2/16b`), y los
+  dos capacitores a `T-`/`B+` en su misma columna. Esos cinco cables son
+  verticales puros (`dx = 0`) y se verifican con eso, no a ojo.
+
+## Piezas creadas por el MCP: no se mueven ni se editan
+
+Un diseño construido por el puente no se retoca arrastrando: las piezas que
+entran por el modelo (`data.createDeviceInstance` + `devices.add`) **no se
+seleccionan ni se mueven** en el editor. Medido el 2026-11-16 con tres sondas:
+
+1. una placa agregada desde la **paleta** sí se arrastra y cambia de posición;
+2. una placa creada por el **modelo** no se mueve (2 intentos, 0 cambios);
+3. en `3akmw1EaG0p`, arrastrar las tres placas deja las posiciones idénticas.
+
+Los **cables sí** se pueden mover: nacen de `BendableWireData`, que el editor
+registra como interactivo. No es un permiso de la cuenta ni un modo del
+editor: las piezas entran al modelo por una vía que el editor no marca para
+selección. Para cambiar el layout se cambia el **generador** y se reconstruye
+(el build es determinista y reusa `tinkercad_id`); una pieza suelta se borra y
+se vuelve a agregar desde la paleta.
+
 ## Segunda protoboard
 
 Cuando la placa 1 no alcanza (el caso real: 8 resistencias de serie no entran en
@@ -163,6 +212,9 @@ En el screenshot del circuito terminado:
   Lo mide `diagonal_segments` sobre la polilínea de los 46 cables, no solo de
   los ruteados. Los saltos rectos entre huecos de la placa se cuentan y se
   dejan: son puentes cortos sobre el plástico.
+- **`route_debug[*].actual` coincide con `points`** en los cables ruteados: si
+  el editor guardó otro punto (`k/97`, desplazado, de menos), el dibujo está
+  torcido aunque el lint diga cero. Si no coincide, se reconstruye el diseño.
 - Cada cable del Uno baja/sube a su carril sin pasar sobre otro componente.
 - Cables repartidos arriba y abajo; no todos por la misma zona.
 - Sin cruces innecesarios; colores según regla 2; rieles según regla 6.

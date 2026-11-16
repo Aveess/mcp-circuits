@@ -11,6 +11,7 @@ from tinkercad_brain.builder import (
     _BOARD_HALF_X,
     _BOARD_HALF_Y,
     _ROUTE_MIN_AIR,
+    diagonal_segments,
     route_band_violations,
 )
 
@@ -81,3 +82,50 @@ def test_sin_placas_usa_la_de_siempre():
     assert route_band_violations(routes) == [
         {"wire": "uno.D4 -> 5e", "y": 115.0, "board": {"x": 870.0, "y": 0.0}}
     ]
+
+
+# --------------------------------------------------------------------------
+# Fase 51: la medida es el dibujo, no la intencion
+# --------------------------------------------------------------------------
+
+
+def _route_actual(wire, points, actual, routed=True):
+    """Cable con la polilinea pedida y la que el editor guardo."""
+    route = _route(wire, points, routed=routed)
+    route["actual"] = actual
+    return route
+
+
+def test_el_lint_mide_lo_que_guardo_el_editor_y_no_lo_que_pidio():
+    """`points` ortogonal + `actual` diagonal = cable torcido de verdad.
+
+    Medido el 2026-11-16 en `3akmw1EaG0p`: el build pedia
+    `[1545,55] -> [1545,-178] -> [815,-178] -> [815,-305]` y el editor
+    guardaba `[1545,55] -> [1654.2577,-99.9588] -> ...`, con la primera
+    pierna en diagonal. El lint decia "0 diagonales" porque miraba `points`.
+    """
+    pedido = [[1545, 55], [1545, -178], [815, -178], [815, -305]]
+    guardado = [[1545, 55], [1654.2577, -99.9588], [924.2577, -99.9588], [815, -305]]
+    routes = [_route_actual("b1/28a -> b2/10a", pedido, guardado)]
+    diagonales = diagonal_segments(routes)
+    # Las dos piernas de entrada/salida quedaron torcidas, no solo la primera.
+    assert len(diagonales) == 2
+    assert {d["wire"] for d in diagonales} == {"b1/28a -> b2/10a"}
+    assert abs(diagonales[0]["dx"] - 109.2577) < 1e-3
+    assert abs(diagonales[0]["dy"] - 154.9588) < 1e-3
+    assert abs(diagonales[1]["dy"] - 205.0412) < 1e-3
+
+
+def test_el_lint_no_inventa_diagonales_cuando_el_dibujo_es_ortogonal():
+    pedido = [[1545, 55], [1545, -178], [815, -178], [815, -305]]
+    routes = [_route_actual("b1/28a -> b2/10a", pedido, [list(p) for p in pedido])]
+    assert diagonal_segments(routes) == []
+
+
+def test_el_tramo_sobre_placa_tambien_se_mide_en_el_dibujo():
+    """El carril pedido va a -178 (aire), pero el guardado cae en -100."""
+    pedido = [[1545, 55], [1545, -178], [815, -178], [815, -305]]
+    guardado = [[1545, 55], [1654.2577, -99.9588], [924.2577, -99.9588], [815, -305]]
+    routes = [_route_actual("b1/28a -> b2/10a", pedido, guardado)]
+    violations = route_band_violations(routes, [UNO])
+    assert violations == [{"wire": "b1/28a -> b2/10a", "y": -99.9588, "board": UNO}]

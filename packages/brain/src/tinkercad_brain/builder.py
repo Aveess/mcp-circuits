@@ -1180,6 +1180,21 @@ def fixture_to_model_call(fixture: dict, code: str | None = None) -> dict:
     return call
 
 
+def _route_points(route: dict) -> list:
+    """Polilínea a medir: la que el editor **guardó**, si el puente la trae.
+
+    ``route_debug[*].actual`` son los puntos de ``w.objects`` del cable leído
+    del editor; ``points`` es lo que el build *pidió*. Se prefiere el primero
+    porque el segundo puede ser ortogonal mientras el dibujo está torcido:
+    medido el 2026-11-16 en ``3akmw1EaG0p``, dos cables guardaron puntos
+    fraccionarios y salieron en diagonal con ``points`` perfecto.
+    """
+    actual = route.get("actual")
+    if isinstance(actual, list) and len(actual) >= 2:
+        return actual
+    return route.get("points") or []
+
+
 def route_band_violations(routes, boards=None) -> list[dict]:
     """Cables cuyo tramo horizontal pasa sobre el cuerpo de una placa.
 
@@ -1198,7 +1213,7 @@ def route_band_violations(routes, boards=None) -> list[dict]:
     for route in routes or []:
         if not isinstance(route, dict) or not route.get("routed"):
             continue
-        points = route.get("points") or []
+        points = _route_points(route)
         for first, second in zip(points, points[1:]):
             try:
                 (x1, y1), (x2, y2) = first, second
@@ -1251,7 +1266,7 @@ def diagonal_segments(routes, free_refs=()) -> list[dict]:
     for route in routes or []:
         if not isinstance(route, dict):
             continue
-        points = route.get("points") or []
+        points = _route_points(route)
         if len(points) < 2:
             continue
         wire = str(route.get("wire") or "")
