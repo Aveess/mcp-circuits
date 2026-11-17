@@ -139,6 +139,19 @@ Un did inventado no falla con un error claro: coloca otra cosa.
   aunque la columna este en rango; el build responde `endpoint not resolved`
   y el cable simplemente no se tiende. Antes de cablear a un riel, consulta
   `rail_holes` de `BOARD_KINDS` (o usa solo columnas 1..5, 7..11, 13..17...).
+- **El interruptor deslizante se arrastra, no se clica.** La pieza mide ~9.5
+  px en pantalla y sus dos detentes estan al 24 % y al 76 % de la caja. Un clic
+  al centro cae entre las dos: el tirador queda a medio camino, la entrada del
+  XOR flota y el CD4511 muestra segmentos que no son ningun digito, de forma
+  **estable** (repetir el clic en el mismo punto no lo arregla). Se arrastra
+  desde la posicion actual del tirador hasta el detente (`x + w*0.78` = 1,
+  `x + w*0.20` = 0) y un `Escape` antes de cada arrastre cierra el popover
+  (medido el 2026-11-17 en el proyecto final `0IItPdytJkx`).
+- **El CD4511 del simulador dibuja el seis sin el segmento `a`.** Con la
+  magnitud 6 el SVG enciende `c,d,e,f,g` y la captura muestra un 6 legible
+  (forma alternativa del seis). Un lector que solo acepte `a,c,d,e,f,g` marca
+  ese estado como ilegible y el banco falla sin que el circuito tenga nada
+  malo (medido el 2026-11-17, mismo circuito).
 - **Un tap de alimentacion en la media columna de una pata ajena quema el
   integrado.** La placa une los cinco huecos de la mitad, asi que bajar el 5V
   al hueco `a58` es conectar el 5V a la pata que este en `e58`/`f58`. En el
