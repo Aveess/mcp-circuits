@@ -129,3 +129,28 @@ def test_el_tramo_sobre_placa_tambien_se_mide_en_el_dibujo():
     routes = [_route_actual("b1/28a -> b2/10a", pedido, guardado)]
     violations = route_band_violations(routes, [UNO])
     assert violations == [{"wire": "b1/28a -> b2/10a", "y": -99.9588, "board": UNO}]
+
+
+# --------------------------------------------------------------------------
+# Proyecto final (2026-11-16): el codo de una columna no es una travesia
+# --------------------------------------------------------------------------
+
+
+def test_el_codo_de_una_columna_no_es_un_tramo_sobre_la_placa():
+    """El tap al riel entra al hueco vecino cuando la columna no tiene riel.
+
+    La columna 18 de la placa grande no tiene hueco de riel, asi que el cable
+    de la pata (18e) al riel (T+17) necesita un codo de 10 unidades. Medido en
+    el circuito del proyecto final: el codo cae en y=85, dentro del cuerpo,
+    pero no recorre plastico: es el codo de entrada al hueco.
+    """
+    routes = [_route("b2/18e -> b2/T+17", [[1650, -45], [1650, 85], [1640, 85]])]
+    assert route_band_violations(routes, [{"x": 1570, "y": 0}]) == []
+
+
+def test_un_tramo_horizontal_largo_sobre_la_placa_sigue_siendo_violacion():
+    """La tolerancia es UN paso de columna, no un boquete en la regla."""
+    routes = [_route("b2/18e -> b2/T+9", [[1650, -45], [1650, 85], [1560, 85]])]
+    assert route_band_violations(routes, [{"x": 1570, "y": 0}]) == [
+        {"wire": "b2/18e -> b2/T+9", "y": 85.0, "board": {"x": 1570.0, "y": 0.0}}
+    ]

@@ -35,7 +35,10 @@ class BuildError(Exception):
 _TYPE_BY_SLUG: dict[str, str] = {slug: name for name, slug in TYPE_MAP.items()}
 
 # Tabla DID minima verificada (el puente crea el Uno: arduino-uno no es part).
-DID_BY_TYPE: dict[str, int] = {
+# El `did` puede ser entero o el id de texto del editor: Tinkercad no usa un
+# solo espacio de identificadores (el 74HC283 solo se publica como
+# "ic74hc283", medido el 2026-11-16).
+DID_BY_TYPE: dict[str, int | str] = {
     "led": 58422,
     "resistor": 53184,
     "pushbutton": 144786,
@@ -91,6 +94,11 @@ DID_BY_TYPE: dict[str, int] = {
     # Slide Switch (SPDT) medido en el circuito del companero 47d2dZVCX5m:
     # did 58458, terminales "Common", "Terminal 1" y "Terminal 2".
     "slideswitch": 58458,
+    # Proyecto final de Sistemas Digitales (2026-11-16, sonda desechable
+    # bFxL8AFHD9k): el 74HC283 se publica SOLO con id de texto, mientras que
+    # el CD4511 trae el numerico del catalogo.
+    "four-bit-adder": "ic74hc283",
+    "bcd-decoder": 121827,
 }
 
 # Types que el builder ya soporta pero TYPE_MAP (component_map, otro
@@ -349,6 +357,28 @@ _FREE_PART_PINS: dict[str, dict[str, str]] = {
     # la 2, nunca dos del mismo lado o el boton queda puenteado.
     "slideswitch": {"common": "3", "1": "1", "2": "2"},
     "pushbutton": {"1": "4", "2": "2"},
+    # Proyecto final de Sistemas Digitales. Los dos integrados nuevos van
+    # libres a la derecha de las placas (medido el 2026-11-16 con
+    # add_component sobre bFxL8AFHD9k, ver fase0/component_map.py): sus pines
+    # de fixture son EXACTAMENTE las claves del modelo, asi que el mapa es la
+    # identidad. Se declaran igual para que `_free_endpoint` los traduzca y
+    # para que un pin mal escrito falle con nombre en vez de tenderse a un
+    # terminal inexistente.
+    #
+    # Ojo con el CD4511: las entradas BCD son AIN/BIN/CIN/DIN (el modelo las
+    # prefija con "IN") y los segmentos son A..G. Escribir "A" para el bit
+    # menos significativo cablea un segmento.
+    "four-bit-adder": {
+        "A0": "A0", "A1": "A1", "A2": "A2", "A3": "A3",
+        "B0": "B0", "B1": "B1", "B2": "B2", "B3": "B3",
+        "S0": "S0", "S1": "S1", "S2": "S2", "S3": "S3",
+        "CIN": "CIN", "COUT": "COUT", "Vcc": "Vcc", "GND": "GND",
+    },
+    "bcd-decoder": {
+        "AIN": "AIN", "BIN": "BIN", "CIN": "CIN", "DIN": "DIN",
+        "a": "A", "b": "B", "c": "C", "d": "D", "e": "E", "f": "F", "g": "G",
+        "LT": "LT", "BI": "BI", "LE": "LE", "Vcc": "Vcc", "GND": "GND",
+    },
 }
 
 # Con varias placas el hueco lleva prefijo "bN/" (p. ej. "b1/5g"): sin el,
@@ -435,6 +465,10 @@ _ROUTE_MIN_AIR = 15
 # Tolerancia al medir un tramo: Tinkercad redondea posiciones, asi que medio
 # punto no es una diagonal. Un tramo es diagonal solo si avanza en x y en y.
 _ROUTE_STRAIGHT_TOL = 1.0
+# Un tramo horizontal corto no es una travesia: es el codo de un cable que
+# entra al hueco de la columna vecina. El paso de columna es 10, asi que se
+# admite un paso con su tolerancia; mas que eso ya recorre plastico.
+_BEND_MAX_DX = 12
 
 
 def _net_kind(endpoints):
@@ -1018,14 +1052,22 @@ def _fixture_to_model_call_v2(fixture: dict, code: str | None = None) -> dict:
             part["board"] = placement["board"]
         parts.append(part)
 
+    wires = []
+    for wire in nets["wires"]:
+        item = {
+            "from": _free_endpoint(wire["from"], placements, type_by_ref),
+            "to": _free_endpoint(wire["to"], placements, type_by_ref),
+            "color": wire["color"],
+        }
+        # `route` explicito del layout (tap al riel en la columna vecina,
+        # fase proyecto final): el puente lo respeta y le pone quiebre.
+        if isinstance(wire.get("route"), bool):
+            item["route"] = wire["route"]
+        wires.append(item)
+
     return {
         "parts": parts,
-        "wires": [
-            {"from": _free_endpoint(w["from"], placements, type_by_ref),
-             "to": _free_endpoint(w["to"], placements, type_by_ref),
-             "color": w["color"]}
-            for w in nets["wires"]
-        ],
+        "wires": wires,
         "boards": [
             {"x": b["x"], "y": b["y"], "did": b["did"]} for b in layout["boards"]
         ],
@@ -1222,6 +1264,11 @@ def route_band_violations(routes, boards=None) -> list[dict]:
                 continue
             if abs(y1 - y2) > 0.5:
                 continue  # vertical: entra a un hueco, es legítimo
+            if abs(x2 - x1) <= _BEND_MAX_DX:
+                # Un codo de una columna: el cable entra al hueco vecino (el
+                # tap al riel cuando la columna de la pata no tiene hueco de
+                # riel). No recorre el cuerpo, lo toca en un punto.
+                continue
             for board in boards:
                 bx = float(board.get("x", 870))
                 by = float(board.get("y", 0))

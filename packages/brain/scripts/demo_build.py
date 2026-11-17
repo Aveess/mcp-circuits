@@ -112,6 +112,29 @@ _PRESETS_BY_FIXTURE["contador-0-7-jk-v4"] = [
 ]
 
 
+# Proyecto final, parte 1. Dos familias de preset, las dos medidas en vivo el
+# 2026-11-16 en la sonda `iXiA957AXba`:
+#
+# - **Display**: la pieza nace de ANODO comun. Cableada como catodo (comun a
+#   GND, que es lo que pide el CD4511) queda **apagada** aunque el cableado
+#   este perfecto: medido en la sonda, el mismo circuito paso de negro a
+#   encender el "8" del lamp test al fijar `common = cathode`.
+# - **Resistencia**: Tinkercad crea las resistencias en 1 kohm; el diseno es de
+#   220 ohm por segmento. El valor va por ref porque en el circuito hay 16.
+_PRESETS_BY_FIXTURE["proyecto-final-sumador-c2-parte1"] = [
+    {"component": ref, "property": "common", "value": "cathode"}
+    for ref in ("sigA", "numA", "sigB", "numB")
+] + [
+    {"component": ref, "property": "resistance", "value": 220}
+    for ref in (
+        [f"ra{index}" for index in range(1, 8)]
+        + ["rsa"]
+        + [f"rb{index}" for index in range(1, 8)]
+        + ["rsb"]
+    )
+]
+
+
 def select_presets(fixture: dict):
     """Presets de la fixture, o None si no tiene ninguno."""
     presets = _PRESETS_BY_FIXTURE.get(fixture.get("id"))

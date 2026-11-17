@@ -529,9 +529,13 @@ def _distribute(name: str, index: int, kind: str, side: str, other_side: str,
                         f"en la placa {index}"
                     )
                     continue
-                wires.append(
-                    _wire(_hole(index, col, row), _rail(index, target, rail_col), name)
-                )
+                tap = _wire(_hole(index, col, row), _rail(index, target, rail_col), name)
+                # Si la columna de la pata no tiene hueco de riel, el tap cae
+                # en la vecina y la recta saldria inclinada: se pide quiebre
+                # en L (el puente lo dibuja con un solo punto).
+                if rail_col != col:
+                    tap["route"] = True
+                wires.append(tap)
                 taken[index].add(rail_col)
             rest = {}
         if rest:

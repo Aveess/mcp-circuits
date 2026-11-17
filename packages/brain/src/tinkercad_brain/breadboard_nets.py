@@ -283,6 +283,39 @@ _PIN_ALIASES_BY_TYPE = {
         "J 2": "2J", "K 2": "2K", "Clock 2": "2CP", "Reset 2": "2R",
         "Output 2": "2Q", "Inverted Output 2": "2NQ",
     },
+    # CD4511 ("7-Segment Decoder [CD4511]", did 121827) medido en vivo el
+    # 2026-11-16 en el proyecto final (0IItPdytJkx). El modelo conoce las
+    # entradas como AIN/BIN/CIN/DIN y los segmentos como a..g (asi salen en
+    # `placed.holes`), pero el cableado guardado escribe "Input 1".."Input 4"
+    # para el BCD, "A".."G" para los segmentos, "Lamp Test", "Blanking" y
+    # "Latch Enable" para los controles. Power/Ground van a Vcc/GND en
+    # mayuscula: el alias generico los dejaria en vcc/gnd y romperia la net.
+    "bcd-decoder": {
+        "Input 1": "AIN",
+        "Input 2": "BIN",
+        "Input 3": "CIN",
+        "Input 4": "DIN",
+        "A": "a", "B": "b", "C": "c", "D": "d",
+        "E": "e", "F": "f", "G": "g",
+        "Lamp Test": "LT",
+        "Blanking": "BI",
+        "Latch Enable": "LE",
+        "Power": "Vcc",
+        "Ground": "GND",
+    },
+    # 74HC283 ("4-Bit full adder [74HC283]", did `ic74hc283`) medido en vivo
+    # el 2026-11-16 en el mismo circuito. El modelo usa A0..A3/B0..B3/S0..S3
+    # (asi salen en `placed.holes`) y el cableado "Input 0A".."Input 3A",
+    # "Output Bit 0".."Output Bit 3", "Carry In"/"Carry Out".
+    "four-bit-adder": {
+        **{f"Input {n}A": f"A{n}" for n in range(4)},
+        **{f"Input {n}B": f"B{n}" for n in range(4)},
+        **{f"Output Bit {n}": f"S{n}" for n in range(4)},
+        "Carry In": "CIN",
+        "Carry Out": "COUT",
+        "Power": "Vcc",
+        "Ground": "GND",
+    },
     # 555 Timer (descubierto en vivo en abIk7XRpSR4): inspect devuelve
     # CTRL/Reset/OUT/THR/GND/DIS/TRIG/Vcc, pero el cableado guardado usa
     # "Power", "Reset", "Ground", "Discharge", "Threshold", "Trigger",

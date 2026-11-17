@@ -163,6 +163,61 @@ _DIP14 = {
     "Vcc": (0, "f"),
 }
 
+# DIP-16 de los dos integrados del proyecto final de Sistemas Digitales,
+# medidos en vivo el 2026-11-16 sobre el diseno desechable
+# bFxL8AFHD9k (`build_circuit_model` con una pata anclada y lectura de
+# `placed[ref].holes`; no se dedujo del datasheet).
+#
+# CD4511 ("7-Segment Decoder [CD4511]", did 121827). Anclado por `AIN` en
+# `10e` el modelo devolvio las 16 patas asi: fila de arriba (e) las ocho
+# entradas/controles y fila de abajo (f) los siete segmentos mas Vcc. Las
+# entradas BCD se llaman AIN/BIN/CIN/DIN en el modelo (prefijo `IN` para no
+# chocar con los segmentos) y los segmentos A..G; aca se declaran en
+# minuscula para que un segmento se llame igual en la fixture y en el
+# display (`seg.d`), y `_FREE_PART_PINS` traduce si la pieza va libre.
+_DIP16_4511 = {
+    "BIN": (-6, "e"),
+    "CIN": (-5, "e"),
+    "LT": (-4, "e"),
+    "BI": (-3, "e"),
+    "LE": (-2, "e"),
+    "DIN": (-1, "e"),
+    "AIN": (0, "e"),
+    "GND": (1, "e"),
+    "Vcc": (-6, "f"),
+    "f": (-5, "f"),
+    "g": (-4, "f"),
+    "a": (-3, "f"),
+    "b": (-2, "f"),
+    "c": (-1, "f"),
+    "d": (0, "f"),
+    "e": (1, "f"),
+}
+
+# 74HC283 ("4-Bit full adder [74HC283]", did `ic74hc283`; es el unico
+# integrado del catalogo sin `did` numerico). Anclado por `A0` en `25e`:
+# fila e = A0..A3/S1/B0..B3/CIN/GND desordenados por el dibujo del chip,
+# fila f = la otra mitad. Los ocho pines de cada fila caen en columnas
+# distintas, asi que no hay medias columnas compartidas.
+_DIP16_283 = {
+    "S1": (-4, "e"),
+    "B1": (-3, "e"),
+    "A1": (-2, "e"),
+    "S0": (-1, "e"),
+    "A0": (0, "e"),
+    "B0": (1, "e"),
+    "CIN": (2, "e"),
+    "GND": (3, "e"),
+    "Vcc": (-4, "f"),
+    "B2": (-3, "f"),
+    "A2": (-2, "f"),
+    "S2": (-1, "f"),
+    "A3": (0, "f"),
+    "B3": (1, "f"),
+    "S3": (2, "f"),
+    "COUT": (3, "f"),
+}
+
 # El 74HC04 (Hex Inverter, medido en vivo el 2026-11-15 en 2rI5SQHDHcD) ocupa
 # el mismo DIP-14 pero con OTRA numeracion: seis compuertas de una entrada, asi
 # que 1A/1Y van en las columnas 0 y 1 y no en 0 y 2. Comparte geometria, no
@@ -295,6 +350,8 @@ FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip14": _DIP14,
     "dip14-jk": _DIP14_JK,
     "dip14-not": _DIP14_NOT,
+    "dip16-4511": _DIP16_4511,
+    "dip16-283": _DIP16_283,
     "dip8-555": _DIP8_555,
     "resistor": _RESISTOR,
     "capacitor": _CAPACITOR,
@@ -318,6 +375,10 @@ _FOOTPRINT_BY_TYPE: Dict[str, str] = {
     "capacitor": "capacitor",
     "slideswitch": "slideswitch",
     "pushbutton": "pushbutton",
+    # Proyecto final de Sistemas Digitales: los dos DIP-16 medidos el
+    # 2026-11-16 (ver `_DIP16_4511` / `_DIP16_283`).
+    "bcd-decoder": "dip16-4511",
+    "four-bit-adder": "dip16-283",
 }
 
 

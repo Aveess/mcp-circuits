@@ -69,6 +69,11 @@ _ANCHOR: Dict[str, str] = {
     # que reporto el modelo (ver `boards.py`).
     "slideswitch": "common",
     "pushbutton": "1",
+    # DIP-16 del proyecto final (huellas medidas el 2026-11-16, ver
+    # `boards.py`): el ancla va en la fila `e` para que la otra hilera quede
+    # en `f`, una en cada mitad del canal.
+    "bcd-decoder": "AIN",
+    "four-bit-adder": "A0",
 }
 
 # Angulo medido por pieza (el resto va a 0). El display solo encaja girado:
@@ -96,6 +101,11 @@ _BOARD_BY_TYPE: Dict[str, int] = {
     # piezas que el usuario pidio ver montadas y no colgando de un cable.
     "slideswitch": 2,
     "pushbutton": 2,
+    # El decodificador vive con su display (sus siete salidas caen a los
+    # resistores de al lado) y el sumador con los interruptores, que es de
+    # donde salen sus entradas. `board_for` de la fixture manda igual.
+    "bcd-decoder": 0,
+    "four-bit-adder": 2,
 }
 
 # Partes que no se insertan: van libres y el puente las rutea. En la v2 no
@@ -168,9 +178,18 @@ def _boards(fixture: dict) -> List[dict]:
     return out
 
 
-def _find_spot(boards: List[dict], cursor: List[int], preferred: int, width: int):
-    """Primera columna libre en la placa preferida y, si no cabe, en otra."""
-    order = [preferred] + [i for i in range(len(boards)) if i != preferred]
+def _find_spot(boards: List[dict], cursor: List[int], preferred: int, width: int,
+               strict: bool = False):
+    """Primera columna libre en la placa preferida y, si no cabe, en otra.
+
+    ``strict`` la deja clavada en la placa preferida: es lo que pide
+    ``board_for``, donde el reparto es una decision del diseno (cada
+    operando con su display) y no una preferencia que el algoritmo pueda
+    deshacer sin avisar.
+    """
+    order = [preferred] if strict else (
+        [preferred] + [i for i in range(len(boards)) if i != preferred]
+    )
     for index in order:
         if index >= len(boards):
             continue
@@ -224,6 +243,28 @@ def plan_layout_v2(fixture: dict) -> dict:
     else:
         free_at = {str(ref): None for ref in free_spec}
 
+    # `board_for`: placa fija por ref. Sin esto, la placa de cada pieza la
+    # decide `_BOARD_BY_TYPE` (un rol) y `_find_spot` puede mudarla cuando no
+    # cabe, asi que un diseno que necesita "operando A en la placa 0" no se
+    # puede expresar. Con `board_for` la asignacion es estricta: si no cabe,
+    # la pieza queda `unplaced` con el motivo en vez de aparecer en otra placa.
+    board_for = fixture.get("board_for") or {}
+    if not isinstance(board_for, dict):
+        raise LayoutError("'board_for' tiene que ser un objeto {ref: placa}")
+    for ref, index in board_for.items():
+        if ref not in seen:
+            raise LayoutError(f"board_for: ref desconocida {ref!r}")
+        if ref in free_at:
+            raise LayoutError(
+                f"board_for: {ref!r} tambien esta en 'free_parts' (una pieza "
+                "esta en una placa o fuera de ellas, no las dos cosas)"
+            )
+        if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(boards):
+            raise LayoutError(
+                f"board_for[{ref!r}]: placa {index!r} fuera de rango "
+                f"(0..{len(boards) - 1})"
+            )
+
     for component in components:
         ref = component["ref"]
         ctype = component["type"]
@@ -246,10 +287,18 @@ def plan_layout_v2(fixture: dict) -> dict:
         huella = footprint_for(ctype)
         dcols = [dcol for dcol, _ in huella.values()]
         width = max(dcols) - min(dcols) + 1
-        spot = _find_spot(boards, cursor, _BOARD_BY_TYPE[ctype], width)
+        forced = board_for.get(ref)
+        preferred = forced if forced is not None else _BOARD_BY_TYPE.get(ctype, 0)
+        spot = _find_spot(boards, cursor, preferred, width, strict=forced is not None)
         if spot is None:
             unplaced.append(ref)
-            errors.append(f"{ref}: no cabe en ninguna placa ({width} columnas)")
+            if forced is not None:
+                errors.append(
+                    f"{ref}: la placa {forced} no tiene {width} columnas libres "
+                    "(board_for)"
+                )
+            else:
+                errors.append(f"{ref}: no cabe en ninguna placa ({width} columnas)")
             continue
         board_index, first = spot
         anchor = first - min(dcols)

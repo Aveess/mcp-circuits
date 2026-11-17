@@ -65,6 +65,18 @@ TYPE_MAP: dict[str, str] = {
     # para que _TYPE_BY_SLUG conserve el nombre canonico.
     "Power Supply": "power-supply",
     "Power supply": "power-supply",
+    # Sumador de 4 bits y decodificador BCD->7 segmentos del proyecto final
+    # de Sistemas Digitales. Medidos el 2026-11-16 con add_component sobre un
+    # diseno desechable (BORRAR - probe catalogo sumador C2, bFxL8AFHD9k):
+    #   "4-Bit full adder [74HC283]"  did "ic74hc283"
+    #     pines A0..A3, B0..B3, S0..S3, CIN, COUT, Vcc, GND
+    #   "7-Segment Decoder [CD4511]"  did 121827
+    #     pines AIN/BIN/CIN/DIN (entradas BCD), A..G (segmentos), LT, BI, LE
+    # Ojo con el CD4511: el modelo prefija las entradas BCD con "IN" para no
+    # chocar con los nombres de los segmentos (A..G).
+    "4-Bit full adder [74HC283]": "four-bit-adder",
+    "4-bit full adder [74HC283]": "four-bit-adder",
+    "7-Segment Decoder [CD4511]": "bcd-decoder",
 }
 
 
