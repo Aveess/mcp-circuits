@@ -1321,10 +1321,36 @@ class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
         svc, _, page = make_service()
         res = await svc.build_from_holes(
             parts=[], wires=[],
-            boards=[{"x": 870 + 400 * i, "y": 0} for i in range(4)])
+            boards=[{"x": 870 + 400 * i, "y": 0}
+                    for i in range(mbs._MAX_BOARDS + 1)])
         self.assertFalse(res["success"])
         self.assertTrue(any(str(mbs._MAX_BOARDS) in e for e in res["errors"]))
         page.evaluate.assert_not_awaited()
+
+    async def test_cinco_placas_apiladas_pasan_el_tope(self):
+        """El proyecto final parte 1 usa 5 placas (3 en fila + 2 debajo).
+
+        El tope viejo (3) era una guarda de legibilidad, no una limitacion
+        medida: el 2026-11-17 el editor coloco y cableo las 5 sin problema.
+        El plan tiene que llegar tal cual al JS, con sus `did` y sus `y`
+        negativas (las placas de los integrados van apiladas debajo).
+        """
+        boards = [
+            {"x": 870, "y": 0, "did": 116648},
+            {"x": 1570, "y": 0, "did": 116648},
+            {"x": 2270, "y": 0, "did": 116648},
+            {"x": 870, "y": -520, "did": 116648},
+            {"x": 1570, "y": -520, "did": 116648},
+        ]
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        res = await svc.build_from_holes(parts=[], wires=[], boards=boards)
+        self.assertFalse(
+            any("boards are supported" in e for e in res.get("errors") or []),
+            res.get("errors"))
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual([b["y"] for b in plan["boards"]],
+                         [0.0, 0.0, 0.0, -520.0, -520.0])
+        self.assertTrue(all(b["did"] == 116648 for b in plan["boards"]))
 
     async def test_board_entry_validation(self):
         svc, _, page = make_service()

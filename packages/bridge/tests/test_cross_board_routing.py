@@ -100,7 +100,41 @@ class CrossBoardRoutingTest(unittest.TestCase):
 
     def test_la_polilinea_reportada_tiene_los_dos_quiebres(self):
         # El cerebro mide diagonales y tramos sobre placa con esta polilinea.
-        self.assertIn("[pA.x, pA.y],\n                                 [pB.x, pB.y]", self.js)
+        # Desde el 2026-11-17 la lista de quiebres se arma en `puntos` (puede
+        # ser de 2 puntos, o de 4 cuando hay que bajar por el corredor de una
+        # fila de placas en medio), asi que la polilinea se compone de ahi.
+        self.assertIn("puntos.push({ x: posA.x, y: laneHere },", self.js)
+        self.assertIn(".concat(puntos.map((p) => [p.x, p.y])", self.js)
+
+    def test_con_una_fila_de_placas_en_medio_el_cable_baja_por_el_corredor(self):
+        """Tres filas de placas: el cable no cruza el plastico de la del medio.
+
+        Medido el 2026-11-17 en el proyecto final (`0IItPdytJkx`, 5 placas:
+        mandos arriba, displays en el medio, integrados abajo): 10 cables de
+        los interruptores a los integrados bajaban en vertical **sobre** las
+        dos placas de displays, porque el ruteo solo conocia el carril entre
+        dos placas. Ahora, si hay una fila de por medio, el cable sale al
+        carril de su fila, se corre hasta el hueco de aire entre las placas de
+        en medio, baja por ahi y entra al destino por su propio carril.
+        """
+        js = self.js
+        # La geometria de las placas sale de BOARD_KINDS, no de una tabla
+        # paralela escrita a mano.
+        self.assertIn("function boardBox(index)", js)
+        self.assertIn("o.x + kind.x0 - BOARD_PAD", js)
+        self.assertIn("10 * (kind.columns - 1)", js)
+        # Filas de placas que quedan en medio de las dos puntas.
+        self.assertIn("function boardsBetween(a, b)", js)
+        self.assertIn("if (y > lo && y < hi) rows.push(i);", js)
+        # Corredor: ventana de aire mas cercana, y un carril por cable.
+        self.assertIn("function corridorX(mid, rows)", js)
+        self.assertIn("const corridorUse = {};", js)
+        self.assertIn("const midRows = boardsBetween(boardA, boardB);", js)
+        # Cuatro quiebres: carril de la fila A, corredor, carril de la fila B.
+        self.assertIn("{ x: midX, y: laneA },", js)
+        self.assertIn("{ x: midX, y: laneB },", js)
+        # Sin fila en medio se sigue usando el ruteo de siempre (dos quiebres).
+        self.assertIn("puntos.push({ x: posA.x, y: laneHere },", js)
 
     def test_el_build_reporta_los_puntos_que_guardo_el_editor(self):
         """`route_debug[*].actual` es la medida del dibujo, no la intencion.

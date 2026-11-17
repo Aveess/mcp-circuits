@@ -83,6 +83,16 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
    - Un cable entre huecos de la **misma** placa se deja recto a proposito (es
      un puente corto sobre el plastico); el ruteo en Z solo aplica entre
      placas distintas.
+   - Con **tres filas** de placas, un cable de la fila de arriba a la de abajo
+     tiene que bajar por un **corredor de aire** entre las placas de la fila
+     del medio (`boardsBetween` + `corridorX`): sale al carril de su fila, se
+     corre en horizontal hasta el hueco entre las dos placas de en medio, baja
+     por ahi y entra al destino por su carril. Sin eso el vertical atraviesa
+     el plastico de la fila del medio (medido el 2026-11-17 en el proyecto
+     final `0IItPdytJkx`: 10 cables de los interruptores a los integrados
+     pasaban por encima de las dos placas de displays). Deja el hueco de la
+     fila del medio de **~150** como minimo: cada cable ocupa un carril de 8 y
+     todos bajan por ahi. El lienzo dibuja la **`y` negativa hacia arriba**.
    - **Angulos rectos, sin excepciones:** todo cable es vertical u horizontal
      y cada giro es de 90°. Antes de dar por bueno un diseño, compara
      `route_debug[*].actual` con `points` en los cables ruteados: si el editor

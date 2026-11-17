@@ -127,8 +127,13 @@ _RAIL_RE = re.compile(rf"^{_BOARD_PREFIX}[TBtb][+-](?:[1-9]|[1-5][0-9]|6[0-2])$"
 # Rotating palette for signal wires (power/ground use black/red instead).
 _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pink", "brown"]
 
-# Tope de protoboards por circuito: mas de tres y el lienzo deja de leerse.
-_MAX_BOARDS = 3
+# Tope de protoboards por circuito. Empezo en 3 ("mas de tres y el lienzo
+# deja de leerse") pero era una guarda de legibilidad, no una limitacion
+# medida del editor: el 2026-11-17 el proyecto final necesito 5 placas
+# (tres en fila + dos apiladas debajo, con todos los integrados montados) y
+# el editor las coloco y las cableo sin problema. Seis deja aire para el
+# proyecto completo (partes 2 y 3) sin volver el lienzo ilegible.
+_MAX_BOARDS = 6
 
 
 def _normalize_did(value: Any) -> Optional[Any]:
@@ -841,6 +846,64 @@ _BUILD_JS = r"""
       const a = epBoard(from), b = epBoard(to);
       return a !== null && b !== null && a !== b;
     }
+    // Cuerpo (plastico) de una placa en coordenadas absolutas. El lienzo mide
+    // +-110 en `y` y un poco mas que sus columnas en `x`; las columnas salen
+    // de BOARD_KINDS, no de un numero escrito a mano.
+    const BOARD_HALF = 110, BOARD_PAD = 25;
+    function boardBox(index) {
+      const o = boardOrigin(index), kind = boardKind(index);
+      const a = o.x + kind.x0 - BOARD_PAD;
+      const b = o.x + kind.x0 + 10 * (kind.columns - 1) + BOARD_PAD;
+      return {
+        x0: Math.min(a, b), x1: Math.max(a, b),
+        y0: o.y - BOARD_HALF, y1: o.y + BOARD_HALF,
+      };
+    }
+    // Filas de placas que quedan EN MEDIO entre dos placas: con tres filas, un
+    // cable de la de arriba a la de abajo cruzaria el plastico de la del
+    // medio. Esas filas obligan a bajar por un corredor de aire.
+    function boardsBetween(a, b) {
+      const ya = boardOrigin(a).y, yb = boardOrigin(b).y;
+      const lo = Math.min(ya, yb), hi = Math.max(ya, yb);
+      const rows = [];
+      for (let i = 0; i < BOARDS.length; i++) {
+        if (i === a || i === b) continue;
+        const y = boardOrigin(i).y;
+        if (y > lo && y < hi) rows.push(i);
+      }
+      return rows;
+    }
+    // Corredor vertical entre esas filas: la ventana de aire mas cercana a la
+    // linea entre las dos placas. Se elige por el centro de las PLACAS (no por
+    // el del cable) para que todos los cables del mismo par bajen juntos por
+    // el mismo hueco, y cada uno se escala 8 adentro de la ventana para no
+    // dibujarse encima de otro.
+    const corridorUse = {};
+    function corridorX(mid, rows) {
+      if (!rows.length) return null;
+      const spans = rows.map(boardBox).map((bx) => [bx.x0, bx.x1])
+        .sort((p, q) => p[0] - q[0]);
+      const windows = [[spans[0][0] - 160, spans[0][0]]];
+      for (let i = 1; i < spans.length; i++) {
+        windows.push([spans[i - 1][1], spans[i][0]]);
+      }
+      windows.push([
+        spans[spans.length - 1][1], spans[spans.length - 1][1] + 160,
+      ]);
+      const usable = windows.filter((w) => w[1] - w[0] >= 3 * LANE_STEP);
+      if (!usable.length) return null;
+      let best = usable[0], bestD = Infinity;
+      for (const w of usable) {
+        const d = Math.abs((w[0] + w[1]) / 2 - mid);
+        if (d < bestD) { best = w; bestD = d; }
+      }
+      const key = best[0].toFixed(0) + ':' + best[1].toFixed(0);
+      const used = corridorUse[key] || 0;
+      corridorUse[key] = used + 1;
+      const center = (best[0] + best[1]) / 2;
+      const off = (used % 2 === 0 ? 1 : -1) * Math.ceil(used / 2) * LANE_STEP;
+      return Math.max(best[0] + 10, Math.min(best[1] - 10, center + off));
+    }
     function devPos(dev) {
       try {
         const bb = typeof dev.breadboard === 'function' ? dev.breadboard() : dev.breadboard;
@@ -1138,16 +1201,40 @@ _BUILD_JS = r"""
                 const laneHere = Math.max(yA, yB) - LANE_BASE
                   - sideLanes.top * LANE_STEP;
                 sideLanes.top++;
-                const pA = { x: posA.x, y: laneHere }, pB = { x: posB.x, y: laneHere };
+                // Con una fila de placas en medio, el tramo vertical tiene que
+                // bajar por el hueco entre ellas: si no, cruza el plastico de
+                // la fila de en medio (medido el 2026-11-17 en el proyecto
+                // final: 10 cables de los interruptores a los integrados
+                // pasaban por encima de las dos placas de displays).
+                const midRows = boardsBetween(boardA, boardB);
+                const midX = midRows.length
+                  ? corridorX((boardOrigin(boardA).x + boardOrigin(boardB).x) / 2,
+                              midRows)
+                  : null;
+                const laneUpper = Math.min(yA, yB) + LANE_BASE
+                  + sideLanes.top * LANE_STEP;
+                const puntos = [];
+                if (midX !== null && laneUpper < laneHere - LANE_STEP) {
+                  sideLanes.top++;
+                  const aArriba = yA < yB;
+                  const laneA = aArriba ? laneUpper : laneHere;
+                  const laneB = aArriba ? laneHere : laneUpper;
+                  puntos.push(
+                    { x: posA.x, y: laneA }, { x: midX, y: laneA },
+                    { x: midX, y: laneB }, { x: posB.x, y: laneB });
+                } else {
+                  puntos.push({ x: posA.x, y: laneHere },
+                              { x: posB.x, y: laneHere });
+                }
                 const C = coordCtor();
                 try {
-                  for (let i = 0; i < 2; i++) {
-                    const pt = i === 0 ? pA : pB;
+                  for (let i = 0; i < puntos.length; i++) {
+                    const pt = puntos[i];
                     const r = w.addPoint(C ? new C(pt.x, pt.y) : pt, i + 1);
                     if (r === false) throw new Error('addPoint returned false');
                   }
-                  routePoints = [[posA.x, posA.y], [pA.x, pA.y],
-                                 [pB.x, pB.y], [posB.x, posB.y]];
+                  routePoints = [[posA.x, posA.y]]
+                    .concat(puntos.map((p) => [p.x, p.y]), [[posB.x, posB.y]]);
                   didRoute = true;
                 } catch (e) {
                   reason = 'addpoint_error: ' + e.toString();
