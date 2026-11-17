@@ -80,6 +80,13 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
      entre los cuerpos: la banda arranca a 130 del origen de la placa de abajo
      y avanza de 8 en 8, y el cuerpo mide +-110, asi que dos placas a menos de
      ~240 de distancia dejan pocos carriles.
+   - El contador de carriles es **por par de filas** (`sideLanes.pairs`, clave
+     `yMenor:yMayor`), no global: cada hueco paga solo sus cables. Con uno
+     global, un par de filas cercano gastaba los carriles que consumian los
+     otros pares y el ultimo caia dentro del plastico (medido el 2026-11-17).
+     Un cable con corredor consume dos carriles (uno arriba y uno abajo) y uno
+     simple, uno. Por eso la separacion minima es
+     `2*130 + 8*(carriles-1)` **de ese par**, no una cifra fija.
    - Un cable entre huecos de la **misma** placa se deja recto a proposito (es
      un puente corto sobre el plastico); el ruteo en Z solo aplica entre
      placas distintas.
@@ -90,9 +97,11 @@ la regla de alimentacion porque ...". No lo hagas en silencio.
      por ahi y entra al destino por su carril. Sin eso el vertical atraviesa
      el plastico de la fila del medio (medido el 2026-11-17 en el proyecto
      final `0IItPdytJkx`: 10 cables de los interruptores a los integrados
-     pasaban por encima de las dos placas de displays). Deja el hueco de la
-     fila del medio de **~150** como minimo: cada cable ocupa un carril de 8 y
-     todos bajan por ahi. El lienzo dibuja la **`y` negativa hacia arriba**.
+     pasaban por encima de las dos placas de displays). El hueco entre las
+     placas del medio tiene que dar cabida a **un carril de 8 por cable**:
+     medido en ese circuito, 90 de aire para ocho cables alcanza y deja el
+     diseno apretado como se pidio. El lienzo dibuja la **`y` negativa hacia
+     arriba**.
    - **Angulos rectos, sin excepciones:** todo cable es vertical u horizontal
      y cada giro es de 90°. Antes de dar por bueno un diseño, compara
      `route_debug[*].actual` con `points` en los cables ruteados: si el editor

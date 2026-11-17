@@ -94,8 +94,10 @@ del otro. Si dos placas comparten `x` y difieren en `y`, un cable entre
 huecos de una y otra se tiende recto como una diagonal larga sobre las dos
 proboards. El puente lo rutea en Z (`crossBoardPair`) por el carril que cae
 en el aire entre las dos, y deja **aire suficiente**: la banda arranca a 130
-del origen de la placa de abajo y avanza de 8 en 8, con el cuerpo en +-110,
-asi que menos de ~240 entre las dos deja pocos carriles. La decision de
+del origen de la placa de abajo y avanza de 8 en 8, con el cuerpo en +-110.
+El contador de carriles es **por par de filas** (2026-11-17): cada par
+`yMenor:yMayor` lleva su propia cuenta, asi que la separacion que hace falta
+es `2*130 + 8*(carriles de ese par - 1)` y no una cifra fija. La decision de
 rutear se toma en `plan_wire_style(..., boards=...)`, **no** solo en el JS:
 el plan manda `route` explicito y el JS lo respeta.
 
@@ -106,9 +108,10 @@ banea por un **corredor de aire** entre las placas de en medio (`corridorX`),
 eligiendo la ventana por el centro de las dos placas para que todos los cables
 del mismo par bajen juntos y escalonados de 8 en 8. Medido en `0IItPdytJkx`:
 con el ruteo viejo, 10 cables pasaban por encima de las dos placas de
-displays; con el corredor, 0. Requisito de diseno: dejar **~150** de hueco
-entre las placas de la fila del medio. Ojo: el lienzo dibuja la `y` negativa
-**hacia arriba** (una placa en `y=520` sale abajo).
+displays; con el corredor, 0. El hueco tiene que dar cabida a 8 unidades por
+cable: **90 de aire para ocho cables alcanza** (medido en el layout de cuatro
+placas). Ojo: el lienzo dibuja la `y` negativa **hacia arriba** (una placa en
+`y=520` sale abajo).
 
 ## 2. Lo que se mide y lo que no
 

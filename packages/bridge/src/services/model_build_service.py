@@ -989,7 +989,7 @@ _BUILD_JS = r"""
     // los cables van por encima de la placa y la otra mitad por debajo, y
     // ninguna banda crece por culpa de la otra.
     const BASE_Y = BOARDS[0].y;
-    const sideLanes = { top: 0, bottom: 0 };
+    const sideLanes = { top: 0, bottom: 0, pairs: {} };
     let fallbackLane = 0, paletteIdx = 0, prevColor = null;
     for (const rawWire of (plan.wires || [])) {
       const spec = wireSpec(rawWire);
@@ -1195,12 +1195,22 @@ _BUILD_JS = r"""
                 const yA = boardOrigin(boardA).y, yB = boardOrigin(boardB).y;
                 // El carril vive **por encima** de la placa de abajo (la de
                 // `y` mayor): cae en el aire que queda entre las dos y no
-                // pisa el plastico de ninguna. Es el mismo carril base que
-                // usa la banda de las partes libres, y comparte contador
-                // para que dos cables no se dibujen uno encima del otro.
+                // pisa el plastico de ninguna.
+                //
+                // El contador es **por par de filas**: con uno solo para todo
+                // el diseno, dos filas separadas por 340 dejaban el ultimo
+                // carril dentro del plastico aunque entre ellas hubiera cuatro
+                // cables, porque los carriles que gastaban los otros pares
+                // corrian la cuenta (medido el 2026-11-17 al achicar el
+                // proyecto final). Asi cada hueco solo paga sus cables.
+                const pairKey = [yA, yB].sort((p, q) => p - q).join(':');
+                const nextLane = () => {
+                  const n = sideLanes.pairs[pairKey] || 0;
+                  sideLanes.pairs[pairKey] = n + 1;
+                  return n;
+                };
                 const laneHere = Math.max(yA, yB) - LANE_BASE
-                  - sideLanes.top * LANE_STEP;
-                sideLanes.top++;
+                  - nextLane() * LANE_STEP;
                 // Con una fila de placas en medio, el tramo vertical tiene que
                 // bajar por el hueco entre ellas: si no, cruza el plastico de
                 // la fila de en medio (medido el 2026-11-17 en el proyecto
@@ -1211,11 +1221,14 @@ _BUILD_JS = r"""
                   ? corridorX((boardOrigin(boardA).x + boardOrigin(boardB).x) / 2,
                               midRows)
                   : null;
-                const laneUpper = Math.min(yA, yB) + LANE_BASE
-                  + sideLanes.top * LANE_STEP;
+                // El carril de arriba se pide solo si el cable va a usar el
+                // corredor: si no, gastaria un carril que no dibuja.
+                const laneUpperPeek = Math.min(yA, yB) + LANE_BASE
+                  + (sideLanes.pairs[pairKey] || 0) * LANE_STEP;
                 const puntos = [];
-                if (midX !== null && laneUpper < laneHere - LANE_STEP) {
-                  sideLanes.top++;
+                if (midX !== null && laneUpperPeek < laneHere - LANE_STEP) {
+                  const laneUpper = Math.min(yA, yB) + LANE_BASE
+                    + nextLane() * LANE_STEP;
                   const aArriba = yA < yB;
                   const laneA = aArriba ? laneUpper : laneHere;
                   const laneB = aArriba ? laneHere : laneUpper;
