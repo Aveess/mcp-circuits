@@ -148,8 +148,19 @@ def test_el_codo_de_una_columna_no_es_un_tramo_sobre_la_placa():
     assert route_band_violations(routes, [{"x": 1570, "y": 0}]) == []
 
 
+def test_dos_columnas_de_codo_tambien_entran_al_riel():
+    """Las columnas 30 y 31 no tienen hueco de riel y la 29 puede estar tomada.
+
+    Medido el 2026-11-17 en el proyecto final: el tap de la pata 30e cae en
+    T+28 (dos columnas, 20 unidades). Sigue siendo un codo de entrada, no una
+    travesia: el cable no recorre plastico ajeno, va por la fila del riel.
+    """
+    routes = [_route("b1/30e -> b1/T+28", [[1215, 375], [1215, 445], [1195, 445]])]
+    assert route_band_violations(routes, [{"x": 1220, "y": 360}]) == []
+
+
 def test_un_tramo_horizontal_largo_sobre_la_placa_sigue_siendo_violacion():
-    """La tolerancia es UN paso de columna, no un boquete en la regla."""
+    """La tolerancia son DOS pasos de columna, no un boquete en la regla."""
     routes = [_route("b2/18e -> b2/T+9", [[1650, -45], [1650, 85], [1560, 85]])]
     assert route_band_violations(routes, [{"x": 1570, "y": 0}]) == [
         {"wire": "b2/18e -> b2/T+9", "y": 85.0, "board": {"x": 1570.0, "y": 0.0}}

@@ -467,8 +467,16 @@ _ROUTE_MIN_AIR = 15
 _ROUTE_STRAIGHT_TOL = 1.0
 # Un tramo horizontal corto no es una travesia: es el codo de un cable que
 # entra al hueco de la columna vecina. El paso de columna es 10, asi que se
-# admite un paso con su tolerancia; mas que eso ya recorre plastico.
-_BEND_MAX_DX = 12
+# admiten DOS pasos con su tolerancia; mas que eso ya recorre plastico.
+#
+# Dos y no uno por medido el 2026-11-17 en el proyecto final: los rieles de la
+# placa grande no estan seguidos (faltan en 6, 12, 18, 24, 30, 31, 37, 43, 49,
+# 55, 61 y 62) y el vecino puede estar ya tomado por otro tap, asi que el cable
+# de la pata 30e al riel cae en T+28: dos columnas (20 unidades) y un solo
+# codo. El lint lo contaba como tramo sobre la placa y tumbaba el build con el
+# cableado perfecto (fidelidad 1.0). Un tramo de nueve columnas (90) sigue
+# siendo violacion: la tolerancia mide codos de entrada, no travesias.
+_BEND_MAX_DX = 22
 
 
 def _net_kind(endpoints):

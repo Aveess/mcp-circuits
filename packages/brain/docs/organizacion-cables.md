@@ -187,6 +187,42 @@ selección. Para cambiar el layout se cambia el **generador** y se reconstruye
 (el build es determinista y reusa `tinkercad_id`); una pieza suelta se borra y
 se vuelve a agregar desde la paleta.
 
+## Regla v7: el proyecto final en cuatro placas (2026-11-17)
+
+El pedido de Eddie: **todo** en breadboards, las placas lo más juntas posible,
+los cuatro integrados abajo juntos en una sola placa centrada y los mandos
+arriba. Medido en `0IItPdytJkx`: **fidelidad 1.0**, 148/148 cables, 0
+diagonales, 0 tramos sobre plástico (`ok: True`).
+
+| Índice | Placa | `(x, y)` | Qué lleva |
+| --- | --- | --- | --- |
+| 0 | displays A | `(845, 0)` | 2 displays, 16 R de 220 Ω, CD4511 |
+| 1 | compuertas | `(1220, 360)` | 74HC86 + 74HC283 de A y de B, juntos |
+| 2 | displays B | `(1595, 0)` | 2 displays, 16 R, CD4511 |
+| 3 | mandos | `(1220, -380)` | los ocho interruptores |
+
+- **El índice no es el dibujo: es la cadena de alimentación** (0→1→2→3). Con el
+  orden del dibujo, el 5V de una placa de displays a la de integrados del otro
+  operando cruzaba el lienzo entero (1910 medido).
+- **Hueco horizontal de 90** entre las dos placas del medio: es el corredor por
+  el que bajan los ocho cables de los mandos a las compuertas. Con ese hueco
+  los cables caen en el aire, no sobre el plástico.
+- **Separación vertical**: 360 hasta las compuertas y 380 hasta los mandos.
+  No es un número mágico: cada par de filas necesita
+  `2*130 + 8*(carriles de ese par − 1)`. El par de las compuertas gasta 10
+  carriles (necesita > 332) y el de mandos→compuertas 14, pero esos corren por
+  el aire entre filas, no por encima de una placa.
+- **El contador de carriles es por par de filas** (`sideLanes.pairs`). Con uno
+  global, un par cercano gastaba los carriles de los otros y el último caía
+  dentro del plástico (medido: `y=-106` sobre las dos placas de displays).
+- **La tolerancia del codo es de dos columnas** (`_BEND_MAX_DX = 22`): los
+  rieles de la placa grande saltan columnas (6, 12, 18, 24, 30, 31, …) y el
+  vecino puede estar tomado, así que el tap de `30e` cae en `T+28`. El lint lo
+  contaba como travesía y tumbaba el build con el cableado perfecto.
+- Los cables de la cadena de alimentación entre placas que no son vecinas
+  (0→1 y 1→2) rodean el borde de la placa en vez de cruzar el plástico: es
+  correcto y se ve como un puente que pasa por fuera.
+
 ## Segunda protoboard
 
 Cuando la placa 1 no alcanza (el caso real: 8 resistencias de serie no entran en
@@ -195,8 +231,9 @@ Cuando la placa 1 no alcanza (el caso real: 8 resistencias de serie no entran en
 - Solo resistencias, y no pueden ser las que van emparejadas con un LED.
 - La placa 2 se coloca en `(1270, 0)`; sus huecos viajan como `b1/5d` y sus
   rieles como `b1/T+5`.
-- Máximo 3 placas (`plan.boards`); no conviven con `free_parts` (las partes
-  libres de la derecha viven en ese sitio).
+- Máximo 6 placas (`plan.boards`, subido de 3 el 2026-11-17 para el proyecto
+  final, que gasta cuatro); no conviven con `free_parts` (las partes libres de
+  la derecha viven en ese sitio).
 
 ## Por qué
 
