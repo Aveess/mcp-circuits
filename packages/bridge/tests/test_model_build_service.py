@@ -27,7 +27,11 @@ def make_service(evaluate_return=None, pending=None):
 class TestModelBuildValidation(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_did_rejected_without_touching_page(self):
         svc, mock_bm, _ = make_service()
-        for bad in (0, -1, "58422", None, True, 58.5):
+        # "58422" ya NO es invalido: el 2026-11-16 se midio que varias piezas
+        # (74HC283 = "ic74hc283") solo traen un id de texto, asi que el plan
+        # acepta entero o cadena y convierte los digitos (ver
+        # `_normalize_did` y `test_string_did_*`).
+        for bad in (0, -1, None, True, 58.5, "", "  "):
             res = await svc.build_from_holes(
                 parts=[{"ref": "led1", "did": bad, "at": "9i", "pin": "anode"}],
                 wires=[],
@@ -134,6 +138,53 @@ class TestModelBuildEvaluate(unittest.IsolatedAsyncioTestCase):
             parts=[{"ref": "r1", "did": 53184, "at": "5e", "pin": "1"}], wires=[]
         )
         self.assertFalse(res["removed_uno"])
+
+
+class TestDidNormalization(unittest.TestCase):
+    """El `did` de una pieza puede ser entero o id de texto del editor.
+
+    Medido el 2026-11-16 con `add_component` sobre un diseno desechable: el
+    display publica `did` numerico (129710), el CD4511 tambien (121827) pero
+    el 74HC283 solo se publica como `ic74hc283`. `createDeviceInstance`
+    acepta los dos, asi que el plan tambien tiene que aceptarlos.
+    """
+
+    def test_entero_positivo_se_conserva(self):
+        self.assertEqual(mbs._normalize_did(129710), 129710)
+
+    def test_entero_no_positivo_se_rechaza(self):
+        for bad in (0, -3):
+            self.assertIsNone(mbs._normalize_did(bad), bad)
+
+    def test_cadena_de_digitos_se_convierte(self):
+        self.assertEqual(mbs._normalize_did("121827"), 121827)
+        self.assertEqual(mbs._normalize_did(" 121827 "), 121827)
+
+    def test_slug_del_editor_se_conserva(self):
+        self.assertEqual(mbs._normalize_did("ic74hc283"), "ic74hc283")
+
+    def test_bool_y_flotante_no_son_did(self):
+        for bad in (True, False, 58.5, None, "", "   ", [], {}):
+            self.assertIsNone(mbs._normalize_did(bad), bad)
+
+    async def test_slug_llega_al_plan_tal_cual(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": []})
+        res = await svc.build_from_holes(
+            parts=[{"ref": "add1", "did": "ic74hc283", "free": {"x": 1200, "y": 0}}],
+            wires=[],
+        )
+        self.assertTrue(res["success"], res["errors"])
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertEqual(plan["parts"][0]["did"], "ic74hc283")
+
+    async def test_did_numerico_en_texto_llega_como_entero(self):
+        svc, _, mock_page = make_service({"placed": {}, "errors": []})
+        await svc.build_from_holes(
+            parts=[{"ref": "d1", "did": "121827", "free": {"x": 1200, "y": 0}}],
+            wires=[],
+        )
+        plan = mock_page.evaluate.call_args_list[0].args[1]
+        self.assertEqual(plan["parts"][0]["did"], 121827)
 
 
 class TestModelBuildPersistence(unittest.IsolatedAsyncioTestCase):

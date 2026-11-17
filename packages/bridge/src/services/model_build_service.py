@@ -130,6 +130,29 @@ _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pi
 # Tope de protoboards por circuito: mas de tres y el lienzo deja de leerse.
 _MAX_BOARDS = 3
 
+
+def _normalize_did(value: Any) -> Optional[Any]:
+    """``did`` de una parte: entero positivo o id de texto del editor.
+
+    Tinkercad no usa un solo espacio de identificadores: la mayoria de las
+    piezas tienen ``did`` numerico (``129710``, el display), pero otras solo
+    se publican con un slug (el 74HC283 es ``ic74hc283``, medido el
+    2026-11-16 en un sondeo del drawer). ``createDeviceInstance`` acepta los
+    dos, asi que el plan tambien: se acepta ``int > 0`` o una cadena no
+    vacia, y los digitos se convierten a entero para no romper la comparacion
+    que hace el JS con ``Number``.
+
+    Devuelve ``None`` cuando el valor no sirve (el llamador lo reporta).
+    """
+    if type(value) is int:
+        return value if value > 0 else None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    return int(text) if text.isdigit() else text
+
 # Partes libres cuyas terminales miran hacia ARRIBA: bajar en vertical desde
 # el pin atraviesa su propio cuerpo y el cable parece nacer en el borde.
 # El cable sale primero de lado, `dx` unidades desde el ORIGEN del modulo
@@ -300,6 +323,12 @@ def plan_wire_style(
             # protoboards. El puente la baja al carril que queda entre ellas.
             or _endpoints_on_different_boards(frm, to, boards)
         )
+        # Un `route` explicito manda: el layout lo pone en los cables que SIN
+        # quiebre salen diagonales aunque las dos puntas esten en la misma
+        # placa (el tap de una pata al hueco de riel de la columna vecina,
+        # cuando la columna de la pata no tiene hueco de riel).
+        if isinstance(wire, dict) and isinstance(wire.get("route"), bool):
+            route = bool(wire["route"])
         wire_lane = lane if route else -1
         if route:
             lane += 1
@@ -1059,6 +1088,33 @@ _BUILD_JS = r"""
                   reason = 'addpoint_error: ' + e.toString();
                 }
               }
+            } else if (isBbEp(from) && isBbEp(to)
+                       && epBoard(from) !== null && epBoard(from) === epBoard(to)) {
+              // Misma placa, pero el layout pidio ruteo (route: true) porque
+              // la recta saldria inclinada: pata en una columna y hueco de
+              // riel en la vecina. Se agrega un solo quiebre en L (vertical
+              // por la columna de origen y horizontal a la altura del
+              // destino), que es como se dobla un puente a mano.
+              const posA = bbAbs(from), posB = bbAbs(to);
+              if (!posA) reason = 'free_pos_null';
+              else if (!posB) reason = 'dest_pos_null';
+              else if (Math.abs(posA.x - posB.x) < 1 || Math.abs(posA.y - posB.y) < 1) {
+                // Ya es ortogonal: no hay quiebre que agregar.
+                routePoints = [[posA.x, posA.y], [posB.x, posB.y]];
+                didRoute = true;
+              } else {
+                const corner = { x: posA.x, y: posB.y };
+                const C = coordCtor();
+                try {
+                  const r = w.addPoint(C ? new C(corner.x, corner.y) : corner, 1);
+                  if (r === false) throw new Error('addPoint returned false');
+                  routePoints = [[posA.x, posA.y], [corner.x, corner.y],
+                                 [posB.x, posB.y]];
+                  didRoute = true;
+                } catch (e) {
+                  reason = 'addpoint_error: ' + e.toString();
+                }
+              }
             } else if (crossBoardPair(from, to)) {
               // Dos protoboards apiladas: se sale del hueco al carril del
               // hueco que queda entre las dos placas, se corre en horizontal
@@ -1350,9 +1406,14 @@ class ModelBuildService:
                 errors.append(f"invalid part (not an object): {part!r}")
                 continue
             ref = part.get("ref", "?")
-            did = part.get("did")
-            if type(did) is not int or did <= 0:
-                errors.append(f"part '{ref}': did must be int > 0, got {did!r}")
+            did = _normalize_did(part.get("did"))
+            if did is None:
+                errors.append(
+                    f"part '{ref}': did must be int > 0 or a non-empty part id "
+                    f"(e.g. 'ic74hc283'), got {part.get('did')!r}"
+                )
+            else:
+                part["did"] = did
             at = part.get("at")
             free = part.get("free")
             has_free = free is not None

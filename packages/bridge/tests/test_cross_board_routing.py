@@ -135,3 +135,38 @@ class CrossBoardRoutingTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SameBoardBendTest(unittest.TestCase):
+    """Codo dentro de la MISMA placa: el tap al riel de la columna vecina.
+
+    La placa grande no tiene hueco de riel en las columnas 6, 12, 18, 24, 30,
+    31, 37... Un interruptor anclado en 17 deja su pata de 5V en la 18, asi
+    que el cable al riel tiene que entrar por `T+17`: recto saldria inclinado
+    10 unidades en x y 70 en y (medido en el proyecto final, 2026-11-16).
+
+    La decision se toma en Python y viaja en el plan como `route: true`; el JS
+    le agrega **un** quiebre en L. Un cable de la misma placa sin esa marca
+    sigue recto: es un puente corto sobre el plastico y asi se quiere.
+    """
+
+    def test_un_route_explicito_manda_sobre_la_heuristica(self):
+        styled = plan_wire_style(
+            [{"from": "b2/18e", "to": "b2/T+17", "color": "red", "route": True}],
+            boards=[{"x": 870, "y": 0}, {"x": 1570, "y": 0}],
+        )
+        self.assertTrue(styled[0]["route"])
+        self.assertGreaterEqual(styled[0]["lane"], 0)
+
+    def test_sin_la_marca_el_puente_de_la_misma_placa_queda_recto(self):
+        styled = plan_wire_style(
+            [{"from": "5g", "to": "8c", "color": "green"}],
+            boards=[{"x": 870, "y": 0}],
+        )
+        self.assertFalse(styled[0]["route"])
+        self.assertEqual(styled[0]["lane"], -1)
+
+    def test_el_js_sabe_doblar_dos_huecos_de_una_misma_placa(self):
+        js = _BUILD_JS
+        self.assertIn("epBoard(from) === epBoard(to)", js)
+        self.assertIn("const corner = { x: posA.x, y: posB.y };", js)
