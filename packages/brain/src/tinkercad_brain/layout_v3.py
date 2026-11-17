@@ -81,6 +81,11 @@ _UNO_GROUND_COLUMN = 2
 # pueden tocar su riel. Son los mismos de la v2 para que se lea igual.
 _BUS_ROWS = {"5V": ("d", "j"), "GND": ("a", "i")}
 
+# Hasta cuantas columnas se acepta un tap torcido (pata -> riel vecino) en vez
+# de la fila de bus. Mas lejos que esto, el bus se lee mejor que un cable
+# cruzando media placa.
+_BUS_MAX_TAP = 4
+
 # Rieles que el modelo funde en un solo nodo aunque esten en filas distintas:
 # la placa grande rotula "X" las dos filas de abajo. Ese lado no puede llevar
 # dos polaridades y el cable que las uniria no crea nada.
@@ -538,6 +543,26 @@ def _distribute(name: str, index: int, kind: str, side: str, other_side: str,
                 wires.append(tap)
                 taken[index].add(rail_col)
             rest = {}
+        if rest and target is not None:
+            # Pata del lado contrario al riel de su net, en una columna sin
+            # hueco de riel: antes se resolvia solo con la fila de bus. El bus
+            # se paga cuando son varias patas, pero por una sola es una tirada
+            # de decenas de columnas sobre el cuerpo de las piezas (medido el
+            # 2026-11-17 en el proyecto final: la pata 18e del tablero de
+            # interruptores costaba un cable de 420 por encima de los ocho
+            # switches). Si el hueco de riel libre esta a tiro, se va con un
+            # tap torcido de dos tramos y el bus queda para el resto.
+            for col, row in sorted(list(rest.items())):
+                rail_col = _nearest_rail_column(
+                    kind, col, taken.setdefault(index, set()))
+                if rail_col is None or abs(rail_col - col) > _BUS_MAX_TAP:
+                    continue
+                tap = _wire(_hole(index, col, row), _rail(index, target, rail_col), name)
+                if rail_col != col:
+                    tap["route"] = True
+                wires.append(tap)
+                taken[index].add(rail_col)
+                del rest[col]
         if rest:
             _bus(name, index, kind, home_rail, side, half_side, rest,
                  occupied, claims, taken, wires, errors)

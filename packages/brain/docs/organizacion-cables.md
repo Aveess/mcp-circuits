@@ -36,6 +36,13 @@ Esta es la regla vigente en los layout `v2`/`v3` (implementada en
    riel está en el otro lado. Un bus nunca aterriza en una media columna que
    ya tenga una pata ajena: esa media columna es la pata, y tocarla es un
    corto (quemó un 74HC86 el 2026-11-15).
+   **Excepción medida el 2026-11-17:** el bus se paga cuando son varias patas
+   del lado contrario; por una sola es una tirada de decenas de columnas
+   sobre el cuerpo de las piezas (la pata `18e` del tablero de interruptores
+   del proyecto final costaba un cable de 420 por encima de los ocho
+   switches). Si el hueco de riel libre está a `_BUS_MAX_TAP` columnas o
+   menos, la pata baja con un **tap torcido** de dos tramos y el bus queda
+   para el resto.
 5. Una placa adicional se alimenta de la placa ya alimentada, nunca de la
    fuente.
 6. El **Arduino no es la fuente**: por defecto no se pone, y solo entra si el
