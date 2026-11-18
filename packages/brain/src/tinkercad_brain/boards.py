@@ -297,6 +297,28 @@ _DIP14_JK = {
     "2J": (6, "e"),
 }
 
+# El 74HC74 (did 116725) es un DIP-14 con las hileras a 20 unidades, como el
+# de compuertas, medido en vivo el 2026-11-17 sobre el desechable 9NMhuctcriI:
+# anclado por `1D` en `10e`, la fila `e` lleva 1RD/1D/1CP/1SD/1Q/1NQ/GND y la
+# fila `f` Vcc/2RD/2D/2CP/2SD/2Q/2NQ. A diferencia del 74HC73, dispara en
+# flanco de subida y tiene preset y reset activos en bajo por cada mitad.
+_DIP14_DFF = {
+    "1RD": (-1, "e"),
+    "1D": (0, "e"),
+    "1CP": (1, "e"),
+    "1SD": (2, "e"),
+    "1Q": (3, "e"),
+    "1NQ": (4, "e"),
+    "GND": (5, "e"),
+    "Vcc": (-1, "f"),
+    "2RD": (0, "f"),
+    "2D": (1, "f"),
+    "2CP": (2, "f"),
+    "2SD": (3, "f"),
+    "2Q": (4, "f"),
+    "2NQ": (5, "f"),
+}
+
 # 10 patas en 5 columnas, una por media columna: la fila `e` para cinco
 # segmentos y la `i` para los otros cinco. No hay dos patas en el mismo nodo.
 _DISPLAY_7SEG = {
@@ -360,6 +382,7 @@ def model_pin(ctype: str, pin: str) -> str:
 FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip14": _DIP14,
     "dip14-jk": _DIP14_JK,
+    "dip14-dff": _DIP14_DFF,
     "dip14-not": _DIP14_NOT,
     "dip16-4511": _DIP16_4511,
     "dip16-283": _DIP16_283,
@@ -381,6 +404,7 @@ _FOOTPRINT_BY_TYPE: Dict[str, str] = {
     "xor-gate": "dip14",
     "nand-gate": "dip14",
     "flip-flop-jk": "dip14-jk",
+    "flip-flop-d": "dip14-dff",
     "timer-555": "dip8-555",
     "seven-segment": "display-7seg",
     "resistor": "resistor",

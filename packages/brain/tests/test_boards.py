@@ -129,6 +129,23 @@ def test_huella_del_jk_deja_las_dos_hileras_en_el_canal():
     assert len(huella) == 14
 
 
+def test_huella_del_74hc74_es_un_dip14_con_las_hileras_en_el_canal():
+    # Medido en vivo el 2026-11-17 en el circuito desechable 9NMhuctcriI,
+    # anclado por `1D` en `10e`: las dos hileras caen en `e`/`f` (20
+    # unidades, como el DIP-14 de compuertas) y la numeracion arranca en
+    # `1RD` una columna a la izquierda del ancla.
+    huella = footprint("dip14-dff")
+
+    assert len(huella) == 14
+    assert huella["1RD"] == (-1, "e") and huella["1D"] == (0, "e")
+    assert huella["1CP"] == (1, "e") and huella["1SD"] == (2, "e")
+    assert huella["1Q"] == (3, "e") and huella["1NQ"] == (4, "e")
+    assert huella["GND"] == (5, "e")
+    assert huella["Vcc"] == (-1, "f") and huella["2D"] == (1, "f")
+    assert huella["2Q"] == (4, "f") and huella["2NQ"] == (5, "f")
+    assert {dcol for dcol, _ in huella.values()} == set(range(-1, 6))
+
+
 def test_footprint_for_elige_la_huella_de_cada_tipo():
     # Las compuertas comparten el DIP-14 de 74HC00/08/32/86 (mismos nombres
     # de pin); el JK y el 555 son DIP mas anchos y el display tiene 10 patas.
@@ -137,6 +154,7 @@ def test_footprint_for_elige_la_huella_de_cada_tipo():
     assert footprint_for("not-gate") == footprint("dip14-not")
     assert footprint_for("xor-gate") == footprint("dip14")
     assert footprint_for("flip-flop-jk") == footprint("dip14-jk")
+    assert footprint_for("flip-flop-d") == footprint("dip14-dff")
     assert footprint_for("timer-555") == footprint("dip8-555")
     assert footprint_for("seven-segment") == footprint("display-7seg")
     assert footprint_for("resistor") == footprint("resistor")

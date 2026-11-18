@@ -59,6 +59,7 @@ _ANCHOR: Dict[str, str] = {
     "xor-gate": "1A",
     "nand-gate": "1A",
     "flip-flop-jk": "1J",
+    "flip-flop-d": "1D",
     "timer-555": "CTRL",
     "seven-segment": "a",
     "resistor": "1",
