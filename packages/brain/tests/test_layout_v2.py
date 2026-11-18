@@ -252,15 +252,17 @@ def test_cada_net_que_toca_las_dos_placas_lleva_un_puente_entre_ellas():
 
 
 def test_la_huella_del_tipo_desconocido_se_reporta_sin_colocar():
+    # El LED ya tiene huella (se agrego el 2026-11-17 para el banco de la
+    # parte 2); el tipo sin huella de este test es el buzzer.
     fixture = _fixture_v2()
-    fixture["components"].append({"ref": "led1", "type": "led"})
-    fixture["nets"].append(["uno.D13", "led1.anode"])
+    fixture["components"].append({"ref": "bz1", "type": "buzzer"})
+    fixture["nets"].append(["uno.D13", "bz1.+"])
 
     plan = plan_layout_v2(fixture)
 
-    assert plan["unplaced"] == ["led1"]
-    assert "led1" not in plan["placements"]
-    assert any("led" in e for e in plan["errors"]), plan["errors"]
+    assert plan["unplaced"] == ["bz1"]
+    assert "bz1" not in plan["placements"]
+    assert any("buzzer" in e for e in plan["errors"]), plan["errors"]
 
 
 def test_el_builder_despacha_v2_y_arma_la_llamada_del_puente():

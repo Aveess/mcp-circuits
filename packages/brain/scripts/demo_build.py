@@ -112,16 +112,17 @@ _PRESETS_BY_FIXTURE["contador-0-7-jk-v4"] = [
 ]
 
 
-# Proyecto final, parte 1. Dos familias de preset, las dos medidas en vivo el
-# 2026-11-16 en la sonda `iXiA957AXba`:
+# Proyecto final, partes 1 y 2. Dos familias de preset, las dos medidas en vivo
+# el 2026-11-16 en la sonda `iXiA957AXba`:
 #
 # - **Display**: la pieza nace de ANODO comun. Cableada como catodo (comun a
 #   GND, que es lo que pide el CD4511) queda **apagada** aunque el cableado
 #   este perfecto: medido en la sonda, el mismo circuito paso de negro a
 #   encender el "8" del lamp test al fijar `common = cathode`.
 # - **Resistencia**: Tinkercad crea las resistencias en 1 kohm; el diseno es de
-#   220 ohm por segmento. El valor va por ref porque en el circuito hay 16.
-_PRESETS_BY_FIXTURE["proyecto-final-sumador-c2-parte1"] = [
+#   220 ohm por segmento (y por LED del banco de la parte 2). El valor va por
+#   ref porque en el circuito hay 16 + 5.
+_PRESETS_BY_FIXTURE["proyecto-final-sumador-c2"] = [
     {"component": ref, "property": "common", "value": "cathode"}
     for ref in ("sigA", "numA", "sigB", "numB")
 ] + [
@@ -131,6 +132,7 @@ _PRESETS_BY_FIXTURE["proyecto-final-sumador-c2-parte1"] = [
         + ["rsa"]
         + [f"rb{index}" for index in range(1, 8)]
         + ["rsb"]
+        + [f"rl{index}" for index in range(5)]
     )
 ]
 

@@ -140,9 +140,12 @@ def test_footprint_for_elige_la_huella_de_cada_tipo():
     assert footprint_for("timer-555") == footprint("dip8-555")
     assert footprint_for("seven-segment") == footprint("display-7seg")
     assert footprint_for("resistor") == footprint("resistor")
+    # LED generico (did 58422), medido el 2026-11-17: las dos patas en la
+    # misma fila, a una columna (ver `test_el_led_...` en test_layout_led.py).
+    assert footprint_for("led") == footprint("led")
 
     with pytest.raises(KeyError):
-        footprint_for("led")
+        footprint_for("buzzer")
 
 
 def test_el_inversor_tiene_seis_compuertas_en_la_misma_huella():
@@ -175,8 +178,14 @@ def test_las_huellas_usan_dos_filas_que_caen_en_mitades_distintas():
     # estan en UNA fila (y = 0 en el modelo), asi que insertado ocupa tres
     # columnas de la misma mitad. El pulsador si cruza el canal y queda bajo
     # esta regla.
+    #
+    # El LED (did 58422) es el tercero, medido el 2026-11-17: `anode` en `10i`
+    # y `cathode` en `9i`, o sea las dos patas en la MISMA fila y a una columna
+    # de distancia. Es una pieza de dos patas, no un DIP: no hay canal que
+    # cruzar, y su `i` (mitad de abajo) queda sola porque la resistencia en
+    # serie termina en la fila `g` de esa misma mitad.
     for nombre, huella in FOOTPRINTS.items():
-        if nombre in ("capacitor", "slideswitch"):
+        if nombre in ("capacitor", "slideswitch", "led"):
             continue
         filas = {fila for _, fila in huella.values()}
         assert len({half(f) for f in filas}) == 2, (nombre, filas)

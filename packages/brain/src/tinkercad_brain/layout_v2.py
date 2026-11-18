@@ -63,6 +63,9 @@ _ANCHOR: Dict[str, str] = {
     "seven-segment": "a",
     "resistor": "1",
     "capacitor": "1",
+    # El LED se ancla por el anodo en la fila `i` (mitad de abajo, la misma
+    # donde termina la resistencia en serie: `2` en la fila `g`).
+    "led": "anode",
     # El interruptor se ancla por el comun y el pulsador por la pata `1` de la
     # fixture (clave `4` del modelo): las dos anclas quedan en la fila `e`
     # (mitad de arriba) y las demas patas caen solas en las columnas y filas
@@ -82,7 +85,12 @@ _ANCHOR: Dict[str, str] = {
 # in holes" y la fidelidad cae a 33/41 nets. Girar la pieza gira tambien sus
 # segmentos, asi que el generador cablea la senal de cada uno por su pata
 # opuesta (ver `contador_jk_v2._PIN_GIRADO`) para que el digito se lea derecho.
-_ANGLE: Dict[str, int] = {"seven-segment": 180}
+#
+# El LED va a 180 por la misma razon practica: a 0 grados el catodo queda a la
+# izquierda del anodo, y el cable de la resistencia al anodo pasaria por encima
+# del hueco del catodo (otro net). A 180 el anodo queda a la izquierda, al lado
+# de su resistencia (huella en `boards._LED`).
+_ANGLE: Dict[str, int] = {"seven-segment": 180, "led": 180}
 
 # Placa por rol. Es una decision de diseno, no un resultado del algoritmo: las
 # compuertas juntas para que el decodificador se lea como bloque.

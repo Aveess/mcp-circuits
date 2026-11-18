@@ -254,6 +254,17 @@ _DIP8_555 = {
 }
 
 _RESISTOR = {"1": (0, "e"), "2": (0, "g")}
+# LED generico (did 58422): las dos patas caen en la MISMA fila, a una columna
+# de distancia. Medido en vivo el 2026-11-17 en una sonda desechable
+# (7qLmhgFGPeP, ya borrada):
+#   led anclado por `anode` en `10i` a 0 grados   -> {"anode": "10i", "cathode": "9i"}
+#   led anclado por `anode` en `20i` a 180 grados -> {"anode": "20i", "cathode": "21i"}
+# La tabla va en el angulo que usa el layout (180, ver `layout_v2._ANGLE`): el
+# puente NO gira la huella, solo pasa `angle` a la pieza. Se elige 180 porque
+# deja el anodo a la IZQUIERDA y el catodo a la derecha: con la resistencia en
+# serie a la izquierda, el puente al anodo no pasa por encima del hueco del
+# catodo (que es otro net).
+_LED = {"anode": (0, "i"), "cathode": (1, "i")}
 # Capacitor ceramico (did 57752): las dos patas caen en huecos vecinos de la
 # MISMA fila, no una encima de la otra. Medido en vivo el 2026-11-15 en una
 # sonda desechable (avLAlMuZhih, ya borrada): anclado en `10e` el puente
@@ -354,6 +365,7 @@ FOOTPRINTS: Dict[str, Dict[str, Tuple[int, str]]] = {
     "dip16-283": _DIP16_283,
     "dip8-555": _DIP8_555,
     "resistor": _RESISTOR,
+    "led": _LED,
     "capacitor": _CAPACITOR,
     "display-7seg": _DISPLAY_7SEG,
     "slideswitch": _SLIDESWITCH,
@@ -372,6 +384,7 @@ _FOOTPRINT_BY_TYPE: Dict[str, str] = {
     "timer-555": "dip8-555",
     "seven-segment": "display-7seg",
     "resistor": "resistor",
+    "led": "led",
     "capacitor": "capacitor",
     "slideswitch": "slideswitch",
     "pushbutton": "pushbutton",
