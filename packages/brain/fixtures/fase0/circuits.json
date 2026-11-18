@@ -1,0 +1,4379 @@
+[
+  {
+    "id": "blink-basico",
+    "title": "Blink básico: LED en D13 con resistencia en serie",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D13",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "delay"
+    ],
+    "tinkercad_id": "2tMhkuosDyj"
+  },
+  {
+    "id": "boton-pullup",
+    "title": "Botón con pull-up interno en D2 y LED indicador en D13",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "btn1",
+        "type": "pushbutton"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "btn1.1"
+      ],
+      [
+        "btn1.2",
+        "uno.GND1"
+      ],
+      [
+        "uno.D13",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "INPUT_PULLUP",
+      "digitalRead",
+      "digitalWrite"
+    ],
+    "tinkercad_id": "lp8O5143UNj"
+  },
+  {
+    "id": "semaforo-3-leds",
+    "title": "Semáforo: LEDs rojo, amarillo y verde en D11, D10 y D9",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "led_rojo",
+        "type": "led"
+      },
+      {
+        "ref": "led_amarillo",
+        "type": "led"
+      },
+      {
+        "ref": "led_verde",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D11",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led_rojo.anode"
+      ],
+      [
+        "led_rojo.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D10",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "led_amarillo.anode"
+      ],
+      [
+        "led_amarillo.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D9",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "led_verde.anode"
+      ],
+      [
+        "led_verde.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "delay"
+    ],
+    "tinkercad_id": "hGHU2MiJnDJ"
+  },
+  {
+    "id": "servo-potenciometro",
+    "title": "Servo en D9 controlado por potenciómetro en A0",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "servo1",
+        "type": "servo"
+      },
+      {
+        "ref": "pot1",
+        "type": "potentiometer"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D9",
+        "servo1.signal"
+      ],
+      [
+        "uno.5V",
+        "servo1.vcc"
+      ],
+      [
+        "servo1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "uno.5V",
+        "pot1.1"
+      ],
+      [
+        "pot1.2",
+        "uno.A0"
+      ],
+      [
+        "pot1.3",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "Servo",
+      "analogRead",
+      "map",
+      "write"
+    ],
+    "tinkercad_id": "9Rpc2a0C6te"
+  },
+  {
+    "id": "sensor-ultrasonico",
+    "title": "Sensor ultrasónico HC-SR04 (Trig D7, Echo D6) con LED de proximidad",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "us1",
+        "type": "ultrasonic-hcsr04"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "us1.vcc"
+      ],
+      [
+        "us1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "uno.D7",
+        "us1.trig"
+      ],
+      [
+        "uno.D6",
+        "us1.echo"
+      ],
+      [
+        "uno.D13",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "pulseIn",
+      "digitalRead"
+    ],
+    "tinkercad_id": "2ly9vcxYUyc"
+  },
+  {
+    "id": "buzzer-activo",
+    "title": "Buzzer activo en D8 con botón en D2 (pull-up interno)",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "buzzer1",
+        "type": "buzzer"
+      },
+      {
+        "ref": "btn1",
+        "type": "pushbutton"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D8",
+        "buzzer1.positive"
+      ],
+      [
+        "buzzer1.negative",
+        "uno.GND1"
+      ],
+      [
+        "uno.D2",
+        "btn1.1"
+      ],
+      [
+        "btn1.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "INPUT_PULLUP",
+      "digitalRead",
+      "digitalWrite",
+      "tone",
+      "noTone"
+    ],
+    "tinkercad_id": "93Dj8w6iEv1"
+  },
+  {
+    "id": "ldr-divisor",
+    "title": "LDR en divisor de tensión con resistencia de 10k en A0 y LED en D13",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "ldr1",
+        "type": "photoresistor"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "ldr1.1"
+      ],
+      [
+        "ldr1.2",
+        "uno.A0",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "uno.GND1"
+      ],
+      [
+        "uno.D13",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "analogRead",
+      "digitalWrite"
+    ],
+    "tinkercad_id": "lo9VkvBdWmT"
+  },
+  {
+    "id": "motor-dc-transistor",
+    "title": "Motor DC con transistor NPN, resistencia de base y diodo flyback",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "motor1",
+        "type": "dc-motor"
+      },
+      {
+        "ref": "q1",
+        "type": "transistor-npn"
+      },
+      {
+        "ref": "d1",
+        "type": "diode"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D9",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "q1.base"
+      ],
+      [
+        "q1.emitter",
+        "uno.GND1"
+      ],
+      [
+        "q1.collector",
+        "motor1.negative",
+        "d1.anode"
+      ],
+      [
+        "motor1.positive",
+        "uno.5V",
+        "d1.cathode"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "analogWrite"
+    ],
+    "tinkercad_id": "73azwj2IJDE"
+  },
+  {
+    "id": "led-rgb",
+    "title": "LED RGB de cátodo común con PWM en D9, D10 y D11",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "rgb1",
+        "type": "led-rgb-common-cathode"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D9",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "rgb1.red"
+      ],
+      [
+        "uno.D10",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "rgb1.green"
+      ],
+      [
+        "uno.D11",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "rgb1.blue"
+      ],
+      [
+        "rgb1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "analogWrite"
+    ],
+    "tinkercad_id": "i525BUubYAE"
+  },
+  {
+    "id": "temperatura-tmp36",
+    "title": "Sensor de temperatura TMP36 en A0 con LED de alarma en D13",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "tmp1",
+        "type": "tmp36"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "tmp1.vcc"
+      ],
+      [
+        "tmp1.vout",
+        "uno.A0"
+      ],
+      [
+        "tmp1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "uno.D13",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "analogRead",
+      "digitalWrite",
+      "Serial"
+    ],
+    "tinkercad_id": "2Z7ubKF9ieN"
+  },
+  {
+    "id": "motor-l293d-bateria",
+    "title": "Motor DC con driver L293D y batería de 9V, velocidad por potenciómetro en A0",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "drv1",
+        "type": "l293d"
+      },
+      {
+        "ref": "bat1",
+        "type": "battery-9v"
+      },
+      {
+        "ref": "motor1",
+        "type": "dc-motor"
+      },
+      {
+        "ref": "pot1",
+        "type": "potentiometer"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D9",
+        "drv1.enable1"
+      ],
+      [
+        "uno.D7",
+        "drv1.input1"
+      ],
+      [
+        "uno.D8",
+        "drv1.input2"
+      ],
+      [
+        "uno.5V",
+        "drv1.vss"
+      ],
+      [
+        "uno.GND1",
+        "drv1.gnd",
+        "bat1.negative"
+      ],
+      [
+        "bat1.positive",
+        "drv1.vs"
+      ],
+      [
+        "drv1.output1",
+        "motor1.positive"
+      ],
+      [
+        "drv1.output2",
+        "motor1.negative"
+      ],
+      [
+        "uno.5V",
+        "pot1.1"
+      ],
+      [
+        "pot1.2",
+        "uno.A0"
+      ],
+      [
+        "pot1.3",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "analogWrite",
+      "analogRead"
+    ],
+    "tinkercad_id": "kJPyfC1VQaM"
+  },
+  {
+    "id": "parking-servo-ultrasonico-rgb",
+    "title": "Barrera de estacionamiento: HC-SR04 mide, servo abre, RGB indica estado",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "rgb1",
+        "type": "led-rgb-common-cathode"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "servo1",
+        "type": "servo"
+      },
+      {
+        "ref": "us1",
+        "type": "ultrasonic-hcsr04"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "us1.vcc",
+        "servo1.vcc"
+      ],
+      [
+        "us1.gnd",
+        "servo1.gnd",
+        "rgb1.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D7",
+        "us1.trig"
+      ],
+      [
+        "uno.D6",
+        "us1.echo"
+      ],
+      [
+        "uno.D9",
+        "servo1.signal"
+      ],
+      [
+        "uno.D10",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "rgb1.red"
+      ],
+      [
+        "uno.D11",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "rgb1.green"
+      ],
+      [
+        "uno.D3",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "rgb1.blue"
+      ]
+    ],
+    "code_features": [
+      "Servo",
+      "pulseIn",
+      "write",
+      "pinMode",
+      "digitalWrite"
+    ],
+    "tinkercad_id": "2xxjwQBZuOH"
+  },
+  {
+    "id": "lcd-contador",
+    "title": "Pantalla LCD 16x2 en modo 4 bits con contador de segundos",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1"
+      ],
+      [
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "uno.GND1"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.D12",
+        "lcd1.RS"
+      ],
+      [
+        "uno.D11",
+        "lcd1.E"
+      ],
+      [
+        "uno.D5",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.D4",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.D3",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.D2",
+        "lcd1.DB7"
+      ]
+    ],
+    "code_features": [
+      "LiquidCrystal",
+      "begin",
+      "print",
+      "setCursor",
+      "Serial"
+    ],
+    "tinkercad_id": "cpySiVSE9vr"
+  },
+  {
+    "id": "lcd-temperatura",
+    "title": "Termometro TMP36 en pantalla LCD 16x2 en modo 4 bits",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "tmp1",
+        "type": "tmp36"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1",
+        "tmp1.vcc"
+      ],
+      [
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "tmp1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.D12",
+        "lcd1.RS"
+      ],
+      [
+        "uno.D11",
+        "lcd1.E"
+      ],
+      [
+        "uno.D5",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.D4",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.D3",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.D2",
+        "lcd1.DB7"
+      ],
+      [
+        "tmp1.vout",
+        "uno.A0"
+      ]
+    ],
+    "code_features": [
+      "LiquidCrystal",
+      "analogRead",
+      "print",
+      "setCursor",
+      "Serial"
+    ],
+    "tinkercad_id": "9hZJgbsYOC5"
+  },
+  {
+    "id": "lcd-distancia",
+    "title": "Medidor de distancia con LCD 16x2 y alarma sonora",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "us1",
+        "type": "ultrasonic-hcsr04"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "buzzer1",
+        "type": "buzzer"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1",
+        "us1.vcc"
+      ],
+      [
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "us1.gnd",
+        "buzzer1.negative",
+        "uno.GND1"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.D12",
+        "lcd1.RS"
+      ],
+      [
+        "uno.D11",
+        "lcd1.E"
+      ],
+      [
+        "uno.D5",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.D4",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.D3",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.D2",
+        "lcd1.DB7"
+      ],
+      [
+        "uno.D7",
+        "us1.trig"
+      ],
+      [
+        "uno.D6",
+        "us1.echo"
+      ],
+      [
+        "uno.D8",
+        "buzzer1.positive"
+      ]
+    ],
+    "code_features": [
+      "LiquidCrystal",
+      "pulseIn",
+      "tone",
+      "noTone",
+      "print",
+      "Serial"
+    ],
+    "tinkercad_id": "blN5d8qCr2z"
+  },
+  {
+    "id": "siete-segmentos",
+    "title": "Contador 0-9 en display 7 segmentos con 7 resistencias",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      },
+      {
+        "ref": "r5",
+        "type": "resistor"
+      },
+      {
+        "ref": "r6",
+        "type": "resistor"
+      },
+      {
+        "ref": "r7",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "seg.a"
+      ],
+      [
+        "uno.D3",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "seg.b"
+      ],
+      [
+        "uno.D4",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "seg.c"
+      ],
+      [
+        "uno.D5",
+        "r4.1"
+      ],
+      [
+        "r4.2",
+        "seg.d"
+      ],
+      [
+        "uno.D6",
+        "r5.1"
+      ],
+      [
+        "r5.2",
+        "seg.e"
+      ],
+      [
+        "uno.D7",
+        "r6.1"
+      ],
+      [
+        "r6.2",
+        "seg.f"
+      ],
+      [
+        "uno.D8",
+        "r7.1"
+      ],
+      [
+        "r7.2",
+        "seg.g"
+      ],
+      [
+        "seg.com1",
+        "uno.5V"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "Serial",
+      "delay"
+    ],
+    "tinkercad_id": "gfgLntRuWJv"
+  },
+  {
+    "id": "desplazador-595",
+    "title": "Contador 0-9 con 74HC595 y display 7 segmentos",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "ic",
+        "type": "shift-register"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      },
+      {
+        "ref": "r5",
+        "type": "resistor"
+      },
+      {
+        "ref": "r6",
+        "type": "resistor"
+      },
+      {
+        "ref": "r7",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "ic.Vcc",
+        "ic.MR"
+      ],
+      [
+        "ic.GND",
+        "ic.OE",
+        "uno.GND1"
+      ],
+      [
+        "uno.D11",
+        "ic.DS"
+      ],
+      [
+        "uno.D8",
+        "ic.SHCP"
+      ],
+      [
+        "uno.D12",
+        "ic.STCP"
+      ],
+      [
+        "ic.Q0",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "seg.a"
+      ],
+      [
+        "ic.Q1",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "seg.b"
+      ],
+      [
+        "ic.Q2",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "seg.c"
+      ],
+      [
+        "ic.Q3",
+        "r4.1"
+      ],
+      [
+        "r4.2",
+        "seg.d"
+      ],
+      [
+        "ic.Q4",
+        "r5.1"
+      ],
+      [
+        "r5.2",
+        "seg.e"
+      ],
+      [
+        "ic.Q5",
+        "r6.1"
+      ],
+      [
+        "r6.2",
+        "seg.f"
+      ],
+      [
+        "ic.Q6",
+        "r7.1"
+      ],
+      [
+        "r7.2",
+        "seg.g"
+      ],
+      [
+        "seg.com1",
+        "uno.5V"
+      ]
+    ],
+    "code_features": [
+      "shiftOut",
+      "digitalWrite",
+      "Serial",
+      "delay"
+    ],
+    "tinkercad_id": "kBGbtwAbFlz"
+  },
+  {
+    "id": "media-suma-logica",
+    "title": "Media suma con compuertas XOR y NAND",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "xor1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "nand1",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "nand2",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "xor1.Vcc",
+        "nand1.Vcc",
+        "nand2.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "xor1.GND",
+        "nand1.GND",
+        "nand2.GND"
+      ],
+      [
+        "uno.D2",
+        "xor1.1A",
+        "nand1.1A"
+      ],
+      [
+        "uno.D3",
+        "xor1.1B",
+        "nand1.1B"
+      ],
+      [
+        "xor1.1Y",
+        "uno.D4",
+        "led1.anode"
+      ],
+      [
+        "nand1.1Y",
+        "nand2.1A",
+        "nand2.1B"
+      ],
+      [
+        "nand2.1Y",
+        "uno.D5",
+        "led2.anode"
+      ],
+      [
+        "led1.cathode",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "uno.GND1"
+      ],
+      [
+        "led2.cathode",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "4z8ZkFcpmuC"
+  },
+  {
+    "id": "biestable-d",
+    "title": "Biestable D 74HC74 como divisor por 2",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "ff",
+        "type": "flip-flop-d"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "ff.Vcc",
+        "ff.1RD",
+        "ff.1SD",
+        "ff.2RD",
+        "ff.2SD"
+      ],
+      [
+        "uno.GND1",
+        "ff.GND",
+        "ff.2D",
+        "ff.2CP"
+      ],
+      [
+        "uno.D2",
+        "ff.1CP"
+      ],
+      [
+        "ff.1NQ",
+        "ff.1D"
+      ],
+      [
+        "ff.1Q",
+        "uno.D4",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "euU4CI6HwhX"
+  },
+  {
+    "id": "temporizador-555",
+    "title": "Temporizador 555 en astable (reloj de ~14 Hz)",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2"
+      ],
+      [
+        "r1.2",
+        "t1.DIS",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.OUT",
+        "uno.D2"
+      ]
+    ],
+    "code_features": [
+      "pulseIn",
+      "Serial"
+    ],
+    "tinkercad_id": "abIk7XRpSR4"
+  },
+  {
+    "id": "contador-binario",
+    "title": "Contador binario 4 bits 74HC93 con LEDs",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "n1",
+        "type": "binary-counter"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      },
+      {
+        "ref": "led3",
+        "type": "led"
+      },
+      {
+        "ref": "led4",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "n1.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "n1.GND",
+        "led1.cathode",
+        "led2.cathode",
+        "led3.cathode",
+        "led4.cathode"
+      ],
+      [
+        "uno.D3",
+        "n1.MR1",
+        "n1.MR2"
+      ],
+      [
+        "uno.D2",
+        "n1.CP0"
+      ],
+      [
+        "n1.Q0",
+        "n1.CP1",
+        "uno.D4",
+        "r1.1"
+      ],
+      [
+        "n1.Q1",
+        "uno.D5",
+        "r2.1"
+      ],
+      [
+        "n1.Q2",
+        "uno.D6",
+        "r3.1"
+      ],
+      [
+        "n1.Q3",
+        "uno.D7",
+        "r4.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "r2.2",
+        "led2.anode"
+      ],
+      [
+        "r3.2",
+        "led3.anode"
+      ],
+      [
+        "r4.2",
+        "led4.anode"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "fCB0eO8cBbn"
+  },
+  {
+    "id": "carrusel-4017",
+    "title": "Carrusel de 4 LEDs con 74HC4017",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "n1",
+        "type": "decade-counter"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      },
+      {
+        "ref": "led3",
+        "type": "led"
+      },
+      {
+        "ref": "led4",
+        "type": "led"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "n1.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "n1.GND",
+        "n1.CP1n",
+        "led1.cathode",
+        "led2.cathode",
+        "led3.cathode",
+        "led4.cathode"
+      ],
+      [
+        "n1.Q4",
+        "n1.MR"
+      ],
+      [
+        "uno.D2",
+        "n1.CP0"
+      ],
+      [
+        "n1.Q0",
+        "uno.D4",
+        "r1.1"
+      ],
+      [
+        "n1.Q1",
+        "uno.D5",
+        "r2.1"
+      ],
+      [
+        "n1.Q2",
+        "uno.D6",
+        "r3.1"
+      ],
+      [
+        "n1.Q3",
+        "uno.D7",
+        "r4.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "r2.2",
+        "led2.anode"
+      ],
+      [
+        "r3.2",
+        "led3.anode"
+      ],
+      [
+        "r4.2",
+        "led4.anode"
+      ]
+    ],
+    "code_features": [
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "tinkercad_id": "ij6ypc8wB5x"
+  },
+  {
+    "id": "faro-rele-ldr",
+    "title": "Faro automatico con rele SPDT, NPN y LDR",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "ldr1",
+        "type": "photoresistor"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "q1",
+        "type": "transistor-npn"
+      },
+      {
+        "ref": "d1",
+        "type": "diode"
+      },
+      {
+        "ref": "k1",
+        "type": "relay-spdt"
+      },
+      {
+        "ref": "lamp1",
+        "type": "light-bulb"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "ldr1.1"
+      ],
+      [
+        "ldr1.2",
+        "uno.A0",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "uno.GND1"
+      ],
+      [
+        "uno.D2",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "q1.base"
+      ],
+      [
+        "q1.emitter",
+        "uno.GND1"
+      ],
+      [
+        "q1.collector",
+        "k1.COIL2",
+        "d1.anode"
+      ],
+      [
+        "k1.COIL1",
+        "uno.5V",
+        "d1.cathode"
+      ],
+      [
+        "uno.5V",
+        "k1.COM1"
+      ],
+      [
+        "k1.R1",
+        "lamp1.1",
+        "uno.A1"
+      ],
+      [
+        "lamp1.2",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "analogRead",
+      "digitalWrite",
+      "Serial"
+    ],
+    "tinkercad_id": "aF67dwSGoqC",
+    "wiring": "rails"
+  },
+  {
+    "id": "alarma-pir",
+    "title": "Alarma de movimiento con PIR, buzzer y LED",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "pir1",
+        "type": "pir-sensor"
+      },
+      {
+        "ref": "buzzer1",
+        "type": "buzzer"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "pir1.vcc"
+      ],
+      [
+        "pir1.gnd",
+        "uno.GND1"
+      ],
+      [
+        "uno.D2",
+        "pir1.out"
+      ],
+      [
+        "uno.D3",
+        "buzzer1.positive"
+      ],
+      [
+        "buzzer1.negative",
+        "uno.GND1"
+      ],
+      [
+        "uno.D4",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "tone",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "tinkercad_id": "dgFz6r0k1xV"
+  },
+  {
+    "id": "cerradura-teclado",
+    "title": "Cerradura con teclado 4x4 y dos LEDs",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "kp1",
+        "type": "keypad-4x4"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "led1",
+        "type": "led"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "led2",
+        "type": "led"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "kp1.row1"
+      ],
+      [
+        "uno.D3",
+        "kp1.row2"
+      ],
+      [
+        "uno.D4",
+        "kp1.row3"
+      ],
+      [
+        "uno.D5",
+        "kp1.row4"
+      ],
+      [
+        "uno.D6",
+        "kp1.column1"
+      ],
+      [
+        "uno.D7",
+        "kp1.column2"
+      ],
+      [
+        "uno.D8",
+        "kp1.column3"
+      ],
+      [
+        "uno.D9",
+        "kp1.column4"
+      ],
+      [
+        "uno.D10",
+        "r1.1"
+      ],
+      [
+        "r1.2",
+        "led1.anode"
+      ],
+      [
+        "led1.cathode",
+        "uno.GND1"
+      ],
+      [
+        "uno.D11",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "led2.anode"
+      ],
+      [
+        "led2.cathode",
+        "uno.GND1"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "INPUT_PULLUP",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "tinkercad_id": "g3KZdQc0DFu"
+  },
+  {
+    "id": "clave-lcd",
+    "title": "Caja fuerte con teclado 4x4 y LCD 16x2",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "kp1",
+        "type": "keypad-4x4"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "kp1.row1"
+      ],
+      [
+        "uno.D3",
+        "kp1.row2"
+      ],
+      [
+        "uno.D4",
+        "kp1.row3"
+      ],
+      [
+        "uno.D5",
+        "kp1.row4"
+      ],
+      [
+        "uno.D6",
+        "kp1.column1"
+      ],
+      [
+        "uno.D7",
+        "kp1.column2"
+      ],
+      [
+        "uno.D8",
+        "kp1.column3"
+      ],
+      [
+        "uno.D9",
+        "kp1.column4"
+      ],
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1"
+      ],
+      [
+        "uno.GND1",
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.A0",
+        "lcd1.RS"
+      ],
+      [
+        "uno.A1",
+        "lcd1.E"
+      ],
+      [
+        "uno.A2",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.A3",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.A4",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.A5",
+        "lcd1.DB7"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "INPUT_PULLUP",
+      "LiquidCrystal",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "tinkercad_id": "9wyFlvHHzIo"
+  },
+  {
+    "id": "control-acceso",
+    "title": "Control de acceso con teclado, LCD y servo",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "kp1",
+        "type": "keypad-4x4"
+      },
+      {
+        "ref": "lcd1",
+        "type": "lcd-16x2"
+      },
+      {
+        "ref": "sv1",
+        "type": "servo"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      }
+    ],
+    "nets": [
+      [
+        "uno.D2",
+        "kp1.row1"
+      ],
+      [
+        "uno.D3",
+        "kp1.row2"
+      ],
+      [
+        "uno.D4",
+        "kp1.row3"
+      ],
+      [
+        "uno.D5",
+        "kp1.row4"
+      ],
+      [
+        "uno.D6",
+        "kp1.column1"
+      ],
+      [
+        "uno.D7",
+        "kp1.column2"
+      ],
+      [
+        "uno.D8",
+        "kp1.column3"
+      ],
+      [
+        "uno.D9",
+        "kp1.column4"
+      ],
+      [
+        "uno.5V",
+        "lcd1.VDD",
+        "r1.1",
+        "sv1.vcc"
+      ],
+      [
+        "uno.GND1",
+        "lcd1.GND",
+        "lcd1.VO",
+        "lcd1.RW",
+        "lcd1.LED-",
+        "sv1.gnd"
+      ],
+      [
+        "r1.2",
+        "lcd1.LED+"
+      ],
+      [
+        "uno.A0",
+        "lcd1.RS"
+      ],
+      [
+        "uno.A1",
+        "lcd1.E"
+      ],
+      [
+        "uno.A2",
+        "lcd1.DB4"
+      ],
+      [
+        "uno.A3",
+        "lcd1.DB5"
+      ],
+      [
+        "uno.A4",
+        "lcd1.DB6"
+      ],
+      [
+        "uno.A5",
+        "lcd1.DB7"
+      ],
+      [
+        "uno.D10",
+        "sv1.signal"
+      ]
+    ],
+    "code_features": [
+      "pinMode",
+      "digitalRead",
+      "digitalWrite",
+      "INPUT_PULLUP",
+      "LiquidCrystal",
+      "Servo",
+      "Serial"
+    ],
+    "wiring": "rails",
+    "free_parts": [
+      "sv1"
+    ],
+    "tinkercad_id": "cjjQKLuBQ2I"
+  },
+  {
+    "id": "contador-555-compuertas",
+    "title": "Contador 0-7 lento: reloj 555 y compuertas AND/OR/XOR",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "u1",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "btn1",
+        "type": "pushbutton"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "r3",
+        "type": "resistor"
+      },
+      {
+        "ref": "r4",
+        "type": "resistor"
+      },
+      {
+        "ref": "r5",
+        "type": "resistor"
+      },
+      {
+        "ref": "r6",
+        "type": "resistor"
+      },
+      {
+        "ref": "r7",
+        "type": "resistor"
+      },
+      {
+        "ref": "r8",
+        "type": "resistor"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "u1.Vcc",
+        "u2.Vcc",
+        "seg.com1"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2",
+        "u1.GND",
+        "u2.GND",
+        "btn1.2"
+      ],
+      [
+        "r1.2",
+        "t1.DIS",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.OUT",
+        "u1.1A"
+      ],
+      [
+        "uno.D8",
+        "u1.1B"
+      ],
+      [
+        "u1.1Y",
+        "u2.1A"
+      ],
+      [
+        "u2.1B",
+        "uno.5V"
+      ],
+      [
+        "u2.1Y",
+        "u1.3A",
+        "u1.3B"
+      ],
+      [
+        "u1.3Y",
+        "u1.4A"
+      ],
+      [
+        "btn1.1",
+        "u1.4B",
+        "uno.D12"
+      ],
+      [
+        "u1.4Y",
+        "uno.D2"
+      ],
+      [
+        "uno.D4",
+        "r2.1"
+      ],
+      [
+        "r2.2",
+        "seg.a"
+      ],
+      [
+        "uno.D5",
+        "r3.1"
+      ],
+      [
+        "r3.2",
+        "seg.b"
+      ],
+      [
+        "uno.D6",
+        "r4.1"
+      ],
+      [
+        "r4.2",
+        "seg.c"
+      ],
+      [
+        "uno.D7",
+        "r5.1"
+      ],
+      [
+        "r5.2",
+        "seg.d"
+      ],
+      [
+        "uno.D9",
+        "r6.1"
+      ],
+      [
+        "r6.2",
+        "seg.e"
+      ],
+      [
+        "uno.D10",
+        "r7.1"
+      ],
+      [
+        "r7.2",
+        "seg.f"
+      ],
+      [
+        "uno.D11",
+        "r8.1"
+      ],
+      [
+        "r8.2",
+        "seg.g"
+      ]
+    ],
+    "wiring": "rails",
+    "sim_wait_seconds": 28,
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "doc": [
+      "El 555 funciona como reloj (aprox. un pulso cada dos segundos). Su",
+      "salida no va directo al Arduino: pasa por un AND con la senal MARCHA",
+      "(D8), asi el conteo se congela cuando MARCHA esta en bajo, y por un OR",
+      "con un pulsador, asi cada tecla avanza un digito a mano. El Uno solo",
+      "cuenta los flancos que llegan a D2 y dibuja el digito 0..7 en el",
+      "display de 7 segmentos, que vuelve a 0 despues del 7.",
+      "Cada segmento lleva su resistencia de 220 ohmios, y las siete viven en",
+      "la segunda protoboard como banco vertical: el pin de abajo recibe el",
+      "cable del Uno (por debajo de las placas) y el de arriba sale al display",
+      "(por arriba). Asi los cables no se amontonan en una sola zona.",
+      "Las compuertas no son decorativas: el AND se arma con una NAND (u1) mas",
+      "una XOR (u2) usada como inversor, y el OR con dos NAND (u1). Esa es la",
+      "forma clasica de conseguir AND y OR cuando solo hay NAND."
+    ],
+    "oracle": [
+      "TEST:COMPUERTAS=LISTO al arrancar y TEST:DIGITO=0.",
+      "Cada pulso del 555 o del pulsador imprime TEST:DIGITO=1..7 y vuelve",
+      "a 0: en 5 s de simulacion se ve el ciclo completo."
+    ],
+    "notes": [
+      "El display es de anodo comun: comun a 5V y segmento en LOW. Sin",
+      "resistencia serie el simulador lo hace estallar aunque el conteo",
+      "siga: 220 ohmios por segmento, uno por net, y el banco va en la",
+      "segunda placa.",
+      "El pulsador cuelga de D12 con INPUT_PULLUP: el nodo tambien entra al",
+      "OR, asi que el pull-up interno del micro hace de resistencia del",
+      "circuito. Sin el, la linea queda flotante y el paso manual no funciona.",
+      "R=68k y C=10uF dan el pulso lento; con 10k el conteo se ve borroso."
+    ],
+    "tinkercad_id": "jApuXFjHQsc",
+    "board2": [
+      "r2",
+      "r3",
+      "r4",
+      "r5",
+      "r6",
+      "r7",
+      "r8"
+    ]
+  },
+  {
+    "id": "contador-0-7-jk",
+    "title": "Contador 0-7 con 3 JK, reloj 555 y decodificador de compuertas",
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "c2",
+        "type": "capacitor"
+      },
+      {
+        "ref": "ff1",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "ff2",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "x1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "u1",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u3",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u4",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u5",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u6",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "u7",
+        "type": "nand-gate"
+      },
+      {
+        "ref": "ra",
+        "type": "resistor"
+      },
+      {
+        "ref": "rb",
+        "type": "resistor"
+      },
+      {
+        "ref": "rc",
+        "type": "resistor"
+      },
+      {
+        "ref": "rd",
+        "type": "resistor"
+      },
+      {
+        "ref": "re",
+        "type": "resistor"
+      },
+      {
+        "ref": "rf",
+        "type": "resistor"
+      },
+      {
+        "ref": "rg",
+        "type": "resistor"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "seg.com1",
+        "ff1.Vcc",
+        "ff2.Vcc",
+        "x1.Vcc",
+        "u1.Vcc",
+        "u2.Vcc",
+        "u3.Vcc",
+        "u4.Vcc",
+        "u5.Vcc",
+        "u6.Vcc",
+        "u7.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2",
+        "c2.2",
+        "ff1.GND",
+        "ff2.GND",
+        "x1.GND",
+        "u1.GND",
+        "u2.GND",
+        "u3.GND",
+        "u4.GND",
+        "u5.GND",
+        "u6.GND",
+        "u7.GND",
+        "ff1.2J",
+        "ff1.2K",
+        "ff1.2CP",
+        "ff1.2R",
+        "u7.4A",
+        "u7.4B",
+        "x1.4A",
+        "x1.4B"
+      ],
+      [
+        "r1.2",
+        "r2.1",
+        "t1.DIS"
+      ],
+      [
+        "r2.2",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.CTRL",
+        "c2.1"
+      ],
+      [
+        "t1.OUT",
+        "ff1.1CP",
+        "uno.D2"
+      ],
+      [
+        "ff1.1Q",
+        "u1.1A",
+        "u1.1B",
+        "u3.4A",
+        "u4.3B",
+        "x1.1B",
+        "x1.2B",
+        "ff2.1CP",
+        "uno.D3"
+      ],
+      [
+        "ff2.1Q",
+        "u1.2A",
+        "u1.2B",
+        "u2.2A",
+        "u4.3A",
+        "x1.2A",
+        "x1.3B",
+        "ff2.2CP",
+        "uno.D4"
+      ],
+      [
+        "ff2.2Q",
+        "u1.3A",
+        "u1.3B",
+        "u2.1A",
+        "u3.1B",
+        "u4.4A",
+        "x1.1A",
+        "x1.3A",
+        "uno.D5"
+      ],
+      [
+        "u1.2Y",
+        "u1.4A",
+        "u3.1A",
+        "u4.2A"
+      ],
+      [
+        "x1.1Y",
+        "u1.4B"
+      ],
+      [
+        "x1.2Y",
+        "u2.1B"
+      ],
+      [
+        "u1.1Y",
+        "u2.2B",
+        "u3.2A",
+        "u4.2B"
+      ],
+      [
+        "u2.2Y",
+        "u2.3A",
+        "u2.3B",
+        "u5.3B"
+      ],
+      [
+        "u1.3Y",
+        "u2.4A"
+      ],
+      [
+        "u2.3Y",
+        "u2.4B"
+      ],
+      [
+        "u3.1Y",
+        "u3.2B"
+      ],
+      [
+        "u3.2Y",
+        "u3.3A",
+        "u3.3B",
+        "u4.1A"
+      ],
+      [
+        "x1.3Y",
+        "u3.4B",
+        "u5.2A",
+        "u5.2B"
+      ],
+      [
+        "u3.4Y",
+        "u4.1B"
+      ],
+      [
+        "u4.3Y",
+        "u4.4B"
+      ],
+      [
+        "u4.2Y",
+        "u5.1A"
+      ],
+      [
+        "u4.4Y",
+        "u5.1B"
+      ],
+      [
+        "u5.2Y",
+        "u5.3A"
+      ],
+      [
+        "uno.D9",
+        "u5.4A",
+        "u5.4B"
+      ],
+      [
+        "u1.4Y",
+        "u6.1A",
+        "u6.1B"
+      ],
+      [
+        "u2.1Y",
+        "u6.2A",
+        "u6.2B"
+      ],
+      [
+        "u2.4Y",
+        "u6.3A",
+        "u6.3B"
+      ],
+      [
+        "u4.1Y",
+        "u6.4A",
+        "u6.4B"
+      ],
+      [
+        "u3.3Y",
+        "u7.1A",
+        "u7.1B"
+      ],
+      [
+        "u5.1Y",
+        "u7.2A",
+        "u7.2B"
+      ],
+      [
+        "u5.3Y",
+        "u7.3A",
+        "u7.3B"
+      ],
+      [
+        "uno.D8",
+        "ff1.1J",
+        "ff1.1K",
+        "ff2.1J",
+        "ff2.1K",
+        "ff2.2J",
+        "ff2.2K"
+      ],
+      [
+        "u5.4Y",
+        "ff1.1R",
+        "ff2.1R",
+        "ff2.2R"
+      ],
+      [
+        "u6.1Y",
+        "ra.1",
+        "uno.A0"
+      ],
+      [
+        "ra.2",
+        "seg.a"
+      ],
+      [
+        "u6.2Y",
+        "rb.1",
+        "uno.A1"
+      ],
+      [
+        "rb.2",
+        "seg.b"
+      ],
+      [
+        "u6.3Y",
+        "rc.1",
+        "uno.A2"
+      ],
+      [
+        "rc.2",
+        "seg.c"
+      ],
+      [
+        "u6.4Y",
+        "rd.1",
+        "uno.A3"
+      ],
+      [
+        "rd.2",
+        "seg.d"
+      ],
+      [
+        "u7.1Y",
+        "re.1",
+        "uno.A4"
+      ],
+      [
+        "re.2",
+        "seg.e"
+      ],
+      [
+        "u7.2Y",
+        "rf.1",
+        "uno.A5"
+      ],
+      [
+        "rf.2",
+        "seg.f"
+      ],
+      [
+        "u7.3Y",
+        "rg.1",
+        "uno.D6"
+      ],
+      [
+        "rg.2",
+        "seg.g"
+      ]
+    ],
+    "oracle_serial": [
+      "TEST:PERIODO=",
+      "TEST:RESET=OK",
+      "TEST:CICLO=OK",
+      "TEST:EN0=OK",
+      "TEST:REANUDA=OK",
+      "TEST:RESET_MEDIO=OK",
+      "TEST:DECODER=OK",
+      "TEST:FIN=OK"
+    ],
+    "board2": [
+      "ra",
+      "rb",
+      "rc",
+      "rd",
+      "re",
+      "rf",
+      "rg"
+    ],
+    "wiring": "rails",
+    "sim_wait_seconds": 55,
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "doc": [
+      "Taller 3 - Contador 0 a 7 con tres flip-flops JK.",
+      "",
+      "Contador: tres 74HC73 en cascada. El 555 entrega el reloj (~1 Hz) al",
+      "primer JK; Q0 relojea al segundo y Q1 al tercero. Q0 es el bit menos",
+      "significativo. Los JK disparan en flanco de bajada, igual que pide el",
+      "taller. R de cada JK es activo en bajo: u5.4 lo invierte desde RESET.",
+      "",
+      "EN (D8) va a J y K de las tres etapas: con EN=1 basculan; con EN=0",
+      "conservan el estado. RESET (D9, activo en alto) llega a u5.4 y de ahi a",
+      "las tres R: vuelve a 000 sin esperar flanco.",
+      "",
+      "Decodificador (punto 4), expresiones del taller:",
+      "  a = Q1 + NOT(Q2 XOR Q0)",
+      "  b = NOT Q2 + NOT(Q1 XOR Q0)",
+      "  c = Q2 + NOT Q1 + Q0",
+      "  d = e + Q0(Q2 XOR Q1)",
+      "  e = NOT Q0 (Q1 + NOT Q2)",
+      "  f = NOT Q1 NOT Q0 + Q2(NOT Q1 + NOT Q0)",
+      "  g = (Q2 XOR Q1) + Q1 NOT Q0",
+      "",
+      "Las siete salidas se construyen con 27 NAND de 2 entradas (7 x 74HC00)",
+      "mas 3 XOR (1 x 74HC86). Cada salida se invierte otra vez (na..ng) porque",
+      "el display es de anodo comun: un segmento luce cuando su pin va a LOW.",
+      "El pin de la compuerta tambien se lee en A0..A5 y D6 para que el sketch",
+      "compare el decodificador con la tabla de verdad.",
+      "",
+      "Tabla (1 = segmento encendido, convencion del taller):",
+      "  digito  Q2Q1Q0  a b c d e f g",
+      "    0      000     1 1 1 1 1 1 0",
+      "    1      001     0 1 1 0 0 0 0",
+      "    2      010     1 1 0 1 1 0 1",
+      "    3      011     1 1 1 1 0 0 1",
+      "    4      100     0 1 1 0 0 1 1",
+      "    5      101     1 0 1 1 0 1 1",
+      "    6      110     1 0 1 1 1 1 1",
+      "    7      111     1 1 1 0 0 0 0",
+      "",
+      "Pruebas del punto 5 que ejecuta el sketch:",
+      "  1. RESET -> 000 y digito 0.",
+      "  2. EN=1 -> dos ciclos completos 0..7..0..7..0.",
+      "  3. EN=0 -> el numero se mantiene varios flancos; al volver EN a 1",
+      "     continua desde ese valor.",
+      "  4. RESET en un valor intermedio -> vuelve a 0.",
+      "Cada lectura se valida con una guarda: se lee Q, luego los segmentos y",
+      "otra vez Q; si Q cambio en medio, el flanco del acarreo asincrono cayo",
+      "dentro de la muestra y se descarta. La muestra valida se re-comprueba",
+      "5 ms despues antes de comparar con la tabla."
+    ],
+    "oracle": [
+      "El serial demuestra el sistema completo, no solo el conteo:",
+      "  TEST:PERIODO=<ms>  periodo medido del reloj 555 en D2.",
+      "  TEST:RESET=OK      tras RESET el contador esta en 000 y el display en 0.",
+      "  TEST:CICLO=OK      dos vueltas completas 0..7..0..7..0 con EN=1.",
+      "  TEST:EN0=OK        con EN=0 el valor no cambia en tres periodos.",
+      "  TEST:REANUDA=OK    al volver EN a 1 continua desde el valor detenido.",
+      "  TEST:RESET_MEDIO=OK RESET en un valor intermedio devuelve 000.",
+      "  TEST:DECODER=OK    cada lectura estable coincide con la tabla de verdad.",
+      "  TEST:FIN=OK        la secuencia de pruebas termino."
+    ],
+    "notes": [
+      "Interpretacion y diagnostico (punto 6):",
+      "- La frecuencia del 555 es f = 1.44 / ((R1 + 2 R2) C). Con R1 = 10k,",
+      "  R2 = 68k y C = 10 uF da ~0.99 Hz. El valor real se mide en la",
+      "  simulacion y se imprime en TEST:PERIODO.",
+      "- Q0 conmuta a f/2, Q1 a f/4 y Q2 a f/8: cada etapa divide entre dos.",
+      "  Por eso el numero cambia a la frecuencia del reloj pero cada bit lo",
+      "  hace a la suya; el contador completo avanza un digito por flanco.",
+      "- Si el display muestra valores intermedios al cambiar de digito es el",
+      "  transitorio del acarreo asincrono: el bit bajo cambia antes que el",
+      "  alto y la combinacion pasa por estados que no son el conteo. Se lee",
+      "  el numero despues de que se propague, no en el instante del flanco.",
+      "- Si el conteo se repite 0,1,2,3 y vuelve a 0, Q2 nunca bascula: revisar",
+      "  el reloj de la tercera etapa (Q1 -> CP de la tercera) y que su R no",
+      "  este activa. El sintoma es de cableado del reloj, no del decodificador.",
+      "- Si un segmento queda siempre apagado o siempre encendido, el problema",
+      "  esta en su compuerta o en su resistencia serie, no en el contador: la",
+      "  tabla de verdad impresa permite comparar segmento por segmento."
+    ],
+    "tinkercad_id": "4bJNKia4pfj"
+  },
+  {
+    "id": "contador-0-7-jk-v2",
+    "title": "Contador 0-7 v2: JK insertados, decodificador AND/OR/NOT/XOR",
+    "layout": "v2",
+    "boards": [
+      {
+        "kind": "large",
+        "x": 870,
+        "y": 0
+      },
+      {
+        "kind": "large",
+        "x": 1570,
+        "y": 0
+      },
+      {
+        "kind": "small",
+        "x": 2100,
+        "y": 0,
+        "start": 9
+      }
+    ],
+    "components": [
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "c2",
+        "type": "capacitor"
+      },
+      {
+        "ref": "ff1",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "ff2",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "u1",
+        "type": "not-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u3",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u4",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u5",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u6",
+        "type": "or-gate"
+      },
+      {
+        "ref": "x1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "ra",
+        "type": "resistor"
+      },
+      {
+        "ref": "rb",
+        "type": "resistor"
+      },
+      {
+        "ref": "rc",
+        "type": "resistor"
+      },
+      {
+        "ref": "rd",
+        "type": "resistor"
+      },
+      {
+        "ref": "re",
+        "type": "resistor"
+      },
+      {
+        "ref": "rf",
+        "type": "resistor"
+      },
+      {
+        "ref": "rg",
+        "type": "resistor"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "uno.5V",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "ff1.Vcc",
+        "ff2.Vcc",
+        "u1.Vcc",
+        "u2.Vcc",
+        "u3.Vcc",
+        "u4.Vcc",
+        "u5.Vcc",
+        "u6.Vcc",
+        "x1.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2",
+        "c2.2",
+        "ff1.GND",
+        "ff2.GND",
+        "seg.com1",
+        "u1.GND",
+        "u2.GND",
+        "u3.GND",
+        "u4.GND",
+        "u5.GND",
+        "u6.GND",
+        "x1.GND",
+        "ff1.2J",
+        "ff1.2K",
+        "ff1.2CP",
+        "ff1.2R",
+        "u3.2A",
+        "u3.2B",
+        "u3.3A",
+        "u3.3B",
+        "u3.4A",
+        "u3.4B",
+        "u6.2A",
+        "u6.2B",
+        "u6.3A",
+        "u6.3B",
+        "u6.4A",
+        "u6.4B",
+        "x1.4A",
+        "x1.4B"
+      ],
+      [
+        "r1.2",
+        "r2.1",
+        "t1.DIS"
+      ],
+      [
+        "r2.2",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.CTRL",
+        "c2.1"
+      ],
+      [
+        "t1.OUT",
+        "ff1.1CP",
+        "uno.D2"
+      ],
+      [
+        "ff1.1Q",
+        "u1.1A",
+        "u5.1B",
+        "u2.2A",
+        "x1.1B",
+        "x1.2B",
+        "ff2.1CP",
+        "uno.D3"
+      ],
+      [
+        "ff2.1Q",
+        "u1.2A",
+        "u4.1A",
+        "u4.2A",
+        "u3.1A",
+        "x1.2A",
+        "x1.3B",
+        "ff2.2CP",
+        "uno.D4"
+      ],
+      [
+        "ff2.2Q",
+        "u1.3A",
+        "u4.4A",
+        "u2.4A",
+        "x1.1A",
+        "x1.3A",
+        "uno.D5"
+      ],
+      [
+        "x1.1Y",
+        "u1.4A"
+      ],
+      [
+        "x1.2Y",
+        "u1.5A"
+      ],
+      [
+        "uno.D9",
+        "u1.6A"
+      ],
+      [
+        "u1.3Y",
+        "u4.1B",
+        "u4.3A"
+      ],
+      [
+        "u1.4Y",
+        "u4.2B"
+      ],
+      [
+        "u1.5Y",
+        "u4.3B"
+      ],
+      [
+        "u1.2Y",
+        "u4.4B",
+        "u5.2A",
+        "u2.3A"
+      ],
+      [
+        "u4.4Y",
+        "u5.1A"
+      ],
+      [
+        "u1.1Y",
+        "u5.2B",
+        "u2.1A",
+        "u2.3B",
+        "u3.1B"
+      ],
+      [
+        "u2.1Y",
+        "u5.3A",
+        "re.1",
+        "uno.A4"
+      ],
+      [
+        "u2.2Y",
+        "u5.3B"
+      ],
+      [
+        "u2.3Y",
+        "u5.4A"
+      ],
+      [
+        "u2.4Y",
+        "u5.4B"
+      ],
+      [
+        "x1.3Y",
+        "u6.1A",
+        "u2.2B"
+      ],
+      [
+        "u3.1Y",
+        "u6.1B"
+      ],
+      [
+        "u4.1Y",
+        "u2.1B"
+      ],
+      [
+        "u5.2Y",
+        "u2.4B"
+      ],
+      [
+        "uno.D8",
+        "ff1.1J",
+        "ff1.1K",
+        "ff2.1J",
+        "ff2.1K",
+        "ff2.2J",
+        "ff2.2K"
+      ],
+      [
+        "u1.6Y",
+        "ff1.1R",
+        "ff2.1R",
+        "ff2.2R"
+      ],
+      [
+        "u4.2Y",
+        "ra.1",
+        "uno.A0"
+      ],
+      [
+        "ra.2",
+        "seg.d"
+      ],
+      [
+        "u4.3Y",
+        "rb.1",
+        "uno.A1"
+      ],
+      [
+        "rb.2",
+        "seg.e"
+      ],
+      [
+        "u5.1Y",
+        "rc.1",
+        "uno.A2"
+      ],
+      [
+        "rc.2",
+        "seg.f"
+      ],
+      [
+        "u5.3Y",
+        "rd.1",
+        "uno.A3"
+      ],
+      [
+        "rd.2",
+        "seg.a"
+      ],
+      [
+        "re.2",
+        "seg.b"
+      ],
+      [
+        "u5.4Y",
+        "rf.1",
+        "uno.A5"
+      ],
+      [
+        "rf.2",
+        "seg.c"
+      ],
+      [
+        "u6.1Y",
+        "rg.1",
+        "uno.D6"
+      ],
+      [
+        "rg.2",
+        "seg.g"
+      ]
+    ],
+    "oracle_serial": [
+      "TEST:PERIODO=",
+      "TEST:DIGITO=0",
+      "TEST:DIGITO=1",
+      "TEST:DIGITO=2",
+      "TEST:DIGITO=3",
+      "TEST:DIGITO=4",
+      "TEST:DIGITO=5",
+      "TEST:DIGITO=6",
+      "TEST:DIGITO=7"
+    ],
+    "sim_wait_seconds": 20,
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "doc": [
+      "Taller 3 - Contador 0 a 7 con flip-flops JK (v2).",
+      "",
+      "Contador: tres flip-flops del 74HC73 en cascada. El 555 entrega el",
+      "reloj (~1 Hz) al primero; Q0 relojea al segundo y Q1 al tercero.",
+      "Q0 es el bit menos significativo. Los JK disparan en flanco de",
+      "bajada, como pide el taller. R es activo en bajo: el inversor u1.6",
+      "produce nR desde RESET.",
+      "",
+      "EN (D8) va a J y K de las tres etapas: con EN=1 basculan; con EN=0",
+      "conservan el estado. RESET (D9, activo en alto) llega al inversor y",
+      "de ahi a las tres R: vuelve a 000 sin esperar flanco.",
+      "",
+      "Decodificador (punto 4) con las expresiones del taller tal como",
+      "estan escritas:",
+      "  a = Q1 + NOT(Q2 XOR Q0)",
+      "  b = NOT Q2 + NOT(Q1 XOR Q0)",
+      "  c = Q2 + NOT Q1 + Q0",
+      "  d = e + Q0(Q2 XOR Q1)",
+      "  e = NOT Q0 (Q1 + NOT Q2)",
+      "  f = NOT Q1 NOT Q0 + Q2(NOT Q1 + NOT Q0)",
+      "  g = (Q2 XOR Q1) + Q1 NOT Q0",
+      "",
+      "Se arma con compuertas reales: 1 x 74HC04 (seis inversores), 1 x",
+      "74HC86 (tres XOR), 2 x 74HC08 (AND) y 3 x 74HC32 (OR). Las entradas",
+      "sobrantes de los integrados van a GND: una entrada CMOS nunca queda",
+      "flotando.",
+      "",
+      "El display es de CATODO COMUN: el comun a GND y cada segmento a la",
+      "salida de su compuerta por una resistencia de 220 ohmios. Un segmento",
+      "luce con HIGH, asi que el sketch lee el nodo de la compuerta tal cual",
+      "(en la v1 habia un inversor y se leia LOW). Las dos patas del comun",
+      "son el mismo nodo interno del display: se cablea una sola, como en la",
+      "v1, y encienden todos los segmentos.",
+      "",
+      "El display va GIRADO 180 GRADOS sobre la placa: es la unica postura",
+      "en la que sus diez patas caen en huecos. Al girarlo giran tambien sus",
+      "segmentos, asi que la senal del segmento a entra por la pata d, la de",
+      "b por la e y la de c por la f; la g queda igual. Asi el numero se lee",
+      "derecho mirando la placa. En la tabla de abajo, a..g son los",
+      "segmentos que se ven, no los nombres de las patas.",
+      "",
+      "Tabla (1 = segmento encendido, convencion del taller):",
+      "  digito  Q2Q1Q0  a b c d e f g",
+      "    0      000     1 1 1 1 1 1 0",
+      "    1      001     0 1 1 0 0 0 0",
+      "    2      010     1 1 0 1 1 0 1",
+      "    3      011     1 1 1 1 0 0 1",
+      "    4      100     0 1 1 0 0 1 1",
+      "    5      101     1 0 1 1 0 1 1",
+      "    6      110     1 0 1 1 1 1 1",
+      "    7      111     1 1 1 0 0 0 0",
+      "",
+      "El sketch no bloquea el conteo: en el setup mide el periodo, pulsa",
+      "RESET una vez para arrancar en 000 y suelta EN; el loop solo lee y",
+      "anuncia cada digito (TEST:DIGITO). No vuelve a tocar EN ni RESET, asi",
+      "que el display cuenta desde el primer flanco y nada lo detiene. Las",
+      "cuatro pruebas del punto 5 se demuestran midiendo (v1) en vez de",
+      "moverlas desde el sketch, que dejaba la pantalla en 0 mientras corrian.",
+      "Cada lectura se valida con una guarda: se lee Q, luego los segmentos",
+      "y otra vez Q; si Q cambio en medio, el flanco del acarreo asincrono",
+      "cayo dentro de la muestra y se descarta. La muestra valida se",
+      "re-comprueba 5 ms despues antes de comparar con la tabla.",
+      "",
+      "Los dos capacitores van insertados en una Breadboard Small al costado",
+      "derecho de la placa grande, no sueltos en el lienzo: C1 entre",
+      "THR/TRIG y GND, C2 en CTRL. Sus dos patas caen en huecos vecinos de",
+      "la misma fila, asi que cada uno ocupa dos columnas y se cablea con un",
+      "puente corto mas un cable largo hasta la placa del 555."
+    ],
+    "oracle": [
+      "El serial demuestra el conteo, que es lo unico que hace el sketch:",
+      "  TEST:PERIODO=<ms>  periodo medido del reloj 555 en D2.",
+      "  TEST:DIGITO=0..7   los ocho digitos salen en orden, sin saltos.",
+      "  TEST:DEMO=OK       la tanda anunciada termino.",
+      "",
+      "Si el display se quedara en 0, el serial tampoco avanzaria: el",
+      "conteo lo lleva el hardware (555 + JK), no el sketch."
+    ],
+    "notes": [
+      "Interpretacion y diagnostico (punto 6):",
+      "- La frecuencia del 555 es f = 1.44 / ((R1 + 2 R2) C). Con R1=10k,",
+      "  R2=22k y C=10 uF da ~2.7 Hz: un digito cada 0,37 s, pensado para",
+      "  que el conteo se vea tambien con el simulador lento. El valor real",
+      "  se mide y se imprime en TEST:PERIODO.",
+      "- Q0 conmuta a f/2, Q1 a f/4 y Q2 a f/8: cada etapa divide entre",
+      "  dos. Por eso el numero cambia a la frecuencia del reloj pero cada",
+      "  bit lo hace a la suya; el contador avanza un digito por flanco.",
+      "- Si el display muestra valores intermedios al cambiar de digito es",
+      "  el transitorio del acarreo asincrono: el bit bajo cambia antes que",
+      "  el alto y la combinacion pasa por estados que no son el conteo. Se",
+      "  lee el numero despues de que se propague, no en el flanco.",
+      "- Si el conteo se repite 0,1,2,3 y vuelve a 0, Q2 nunca bascula:",
+      "  revisar el reloj de la tercera etapa (Q1 -> CP de la tercera) y que",
+      "  su R no este activa. El sintoma es de cableado del reloj, no del",
+      "  decodificador.",
+      "- Si un segmento queda siempre apagado o siempre encendido, el",
+      "  problema esta en su compuerta o en su resistencia serie, no en el",
+      "  contador: la tabla de verdad impresa permite comparar segmento por",
+      "  segmento.",
+      "- El display es de catodo comun: si se cablea como si fuera de",
+      "  anodo, la mascara sale complementada y TEST:DECODER falla.",
+      "- Si el numero se ve invertido en la placa, el cableado del display",
+      "  se hizo como si la pieza estuviera derecha: girada 180 grados, el",
+      "  segmento a es la pata d, b es e y c es f. El serial no lo detecta",
+      "  (lee las compuertas), asi que hay que mirar el display."
+    ],
+    "tinkercad_id": "jWUw1co8IZH"
+  },
+  {
+    "id": "contador-0-7-jk-v3",
+    "title": "Contador 0-7 v3: alimentacion por fuente y rieles",
+    "layout": "v3",
+    "tinkercad_id": "kSakfQXHtmU",
+    "boards": [
+      {
+        "kind": "large",
+        "x": 870,
+        "y": 0
+      },
+      {
+        "kind": "large",
+        "x": 1570,
+        "y": 0
+      },
+      {
+        "kind": "small",
+        "x": 2100,
+        "y": 0,
+        "start": 9
+      }
+    ],
+    "components": [
+      {
+        "ref": "ps1",
+        "type": "power-supply"
+      },
+      {
+        "ref": "uno",
+        "type": "arduino-uno"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "c2",
+        "type": "capacitor"
+      },
+      {
+        "ref": "ff1",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "ff2",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "u1",
+        "type": "not-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u3",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u4",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u5",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u6",
+        "type": "or-gate"
+      },
+      {
+        "ref": "x1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "ra",
+        "type": "resistor"
+      },
+      {
+        "ref": "rb",
+        "type": "resistor"
+      },
+      {
+        "ref": "rc",
+        "type": "resistor"
+      },
+      {
+        "ref": "rd",
+        "type": "resistor"
+      },
+      {
+        "ref": "re",
+        "type": "resistor"
+      },
+      {
+        "ref": "rf",
+        "type": "resistor"
+      },
+      {
+        "ref": "rg",
+        "type": "resistor"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "ps1.Vcc",
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "ff1.Vcc",
+        "ff2.Vcc",
+        "u1.Vcc",
+        "u2.Vcc",
+        "u3.Vcc",
+        "u4.Vcc",
+        "u5.Vcc",
+        "u6.Vcc",
+        "x1.Vcc"
+      ],
+      [
+        "uno.GND1",
+        "t1.GND",
+        "c1.2",
+        "c2.2",
+        "ff1.GND",
+        "ff2.GND",
+        "seg.com1",
+        "u1.GND",
+        "u2.GND",
+        "u3.GND",
+        "u4.GND",
+        "u5.GND",
+        "u6.GND",
+        "x1.GND",
+        "ff1.2J",
+        "ff1.2K",
+        "ff1.2CP",
+        "ff1.2R",
+        "u3.2A",
+        "u3.2B",
+        "u3.3A",
+        "u3.3B",
+        "u3.4A",
+        "u3.4B",
+        "u6.2A",
+        "u6.2B",
+        "u6.3A",
+        "u6.3B",
+        "u6.4A",
+        "u6.4B",
+        "x1.4A",
+        "x1.4B",
+        "ps1.GND"
+      ],
+      [
+        "r1.2",
+        "r2.1",
+        "t1.DIS"
+      ],
+      [
+        "r2.2",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.CTRL",
+        "c2.1"
+      ],
+      [
+        "t1.OUT",
+        "ff1.1CP",
+        "uno.D2"
+      ],
+      [
+        "ff1.1Q",
+        "u1.1A",
+        "u5.1B",
+        "u2.2A",
+        "x1.1B",
+        "x1.2B",
+        "ff2.1CP",
+        "uno.D3"
+      ],
+      [
+        "ff2.1Q",
+        "u1.2A",
+        "u4.1A",
+        "u4.2A",
+        "u3.1A",
+        "x1.2A",
+        "x1.3B",
+        "ff2.2CP",
+        "uno.D4"
+      ],
+      [
+        "ff2.2Q",
+        "u1.3A",
+        "u4.4A",
+        "u2.4A",
+        "x1.1A",
+        "x1.3A",
+        "uno.D5"
+      ],
+      [
+        "x1.1Y",
+        "u1.4A"
+      ],
+      [
+        "x1.2Y",
+        "u1.5A"
+      ],
+      [
+        "uno.D9",
+        "u1.6A"
+      ],
+      [
+        "u1.3Y",
+        "u4.1B",
+        "u4.3A"
+      ],
+      [
+        "u1.4Y",
+        "u4.2B"
+      ],
+      [
+        "u1.5Y",
+        "u4.3B"
+      ],
+      [
+        "u1.2Y",
+        "u4.4B",
+        "u5.2A",
+        "u2.3A"
+      ],
+      [
+        "u4.4Y",
+        "u5.1A"
+      ],
+      [
+        "u1.1Y",
+        "u5.2B",
+        "u2.1A",
+        "u2.3B",
+        "u3.1B"
+      ],
+      [
+        "u2.1Y",
+        "u5.3A",
+        "re.1",
+        "uno.A4"
+      ],
+      [
+        "u2.2Y",
+        "u5.3B"
+      ],
+      [
+        "u2.3Y",
+        "u5.4A"
+      ],
+      [
+        "u2.4Y",
+        "u5.4B"
+      ],
+      [
+        "x1.3Y",
+        "u6.1A",
+        "u2.2B"
+      ],
+      [
+        "u3.1Y",
+        "u6.1B"
+      ],
+      [
+        "u4.1Y",
+        "u2.1B"
+      ],
+      [
+        "u5.2Y",
+        "u2.4B"
+      ],
+      [
+        "uno.D8",
+        "ff1.1J",
+        "ff1.1K",
+        "ff2.1J",
+        "ff2.1K",
+        "ff2.2J",
+        "ff2.2K"
+      ],
+      [
+        "u1.6Y",
+        "ff1.1R",
+        "ff2.1R",
+        "ff2.2R"
+      ],
+      [
+        "u4.2Y",
+        "ra.1",
+        "uno.A0"
+      ],
+      [
+        "ra.2",
+        "seg.d"
+      ],
+      [
+        "u4.3Y",
+        "rb.1",
+        "uno.A1"
+      ],
+      [
+        "rb.2",
+        "seg.e"
+      ],
+      [
+        "u5.1Y",
+        "rc.1",
+        "uno.A2"
+      ],
+      [
+        "rc.2",
+        "seg.f"
+      ],
+      [
+        "u5.3Y",
+        "rd.1",
+        "uno.A3"
+      ],
+      [
+        "rd.2",
+        "seg.a"
+      ],
+      [
+        "re.2",
+        "seg.b"
+      ],
+      [
+        "u5.4Y",
+        "rf.1",
+        "uno.A5"
+      ],
+      [
+        "rf.2",
+        "seg.c"
+      ],
+      [
+        "u6.1Y",
+        "rg.1",
+        "uno.D6"
+      ],
+      [
+        "rg.2",
+        "seg.g"
+      ]
+    ],
+    "oracle_serial": [
+      "TEST:PERIODO=",
+      "TEST:DIGITO=0",
+      "TEST:DIGITO=1",
+      "TEST:DIGITO=2",
+      "TEST:DIGITO=3",
+      "TEST:DIGITO=4",
+      "TEST:DIGITO=5",
+      "TEST:DIGITO=6",
+      "TEST:DIGITO=7"
+    ],
+    "sim_wait_seconds": 20,
+    "code_features": [
+      "pinMode",
+      "digitalWrite",
+      "digitalRead",
+      "Serial"
+    ],
+    "doc": [
+      "Taller 3 - Contador 0 a 7 con flip-flops JK (v3).",
+      "",
+      "Contador: tres flip-flops del 74HC73 en cascada. El 555 entrega el",
+      "reloj (~1 Hz) al primero; Q0 relojea al segundo y Q1 al tercero.",
+      "Q0 es el bit menos significativo. Los JK disparan en flanco de",
+      "bajada, como pide el taller. R es activo en bajo: el inversor u1.6",
+      "produce nR desde RESET.",
+      "",
+      "EN (D8) va a J y K de las tres etapas: con EN=1 basculan; con EN=0",
+      "conservan el estado. RESET (D9, activo en alto) llega al inversor y",
+      "de ahi a las tres R: vuelve a 000 sin esperar flanco.",
+      "",
+      "Decodificador (punto 4) con las expresiones del taller tal como",
+      "estan escritas:",
+      "  a = Q1 + NOT(Q2 XOR Q0)",
+      "  b = NOT Q2 + NOT(Q1 XOR Q0)",
+      "  c = Q2 + NOT Q1 + Q0",
+      "  d = e + Q0(Q2 XOR Q1)",
+      "  e = NOT Q0 (Q1 + NOT Q2)",
+      "  f = NOT Q1 NOT Q0 + Q2(NOT Q1 + NOT Q0)",
+      "  g = (Q2 XOR Q1) + Q1 NOT Q0",
+      "",
+      "Se arma con compuertas reales: 1 x 74HC04 (seis inversores), 1 x",
+      "74HC86 (tres XOR), 2 x 74HC08 (AND) y 3 x 74HC32 (OR). Las entradas",
+      "sobrantes de los integrados van a GND: una entrada CMOS nunca queda",
+      "flotando.",
+      "",
+      "El display es de CATODO COMUN: el comun a GND y cada segmento a la",
+      "salida de su compuerta por una resistencia de 220 ohmios. Un segmento",
+      "luce con HIGH, asi que el sketch lee el nodo de la compuerta tal cual",
+      "(en la v1 habia un inversor y se leia LOW). Las dos patas del comun",
+      "son el mismo nodo interno del display: se cablea una sola, como en la",
+      "v1, y encienden todos los segmentos.",
+      "",
+      "El display va GIRADO 180 GRADOS sobre la placa: es la unica postura",
+      "en la que sus diez patas caen en huecos. Al girarlo giran tambien sus",
+      "segmentos, asi que la senal del segmento a entra por la pata d, la de",
+      "b por la e y la de c por la f; la g queda igual. Asi el numero se lee",
+      "derecho mirando la placa. En la tabla de abajo, a..g son los",
+      "segmentos que se ven, no los nombres de las patas.",
+      "",
+      "Tabla (1 = segmento encendido, convencion del taller):",
+      "  digito  Q2Q1Q0  a b c d e f g",
+      "    0      000     1 1 1 1 1 1 0",
+      "    1      001     0 1 1 0 0 0 0",
+      "    2      010     1 1 0 1 1 0 1",
+      "    3      011     1 1 1 1 0 0 1",
+      "    4      100     0 1 1 0 0 1 1",
+      "    5      101     1 0 1 1 0 1 1",
+      "    6      110     1 0 1 1 1 1 1",
+      "    7      111     1 1 1 0 0 0 0",
+      "",
+      "El sketch no bloquea el conteo: en el setup mide el periodo, pulsa",
+      "RESET una vez para arrancar en 000 y suelta EN; el loop solo lee y",
+      "anuncia cada digito (TEST:DIGITO). No vuelve a tocar EN ni RESET, asi",
+      "que el display cuenta desde el primer flanco y nada lo detiene. Las",
+      "cuatro pruebas del punto 5 se demuestran midiendo (v1) en vez de",
+      "moverlas desde el sketch, que dejaba la pantalla en 0 mientras corrian.",
+      "Cada lectura se valida con una guarda: se lee Q, luego los segmentos",
+      "y otra vez Q; si Q cambio en medio, el flanco del acarreo asincrono",
+      "cayo dentro de la muestra y se descarta. La muestra valida se",
+      "re-comprueba 5 ms despues antes de comparar con la tabla.",
+      "",
+      "Los dos capacitores van insertados en una Breadboard Small al costado",
+      "derecho de la placa grande, no sueltos en el lienzo: C1 entre",
+      "THR/TRIG y GND, C2 en CTRL. Sus dos patas caen en huecos vecinos de",
+      "la misma fila, asi que cada uno ocupa dos columnas y se cablea con un",
+      "puente corto mas un cable largo hasta la placa del 555.",
+      "",
+      "ALIMENTACION (v3). La fuente es la pieza Power Supply que esta a la",
+      "izquierda de la primera placa, no el 5V del Uno: un cable ROJO de su",
+      "positivo al riel positivo y uno NEGRO de su tierra al negativo; del",
+      "borde derecho salen otros dos (rojo al riel positivo del otro extremo,",
+      "negro al negativo) para que la placa entera quede alimentada. Cada",
+      "integrado toca el riel de su propia mitad con un cable corto en su",
+      "misma columna, y la segunda placa se alimenta de la primera con los",
+      "mismos dos cables. Rojo es siempre positivo y negro siempre tierra:",
+      "un cable rojo de senal es un error de armado.",
+      "",
+      "El par de rieles de ABAJO de la placa grande es un solo nodo en el",
+      "modelo (sus dos filas se llaman X), asi que no se usa para positivo y",
+      "tierra a la vez: la mitad de abajo se alimenta con una bajada al borde",
+      "derecho y una fila de bus. En una placa chica, que si tiene los cuatro",
+      "rieles separados, la bajada va de riel a riel.",
+      "",
+      "La tierra del Uno sigue en la net de tierra (es la referencia de las",
+      "lecturas analogicas); su pin de 5V queda sin usar."
+    ],
+    "oracle": [
+      "El serial demuestra el conteo, que es lo unico que hace el sketch:",
+      "  TEST:PERIODO=<ms>  periodo medido del reloj 555 en D2.",
+      "  TEST:DIGITO=0..7   los ocho digitos salen en orden, sin saltos.",
+      "  TEST:DEMO=OK       la tanda anunciada termino.",
+      "",
+      "Si el display se quedara en 0, el serial tampoco avanzaria: el",
+      "conteo lo lleva el hardware (555 + JK), no el sketch."
+    ],
+    "notes": [
+      "Interpretacion y diagnostico (punto 6):",
+      "- La frecuencia del 555 es f = 1.44 / ((R1 + 2 R2) C). Con R1=10k,",
+      "  R2=22k y C=10 uF da ~2.7 Hz: un digito cada 0,37 s, pensado para",
+      "  que el conteo se vea tambien con el simulador lento. El valor real",
+      "  se mide y se imprime en TEST:PERIODO.",
+      "- Q0 conmuta a f/2, Q1 a f/4 y Q2 a f/8: cada etapa divide entre",
+      "  dos. Por eso el numero cambia a la frecuencia del reloj pero cada",
+      "  bit lo hace a la suya; el contador avanza un digito por flanco.",
+      "- Si el display muestra valores intermedios al cambiar de digito es",
+      "  el transitorio del acarreo asincrono: el bit bajo cambia antes que",
+      "  el alto y la combinacion pasa por estados que no son el conteo. Se",
+      "  lee el numero despues de que se propague, no en el flanco.",
+      "- Si el conteo se repite 0,1,2,3 y vuelve a 0, Q2 nunca bascula:",
+      "  revisar el reloj de la tercera etapa (Q1 -> CP de la tercera) y que",
+      "  su R no este activa. El sintoma es de cableado del reloj, no del",
+      "  decodificador.",
+      "- Si un segmento queda siempre apagado o siempre encendido, el",
+      "  problema esta en su compuerta o en su resistencia serie, no en el",
+      "  contador: la tabla de verdad impresa permite comparar segmento por",
+      "  segmento.",
+      "- El display es de catodo comun: si se cablea como si fuera de",
+      "  anodo, la mascara sale complementada y TEST:DECODER falla.",
+      "- Si el numero se ve invertido en la placa, el cableado del display",
+      "  se hizo como si la pieza estuviera derecha: girada 180 grados, el",
+      "  segmento a es la pata d, b es e y c es f. El serial no lo detecta",
+      "  (lee las compuertas), asi que hay que mirar el display.",
+      "- Si el circuito no arranca, lo primero es la fuente: el LED de la",
+      "  placa tiene que encender. Sin rojo en el riel positivo y negro en el",
+      "  negativo, todo lo demas es ruido.",
+      "- Si una parte de la placa esta muerta y la otra no, falta el puente",
+      "  del borde opuesto: el riel de arriba esta alimentado y el de abajo",
+      "  no. En la placa grande ese puente es la bajada de la ultima columna",
+      "  mas la fila de bus.",
+      "- Un cable rojo o negro que no sea de alimentacion es un error de",
+      "  armado, no una decision de dibujo: los colores son la unica forma de",
+      "  leer la alimentacion en una foto."
+    ]
+  },
+  {
+    "id": "contador-0-7-jk-v4",
+    "title": "Contador 0-7 v4: sin Arduino, EN por interruptor y RESET por pulsador",
+    "layout": "v3",
+    "boards": [
+      {
+        "kind": "large",
+        "x": 870,
+        "y": 0
+      },
+      {
+        "kind": "large",
+        "x": 1570,
+        "y": 0
+      },
+      {
+        "kind": "small",
+        "x": 870,
+        "y": -360,
+        "start": 9
+      }
+    ],
+    "components": [
+      {
+        "ref": "ps1",
+        "type": "power-supply"
+      },
+      {
+        "ref": "sw1",
+        "type": "slideswitch"
+      },
+      {
+        "ref": "btn1",
+        "type": "pushbutton"
+      },
+      {
+        "ref": "rpd",
+        "type": "resistor"
+      },
+      {
+        "ref": "t1",
+        "type": "timer-555"
+      },
+      {
+        "ref": "r1",
+        "type": "resistor"
+      },
+      {
+        "ref": "r2",
+        "type": "resistor"
+      },
+      {
+        "ref": "c1",
+        "type": "capacitor"
+      },
+      {
+        "ref": "c2",
+        "type": "capacitor"
+      },
+      {
+        "ref": "ff1",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "ff2",
+        "type": "flip-flop-jk"
+      },
+      {
+        "ref": "u1",
+        "type": "not-gate"
+      },
+      {
+        "ref": "u2",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u3",
+        "type": "and-gate"
+      },
+      {
+        "ref": "u4",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u5",
+        "type": "or-gate"
+      },
+      {
+        "ref": "u6",
+        "type": "or-gate"
+      },
+      {
+        "ref": "x1",
+        "type": "xor-gate"
+      },
+      {
+        "ref": "ra",
+        "type": "resistor"
+      },
+      {
+        "ref": "rb",
+        "type": "resistor"
+      },
+      {
+        "ref": "rc",
+        "type": "resistor"
+      },
+      {
+        "ref": "rd",
+        "type": "resistor"
+      },
+      {
+        "ref": "re",
+        "type": "resistor"
+      },
+      {
+        "ref": "rf",
+        "type": "resistor"
+      },
+      {
+        "ref": "rg",
+        "type": "resistor"
+      },
+      {
+        "ref": "seg",
+        "type": "seven-segment"
+      }
+    ],
+    "nets": [
+      [
+        "t1.Vcc",
+        "t1.Reset",
+        "r1.1",
+        "ff1.Vcc",
+        "ff2.Vcc",
+        "u1.Vcc",
+        "u2.Vcc",
+        "u3.Vcc",
+        "u4.Vcc",
+        "u5.Vcc",
+        "u6.Vcc",
+        "x1.Vcc",
+        "ps1.Vcc",
+        "sw1.1",
+        "btn1.2"
+      ],
+      [
+        "t1.GND",
+        "c1.2",
+        "c2.2",
+        "ff1.GND",
+        "ff2.GND",
+        "seg.com1",
+        "u1.GND",
+        "u2.GND",
+        "u3.GND",
+        "u4.GND",
+        "u5.GND",
+        "u6.GND",
+        "x1.GND",
+        "ff1.2J",
+        "ff1.2K",
+        "ff1.2CP",
+        "ff1.2R",
+        "u3.2A",
+        "u3.2B",
+        "u3.3A",
+        "u3.3B",
+        "u3.4A",
+        "u3.4B",
+        "u6.2A",
+        "u6.2B",
+        "u6.3A",
+        "u6.3B",
+        "u6.4A",
+        "u6.4B",
+        "x1.4A",
+        "x1.4B",
+        "ps1.GND",
+        "sw1.2",
+        "rpd.2"
+      ],
+      [
+        "r1.2",
+        "r2.1",
+        "t1.DIS"
+      ],
+      [
+        "r2.2",
+        "t1.THR",
+        "t1.TRIG",
+        "c1.1"
+      ],
+      [
+        "t1.CTRL",
+        "c2.1"
+      ],
+      [
+        "t1.OUT",
+        "ff1.1CP"
+      ],
+      [
+        "ff1.1Q",
+        "u1.1A",
+        "u5.1B",
+        "u2.2A",
+        "x1.1B",
+        "x1.2B",
+        "ff2.1CP"
+      ],
+      [
+        "ff2.1Q",
+        "u1.2A",
+        "u4.1A",
+        "u4.2A",
+        "u3.1A",
+        "x1.2A",
+        "x1.3B",
+        "ff2.2CP"
+      ],
+      [
+        "ff2.2Q",
+        "u1.3A",
+        "u4.4A",
+        "u2.4A",
+        "x1.1A",
+        "x1.3A"
+      ],
+      [
+        "x1.1Y",
+        "u1.4A"
+      ],
+      [
+        "x1.2Y",
+        "u1.5A"
+      ],
+      [
+        "u1.3Y",
+        "u4.1B",
+        "u4.3A"
+      ],
+      [
+        "u1.4Y",
+        "u4.2B"
+      ],
+      [
+        "u1.5Y",
+        "u4.3B"
+      ],
+      [
+        "u1.2Y",
+        "u4.4B",
+        "u5.2A",
+        "u2.3A"
+      ],
+      [
+        "u4.4Y",
+        "u5.1A"
+      ],
+      [
+        "u1.1Y",
+        "u5.2B",
+        "u2.1A",
+        "u2.3B",
+        "u3.1B"
+      ],
+      [
+        "u2.1Y",
+        "u5.3A",
+        "re.1"
+      ],
+      [
+        "u2.2Y",
+        "u5.3B"
+      ],
+      [
+        "u2.3Y",
+        "u5.4A"
+      ],
+      [
+        "u2.4Y",
+        "u5.4B"
+      ],
+      [
+        "x1.3Y",
+        "u6.1A",
+        "u2.2B"
+      ],
+      [
+        "u3.1Y",
+        "u6.1B"
+      ],
+      [
+        "u4.1Y",
+        "u2.1B"
+      ],
+      [
+        "u5.2Y",
+        "u2.4B"
+      ],
+      [
+        "sw1.common",
+        "ff1.1J",
+        "ff1.1K",
+        "ff2.1J",
+        "ff2.1K",
+        "ff2.2J",
+        "ff2.2K"
+      ],
+      [
+        "u1.6Y",
+        "ff1.1R",
+        "ff2.1R",
+        "ff2.2R"
+      ],
+      [
+        "u4.2Y",
+        "ra.1"
+      ],
+      [
+        "ra.2",
+        "seg.d"
+      ],
+      [
+        "u4.3Y",
+        "rb.1"
+      ],
+      [
+        "rb.2",
+        "seg.e"
+      ],
+      [
+        "u5.1Y",
+        "rc.1"
+      ],
+      [
+        "rc.2",
+        "seg.f"
+      ],
+      [
+        "u5.3Y",
+        "rd.1"
+      ],
+      [
+        "rd.2",
+        "seg.a"
+      ],
+      [
+        "re.2",
+        "seg.b"
+      ],
+      [
+        "u5.4Y",
+        "rf.1"
+      ],
+      [
+        "rf.2",
+        "seg.c"
+      ],
+      [
+        "u6.1Y",
+        "rg.1"
+      ],
+      [
+        "rg.2",
+        "seg.g"
+      ],
+      [
+        "btn1.1",
+        "rpd.1",
+        "u1.6A"
+      ]
+    ],
+    "oracle_serial": [],
+    "sim_wait_seconds": 30,
+    "doc": [
+      "Taller 3 - Contador 0 a 7 con flip-flops JK (v4, sin Arduino).",
+      "",
+      "Contador: tres flip-flops del 74HC73 en cascada. El 555 entrega el",
+      "reloj (~1 Hz) al primero; Q0 relojea al segundo y Q1 al tercero.",
+      "Q0 es el bit menos significativo. Los JK disparan en flanco de",
+      "bajada, como pide el taller. R es activo en bajo: el inversor u1.6",
+      "produce nR desde RESET.",
+      "",
+      "SIN ARDUINO (v4). El contador es 100 % hardware: 555 como reloj, tres",
+      "74HC73 en cascada, el decodificador de compuertas y el display. La",
+      "alimentacion viene de la pieza Power Supply, no de un micro.",
+      "",
+      "EN es el interruptor deslizante SW1: su terminal comun va a J y K de",
+      "las tres etapas, un extremo a GND y el otro a Vcc. Con el comun en GND",
+      "los flip-flops conservan el estado y el conteo se detiene; con el comun",
+      "en Vcc basculan con cada flanco y el conteo sigue. SW1 nace en la",
+      "posicion de Vcc: al abrir el diseno ya esta contando y deslizarlo lo",
+      "detiene (medido en vivo: al reves el display se quedaba en 0).",
+      "",
+      "RESET es el pulsador SW2: esta entre Vcc y la entrada del inversor",
+      "u1.6, que tiene una resistencia de 10k a GND (pull-down). En reposo",
+      "esa entrada vale 0, la salida del inversor vale 1 y las tres R de los",
+      "JK estan inactivas. Al apretar, la salida baja a 0 y los tres JK",
+      "vuelven a 000 en el acto, sin esperar flanco de reloj.",
+      "",
+      "Decodificador (punto 4) con las expresiones del taller tal como",
+      "estan escritas:",
+      "  a = Q1 + NOT(Q2 XOR Q0)",
+      "  b = NOT Q2 + NOT(Q1 XOR Q0)",
+      "  c = Q2 + NOT Q1 + Q0",
+      "  d = e + Q0(Q2 XOR Q1)",
+      "  e = NOT Q0 (Q1 + NOT Q2)",
+      "  f = NOT Q1 NOT Q0 + Q2(NOT Q1 + NOT Q0)",
+      "  g = (Q2 XOR Q1) + Q1 NOT Q0",
+      "",
+      "Se arma con compuertas reales: 1 x 74HC04 (seis inversores), 1 x",
+      "74HC86 (tres XOR), 2 x 74HC08 (AND) y 3 x 74HC32 (OR). Las entradas",
+      "sobrantes de los integrados van a GND: una entrada CMOS nunca queda",
+      "flotando.",
+      "",
+      "El display es de CATODO COMUN: el comun a GND y cada segmento a la",
+      "salida de su compuerta por una resistencia de 220 ohmios. Un segmento",
+      "luce con HIGH: el nodo de la compuerta es el que manda el segmento",
+      "(en la v1 habia un inversor y se activaba con LOW). Las dos patas del comun",
+      "son el mismo nodo interno del display: se cablea una sola, como en la",
+      "v1, y encienden todos los segmentos.",
+      "",
+      "El display va GIRADO 180 GRADOS sobre la placa: es la unica postura",
+      "en la que sus diez patas caen en huecos. Al girarlo giran tambien sus",
+      "segmentos, asi que la senal del segmento a entra por la pata d, la de",
+      "b por la e y la de c por la f; la g queda igual. Asi el numero se lee",
+      "derecho mirando la placa. En la tabla de abajo, a..g son los",
+      "segmentos que se ven, no los nombres de las patas.",
+      "",
+      "Tabla (1 = segmento encendido, convencion del taller):",
+      "  digito  Q2Q1Q0  a b c d e f g",
+      "    0      000     1 1 1 1 1 1 0",
+      "    1      001     0 1 1 0 0 0 0",
+      "    2      010     1 1 0 1 1 0 1",
+      "    3      011     1 1 1 1 0 0 1",
+      "    4      100     0 1 1 0 0 1 1",
+      "    5      101     1 0 1 1 0 1 1",
+      "    6      110     1 0 1 1 1 1 1",
+      "    7      111     1 1 1 0 0 0 0",
+      "No hay micro, no hay codigo y no hay monitor serial. La prueba de que",
+      "cuenta es mirar el display: 0, 1, 2, 3, 4, 5, 6, 7 y otra vez 0, un",
+      "digito por flanco de bajada del 555 (aproximadamente cada 0,4 s).",
+      "",
+      "Los dos capacitores van insertados en una Breadboard Small al costado",
+      "derecho de la placa grande, no sueltos en el lienzo: C1 entre",
+      "THR/TRIG y GND, C2 en CTRL. Sus dos patas caen en huecos vecinos de",
+      "la misma fila, asi que cada uno ocupa dos columnas y se cablea con un",
+      "puente corto mas un cable largo hasta la placa del 555."
+    ],
+    "oracle": [
+      "Esta version no tiene micro: no hay serial y el oraculo del runner no",
+      "aplica. La verificacion es visual, con la simulacion corriendo:",
+      "  - el display muestra los digitos 0..7 en orden y vuelve a 0;",
+      "  - con EN en un extremo el numero se queda quieto y con EN en el otro",
+      "    sigue contando;",
+      "  - al apretar RESET el display salta a 0 y sigue desde ahi."
+    ],
+    "notes": [
+      "Interpretacion y diagnostico (punto 6):",
+      "- La frecuencia del 555 es f = 1.44 / ((R1 + 2 R2) C). Con R1=10k,",
+      "  R2=22k y C=10 uF da ~2.7 Hz: un digito cada 0,37 s, pensado para",
+      "  que el conteo se vea tambien con el simulador lento. El valor real",
+      "  se mide y se imprime en TEST:PERIODO.",
+      "- Q0 conmuta a f/2, Q1 a f/4 y Q2 a f/8: cada etapa divide entre",
+      "  dos. Por eso el numero cambia a la frecuencia del reloj pero cada",
+      "  bit lo hace a la suya; el contador avanza un digito por flanco.",
+      "- Si el display muestra valores intermedios al cambiar de digito es",
+      "  el transitorio del acarreo asincrono: el bit bajo cambia antes que",
+      "  el alto y la combinacion pasa por estados que no son el conteo. Se",
+      "  lee el numero despues de que se propague, no en el flanco.",
+      "- Si el conteo se repite 0,1,2,3 y vuelve a 0, Q2 nunca bascula:",
+      "  revisar el reloj de la tercera etapa (Q1 -> CP de la tercera) y que",
+      "  su R no este activa. El sintoma es de cableado del reloj, no del",
+      "  decodificador.",
+      "- Si un segmento queda siempre apagado o siempre encendido, el",
+      "  problema esta en su compuerta o en su resistencia serie, no en el",
+      "  contador: la tabla de verdad impresa permite comparar segmento por",
+      "  segmento.",
+      "- El display es de catodo comun: si se cablea como si fuera de",
+      "  anodo, la mascara sale complementada y TEST:DECODER falla.",
+      "- Si el numero se ve invertido en la placa, el cableado del display",
+      "  se hizo como si la pieza estuviera derecha: girada 180 grados, el",
+      "  segmento a es la pata d, b es e y c es f. El serial no lo detecta",
+      "  (lee las compuertas), asi que hay que mirar el display.",
+      "- Si el display no se mueve nunca, lo primero es EN: con el comun del",
+      "  interruptor en GND (J=K=0) el contador esta en pausa a proposito.",
+      "  Cambiar el interruptor al otro extremo y volver a mirar.",
+      "- Si el display esta clavado en 0 y no sale de ahi, el reset quedo",
+      "  activo: revisar que la resistencia de 10k del nodo del pulsador vaya",
+      "  a GND y no a Vcc. Con el pull-down al reves el inversor entrega 0",
+      "  permanente y los JK no cuentan.",
+      "- Sin Arduino no hay monitor serial. Si alguien pide TEST:DIGITO, ese",
+      "  dato ya no existe en este circuito: se mira el display."
+    ],
+    "no_arduino": true,
+    "tinkercad_id": "3akmw1EaG0p"
+  }
+]

@@ -1,0 +1,460 @@
+#!/usr/bin/env python3
+"""CLI punta a punta: fixture -> runner -> puente MCP real (stdio) -> reporte.
+
+Uso:
+    python scripts/demo_build.py <fixture_id> [--bridge PATH] [--title TITULO]
+
+La conexion MCP es perezosa: importar este modulo (y correr los tests
+unitarios) no requiere el paquete ``mcp`` ni red ni navegador.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import json
+import os
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from tinkercad_brain import sketches  # noqa: E402
+from tinkercad_brain.circuit_doc import (  # noqa: E402
+    documented_code,
+    render_circuit_doc_text,
+)
+from tinkercad_brain.documenter import render_build_report  # noqa: E402
+
+DEFAULT_FIXTURES_PATH = REPO_ROOT / "fixtures" / "fase0" / "circuits.json"
+DEFAULT_BRIDGE_PATH = Path(
+    os.environ.get("TINKERCAD_BRIDGE", "~/Documentos/StartUp/TInkercad/tinkercad-mcp")
+).expanduser()
+REPORTS_DIR = REPO_ROOT / "docs" / "reportes"
+
+# fixture_id -> presets a aplicar tras el build (valor calibrado en vivo)
+_PRESETS_BY_FIXTURE = {
+    # 555 astable: resistencia 10k (prefijo k) y capacitor 10uF (prefijo u).
+    # El cuarto argumento de setProperty es el prefijo, no la unidad.
+    "temporizador-555": [
+        {"component": "Resistor", "property": "resistance", "value": 10, "unit": "k"},
+        {"component": "Capacitor", "property": "capacitance", "value": 10, "unit": "u"},
+    ],
+    # Mismo astable pero mas lento: 68k con 10uF da ~2 Hz (un digito cada
+    # medio segundo); con 10k el conteo pasa demasiado rapido para verlo.
+    # Aqui se nombra por ref: el build nombra cada parte con su ref (con
+    # siete resistencias mas la del 555, "Resistor" es ambiguo y el preset
+    # se pierde). Las 220 ohmios son la resistencia serie de cada segmento.
+    "contador-555-compuertas": [
+        {"component": "r1", "property": "resistance", "value": 68, "unit": "k"},
+        {"component": "c1", "property": "capacitance", "value": 10, "unit": "u"},
+        *[
+            {"component": f"r{index}", "property": "resistance", "value": 220}
+            for index in range(2, 9)
+        ],
+    ],
+    "sensor-ultrasonico": [        {
+            "component": "Ultrasonic Distance Sensor (4-pin)",
+            "property": "Target Y",
+            "value": -105,
+        }
+    ],
+    # Reloj del contador 0-7 con JK: R1=10k, R2=68k, C1=10uF (astable ~1 Hz)
+    # y C2=10nF en CTRL. Las siete 220 ohmios son la serie de cada segmento.
+    "contador-0-7-jk": [
+        {"component": "r1", "property": "resistance", "value": 10, "unit": "k"},
+        {"component": "r2", "property": "resistance", "value": 68, "unit": "k"},
+        {"component": "c1", "property": "capacitance", "value": 10, "unit": "u"},
+        {"component": "c2", "property": "capacitance", "value": 10, "unit": "n"},
+        *[
+            {"component": f"r{seg}", "property": "resistance", "value": 220}
+            for seg in ("a", "b", "c", "d", "e", "f", "g")
+        ],
+    ],
+}
+
+
+# La v2 del contador 0-7 es el mismo circuito con los chips insertados: mismo
+# reloj y las mismas siete 220 ohmios de segmento, con un cambio pedido en
+# vivo: R2 pasa de 68k a 22k. Con 10uF eso da 0,693*(10k+44k)*10uF = 374 ms,
+# o sea ~2,7 digitos por segundo en simulacion real. El simulador de Tinkercad
+# arranca a 0,2x, asi que con 68k se veia un digito cada 5 s y parecia
+# congelado; a 22k se ve contar. R1 y el capacitor no se tocan.
+# Y el display pasa a catodo comun: Tinkercad lo crea de anodo comun, asi que
+# sin esta propiedad la simulacion no enciende ningun segmento aunque el
+# cableado sea el correcto (comunes a GND, segmentos por la compuerta).
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v2"] = [
+    {**preset, "value": 22} if preset.get("component") == "r2" else dict(preset)
+    for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk"]
+] + [
+    {"component": "seg", "property": "common", "value": "cathode"},
+]
+
+# La v3 es la v2 con la alimentacion por fuente y rieles: mismo reloj, mismo
+# decodificador, mismos presets. Se declara aparte (en vez de compartir lista)
+# para que un cambio de valores en la v3 no se lleve por delante a la v2, que
+# esta entregada y verificada en vivo.
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v3"] = [
+    dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v2"]
+]
+
+# La v4 es la v3 sin Arduino: mismo reloj, mismo decodificador, mismos
+# presets, mas la resistencia del pull-down del pulsador de RESET (10k del
+# nodo del pulsador a GND). Sin ella el inversor queda con la entrada al aire
+# y los JK pueden arrancar en reset.
+_PRESETS_BY_FIXTURE["contador-0-7-jk-v4"] = [
+    dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v3"]
+] + [
+    {"component": "rpd", "property": "resistance", "value": 10, "unit": "k"},
+]
+
+
+# Proyecto final, partes 1, 2 y 3. Tres familias de preset, las dos primeras
+# medidas en vivo el 2026-11-16 en la sonda `iXiA957AXba`:
+#
+# - **Display**: la pieza nace de ANODO comun. Cableada como catodo (comun a
+#   GND, que es lo que pide el CD4511) queda **apagada** aunque el cableado
+#   este perfecto: medido en la sonda, el mismo circuito paso de negro a
+#   encender el "8" del lamp test al fijar `common = cathode`.
+# - **Resistencia**: Tinkercad crea las resistencias en 1 kohm; el diseno es de
+#   220 ohm por segmento (y por LED del banco de la parte 2). El valor va por
+#   ref porque en el circuito hay 29 resistencias de segmento.
+# - **Pull de los botones de la parte 3**: el reloj necesita 10 k a GND y el
+#   borrado 10 k a 5V; sin pull, un pulsador que no esta apretado deja la
+#   entrada al aire.
+_PRESETS_BY_FIXTURE["proyecto-final-sumador-c2"] = [
+    {"component": ref, "property": "common", "value": "cathode"}
+    for ref in ("sigA", "numA", "sigB", "numB", "sigS", "numS")
+] + [
+    {"component": ref, "property": "resistance", "value": 220}
+    for ref in (
+        [f"ra{index}" for index in range(1, 8)]
+        + ["rsa"]
+        + [f"rb{index}" for index in range(1, 8)]
+        + ["rsb"]
+        + [f"rl{index}" for index in range(5)]
+        + [f"rr{index}" for index in range(1, 8)]
+        + ["rrs"]
+    )
+] + [
+    {"component": "rcp", "property": "resistance", "value": 10, "unit": "k"},
+    {"component": "rcl", "property": "resistance", "value": 10, "unit": "k"},
+]
+
+
+def select_presets(fixture: dict):
+    """Presets de la fixture, o None si no tiene ninguno."""
+    presets = _PRESETS_BY_FIXTURE.get(fixture.get("id"))
+    return [dict(p) for p in presets] if presets else None
+
+# fixture_id -> nombre de la funcion en tinkercad_brain.sketches
+_SKETCH_BY_FIXTURE = {
+    "blink-basico": "blink_sketch",
+    "semaforo-3-leds": "traffic_sketch",
+    "servo-potenciometro": "servo_knob_sketch",
+    "sensor-ultrasonico": "ultrasonic_sketch",
+    "temperatura-tmp36": "tmp36_sketch",
+    "led-rgb": "rgb_cycle_sketch",
+    "motor-dc-transistor": "motor_sketch",
+    "motor-l293d-bateria": "motor_driver_sketch",
+    "boton-pullup": "button_led_sketch",
+    "parking-servo-ultrasonico-rgb": "parking_servo_sketch",
+    "buzzer-activo": "buzzer_button_sketch",
+    "ldr-divisor": "ldr_led_sketch",
+    "lcd-contador": "lcd_counter_sketch",
+    "lcd-temperatura": "lcd_temp_sketch",
+    "lcd-distancia": "lcd_distance_sketch",
+    "siete-segmentos": "seven_seg_sketch",
+    "desplazador-595": "shift_register_sketch",
+    "media-suma-logica": "half_adder_sketch",
+    "biestable-d": "d_flip_flop_sketch",
+    "temporizador-555": "astable_555_sketch",
+    "contador-binario": "binary_counter_sketch",
+    "carrusel-4017": "decade_counter_sketch",
+    "faro-rele-ldr": "faro_ldr_relay_sketch",
+    "alarma-pir": "pir_alarm_sketch",
+    "cerradura-teclado": "keypad_lock_sketch",
+    "clave-lcd": "keypad_lcd_sketch",
+    "control-acceso": "access_control_sketch",
+    "contador-555-compuertas": "gate_counter_sketch",
+    "contador-0-7-jk": "contador_jk_sketch",
+    "contador-0-7-jk-v2": "contador_jk_v2_sketch",
+    # La v3 no cambia el sistema, solo la alimentacion: mismo sketch que la v2
+    # (no corre pruebas en el setup; solo lee y anuncia TEST:DIGITO).
+    "contador-0-7-jk-v3": "contador_jk_v2_sketch",
+}
+
+
+def load_fixtures(path=DEFAULT_FIXTURES_PATH) -> list:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def find_fixture(fixture_id: str, fixtures: list | None = None) -> dict:
+    if fixtures is None:
+        fixtures = load_fixtures()
+    for fixture in fixtures:
+        if isinstance(fixture, dict) and fixture.get("id") == fixture_id:
+            return fixture
+    disponibles = ", ".join(
+        str(f.get("id")) for f in fixtures if isinstance(f, dict)
+    ) or "ninguna"
+    raise LookupError(
+        f"fixture no encontrada: {fixture_id!r} (disponibles: {disponibles})"
+    )
+
+
+def select_code(fixture: dict) -> str | None:
+    """Codigo Arduino para la fixture, o None si no hay sketch conocido.
+
+    La busqueda es dinamica sobre ``sketches`` para que una funcion aun
+    no fusionada (p. ej. ``tmp36_sketch``) se use en cuanto exista.
+    """
+    name = _SKETCH_BY_FIXTURE.get(fixture.get("id"))
+    if not name:
+        return None
+    builder = getattr(sketches, name, None)
+    return builder() if callable(builder) else None
+
+
+def bridge_launch_spec(bridge_path=DEFAULT_BRIDGE_PATH) -> dict:
+    """Comando puro (sin MCP) para lanzar el puente por stdio."""
+    bridge = Path(bridge_path).expanduser()
+    return {
+        "command": str(bridge / ".venv" / "bin" / "python"),
+        "args": ["-m", "src.main"],
+        "cwd": str(bridge),
+    }
+
+
+def _result_text(result) -> str:
+    parts = []
+    for item in getattr(result, "content", None) or []:
+        text = getattr(item, "text", None)
+        parts.append(text if isinstance(text, str) else str(item))
+    return "\n".join(parts)
+
+
+def run_via_bridge(fixture: dict, code: str | None, title: str, bridge_path=DEFAULT_BRIDGE_PATH) -> dict:
+    """Envuelve ``run_build`` conectando al puente real via MCP stdio.
+
+    El import de ``mcp`` (y de ``runner``) es perezoso, dentro de esta
+    funcion. ``call_tool`` es sincrono, como espera el runner: el loop
+    asyncio de la sesion MCP vive en un hilo aparte.
+    """
+    import asyncio
+    import threading
+
+    from mcp import ClientSession
+    from mcp.client.stdio import StdioServerParameters, stdio_client
+
+    from tinkercad_brain.runner import run_build
+
+    spec = bridge_launch_spec(bridge_path)
+    params = StdioServerParameters(
+        command=spec["command"], args=list(spec["args"]), cwd=spec["cwd"]
+    )
+
+    loop = asyncio.new_event_loop()
+    ready = threading.Event()
+    holder: dict = {}
+
+    def _loop_thread() -> None:
+        asyncio.set_event_loop(loop)
+
+        async def _open():
+            transport_cm = stdio_client(params)
+            read_stream, write_stream = await transport_cm.__aenter__()
+            session_cm = ClientSession(read_stream, write_stream)
+            session = await session_cm.__aenter__()
+            await session.initialize()
+            holder.update(
+                transport_cm=transport_cm, session_cm=session_cm, session=session
+            )
+
+        try:
+            loop.run_until_complete(_open())
+        except Exception as exc:  # noqa: BLE001 - se relanza en el hilo principal
+            holder["error"] = exc
+        finally:
+            ready.set()
+        if "error" not in holder:
+            loop.run_forever()
+
+    thread = threading.Thread(target=_loop_thread, daemon=True)
+    thread.start()
+    ready.wait()
+    if "error" in holder:
+        loop.close()
+        raise RuntimeError(
+            f"no se pudo conectar con el puente en {spec['cwd']}: {holder['error']}"
+        ) from holder["error"]
+
+    def call_tool(name, arguments):
+        future = asyncio.run_coroutine_threadsafe(
+            holder["session"].call_tool(name, dict(arguments or {})), loop
+        )
+        result = future.result()
+        text = _result_text(result)
+        if getattr(result, "isError", False):
+            raise RuntimeError(text or f"la tool {name} devolvio un error")
+        return text
+
+    try:
+        return run_build(
+            fixture,
+            code,
+            call_tool,
+            title,
+            presets=select_presets(fixture),
+            preferred_id=str(fixture.get("tinkercad_id") or ""),
+        )
+    finally:
+
+        async def _close():
+            try:
+                await holder["session_cm"].__aexit__(None, None, None)
+            finally:
+                await holder["transport_cm"].__aexit__(None, None, None)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_close(), loop).result(timeout=30)
+        except Exception:  # noqa: BLE001 - cierre best-effort
+            pass
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=10)
+        loop.close()
+
+
+def _records_as_dicts(records) -> list[dict]:
+    normalized = []
+    for record in records or []:
+        if isinstance(record, dict):
+            normalized.append(record)
+        elif dataclasses.is_dataclass(record):
+            normalized.append(dataclasses.asdict(record))
+        else:
+            normalized.append(
+                {
+                    "tool": getattr(record, "tool", "unknown"),
+                    "ok": getattr(record, "ok", False),
+                    "elapsed_s": getattr(record, "elapsed_s", 0.0),
+                    "output": getattr(record, "output", ""),
+                }
+            )
+    return normalized
+
+
+def write_report(result: dict, fixture: dict, title: str, reports_dir=REPORTS_DIR) -> Path:
+    fidelity = result.get("fidelity") or {}
+    serial = result.get("serial")
+    sim_summary = serial if isinstance(serial, str) and serial else "sin datos"
+    report = render_build_report(
+        title,
+        result.get("url") or "",
+        fidelity if isinstance(fidelity, dict) else {},
+        sim_summary,
+        _records_as_dicts(result.get("records")),
+        route_violations=result.get("route_violations"),
+        routes=result.get("routes"),
+        diagonal_violations=result.get("diagonal_violations"),
+        board_hop_diagonals=result.get("board_hop_diagonals"),
+        build_ok=(result.get("checks") or {}).get("build_ok"),
+        oracle=result.get("oracle"),
+    )
+    # La misma documentacion que viaja dentro del circuito, para poder
+    # leerla desde el repo sin abrir Tinkercad.
+    report += (
+        "\n## Documentación embebida en el circuito\n\n"
+        "```\n" + render_circuit_doc_text(fixture) + "\n```\n"
+    )
+    reports_dir = Path(reports_dir)
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    path = reports_dir / f"{fixture['id']}.md"
+    path.write_text(report, encoding="utf-8")
+    return path
+
+
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Construye una fixture en Tinkercad via el puente MCP.")
+    parser.add_argument("fixture_id", help="id de la fixture en fixtures/fase0/circuits.json")
+    parser.add_argument("--bridge", default=str(DEFAULT_BRIDGE_PATH), help="ruta del puente tinkercad-mcp")
+    parser.add_argument("--title", default=None, help="titulo del circuito (defecto: el de la fixture)")
+    parser.add_argument(
+        "--sin-sketch",
+        action="store_true",
+        help="construye sin sketch: circuitos sin microcontrolador (100%% hardware)",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv=None) -> int:
+    args = parse_args(argv)
+    try:
+        fixture = find_fixture(args.fixture_id)
+    except (LookupError, FileNotFoundError, json.JSONDecodeError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+
+    code = select_code(fixture)
+    if code is None and not args.sin_sketch:
+        print(
+            f"Error: la fixture {args.fixture_id!r} no tiene sketch conocido "
+            "(sin sketch); si el circuito no lleva micro, pasar --sin-sketch.",
+            file=sys.stderr,
+        )
+        return 2
+
+    # Todo circuito guardado lleva su explicacion dentro: el bloque va como
+    # comentario al inicio del sketch, asi que se lee al abrir el editor de
+    # codigo del diseno.
+    code = documented_code(fixture, code)
+
+    title = args.title or fixture.get("title") or args.fixture_id
+    result = run_via_bridge(fixture, code, title, bridge_path=args.bridge)
+    report_path = write_report(result, fixture, title)
+
+    fidelity = result.get("fidelity") or {}
+    score = fidelity.get("score") if isinstance(fidelity, dict) else None
+    score_text = f"{float(score) * 100:.1f}%" if score is not None else "sin medir"
+    print(f"URL: {result.get('url') or ''}")
+    print(f"Score: {score_text}")
+    violations = result.get("route_violations") or []
+    diagonals = result.get("diagonal_violations") or []
+    hops = result.get("board_hop_diagonals") or []
+    routes = result.get("routes") or {}
+    print(
+        f"Ruteo: {len(violations)} tramo(s) sobre una placa, "
+        f"{len(diagonals)} diagonal(es), {len(hops)} salto(s) en la placa "
+        f"({routes.get('measured', 0)} de {routes.get('total', 0)} cables medidos, "
+        f"{routes.get('routed', 0)} ruteados)"
+    )
+    oracle = result.get("oracle") or {}
+    esperado = oracle.get("expected") or []
+    if esperado:
+        estado = "OK" if oracle.get("ok") else "FALTA " + ", ".join(oracle["missing"])
+        print(f"Oráculo: {estado} ({', '.join(esperado)})")
+    elif oracle.get("serial_required"):
+        lineas = oracle.get("serial_lines", 0)
+        print(f"Oráculo: {lineas} línea(s) de serial, sin marcas declaradas")
+    print(f"OK: {bool(result.get('ok'))}")
+    if not result.get("ok"):
+        checks = result.get("checks") or {}
+        fallos = [k for k, v in checks.items()
+                  if (k == "fidelity" and v < 0.99)
+                  or (k == "fidelity_readable" and not v)
+                  or (k in ("oracle_ok", "serial_nonempty") and not v)
+                  or (k in ("build_ok", "repair_ok", "presets_ok") and not v)
+                  or (k in ("route_violations", "diagonals") and v)]
+        print(f"Fallos: {', '.join(fallos) or 'sin datos'}")
+        if checks.get("build_errors"):
+            for err in checks["build_errors"]:
+                print(f"  build: {err}")
+    print(f"Reporte: {report_path}")
+    return 0 if result.get("ok") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

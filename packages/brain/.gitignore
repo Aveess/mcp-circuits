@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.local.json
+.tinkercad-profile/
+profiles/
+screenshots/
+artifacts/
+.superpowers/
+
+# Credenciales y artefactos: nada de esto viaja en el repo
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+.netrc
+.authinfo
+*.cookies
+*.session
+.pytest_cache/
