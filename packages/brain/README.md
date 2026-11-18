@@ -115,6 +115,12 @@ cd ~/Documentos/StartUp/TInkercad/tinkercad-brain
 - Sin secretos en los repos: la sesión de Tinkercad vive solo en el
   perfil persistente del navegador.
 
+## Si lo usas, cuéntalo
+
+No hay telemetría: el repo no manda nada a ningún lado y no me entero de quién
+lo clona. Si te sirvió, **abre un issue contando qué armaste y qué se rompió**.
+Es la única señal de uso que existe.
+
 ## Créditos
 
 Este repo se apoya en trabajo ajeno, y se dice explícitamente:
