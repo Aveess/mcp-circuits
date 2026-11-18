@@ -13,8 +13,8 @@ mano: esa es la regla de diseño número uno.
 
 | Pieza | Repo | Qué hace |
 |---|---|---|
-| El puente (las manos) | [`Aveess/tinkercad-mcp-bridge`](https://github.com/Aveess/tinkercad-mcp-bridge) | Servidor MCP en Python/Playwright con 50 tools. Fork de [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
-| El cerebro (este repo) | [`Aveess/tinkercad-brain`](https://github.com/Aveess/tinkercad-brain) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
+| El puente (las manos) | [`Aveess/mcp-circuits-bridge`](https://github.com/Aveess/mcp-circuits-bridge) | Servidor MCP en Python/Playwright con 50 tools. Fork de [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
+| El cerebro (este repo) | [`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
 
 Las dos capas hablan **MCP sobre stdio**. El cerebro nunca importa al
 puente en producción.
@@ -121,7 +121,7 @@ Este repo se apoya en trabajo ajeno, y se dice explícitamente:
 
 | Proyecto | Licencia | Qué se tomó |
 |---|---|---|
-| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | Es la base del **puente**: servidor MCP, Playwright, catálogo de componentes y la mayoría de las tools. El fork ([`Aveess/tinkercad-mcp-bridge`](https://github.com/Aveess/tinkercad-mcp-bridge)) le agregó el build por huecos, el ruteo ortogonal y el sampler |
+| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | Es la base del **puente**: servidor MCP, Playwright, catálogo de componentes y la mayoría de las tools. El fork ([`Aveess/mcp-circuits-bridge`](https://github.com/Aveess/mcp-circuits-bridge)) le agregó el build por huecos, el ruteo ortogonal y el sampler |
 | [`sethski/tinkercad-mcp-server`](https://github.com/sethski/tinkercad-mcp-server) | MIT | Proyecto previo (Node/TypeScript) del que nace la idea: manejar el editor real de Tinkercad con un navegador porque no hay API pública |
 
 Todo lo demás —el planner de layout por huecos, la derivación de nets con
