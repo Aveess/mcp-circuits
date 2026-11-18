@@ -158,32 +158,36 @@ python examples/build_temperature_circuit.py
 
 ---
 
-## 🤝 Prestarle el servidor a otra persona (para que lo use, no para que lo toque)
+## 🤝 Cómo lo usa otra persona (clon, zip o copia directa)
 
-Esto es lo que le mandas a alguien que quiere **usar** el MCP en su propio
-proyecto, sin acceso al repositorio y sin poder subir cambios:
+El repo es público, así que hay tres formas de conseguirlo y las tres dan lo
+mismo:
 
-> **Qué te estoy dando.** Un servidor MCP que maneja el editor de Tinkercad
-> desde un agente (Claude Desktop, Cursor, OpenCode...). Sirve para armar
-> circuitos: colocar piezas en la protoboard, cablear por huecos, poner
-> sketch, simular y leer el serial. Es una **copia del código**, no un
-> repositorio: no tiene `.git`, así que no hay forma de que subas nada ni de
-> que toques el original. Tu copia es tuya: puedes trastear con ella todo lo
-> que quieras; lo que pase en tu carpeta no me llega.
->
+```bash
+git clone https://github.com/Aveess/tinkercad-mcp-bridge.git   # con historial
+git clone --depth 1 https://github.com/Aveess/tinkercad-mcp-bridge.git  # sin historial, más rápido
+```
+
+- **Descargar el ZIP**: botón *Code → Download ZIP* en GitHub, o
+  `https://github.com/Aveess/tinkercad-mcp-bridge/archive/refs/heads/main.zip`.
+  El ZIP no trae `.git`, así que no hay forma de que suban cambios al original.
+- **`git archive`** desde una copia local: deja fuera `.git`, `.venv`,
+  `.tinkercad_profile` y `screenshots`; son ~270 KB.
+
 > **Tu cuenta, no la mía.** El servidor no tiene cuenta propia: maneja **tu**
 > navegador con **tu** sesión de Tinkercad. Los diseños que construyas van a tu
 > cuenta. No copies ni pidas un `.tinkercad_profile/` ajeno: sería operar
 > sobre la cuenta de esa persona, y quien te lo diera te estaría dando su
-> contraseña.
+> contraseña. Ese perfil está en `.gitignore`: no viaja en el repo ni en el
+> ZIP.
 >
-> **Reglas del juego.** Si algo te falla o crees que hay un bug, cuéntamelo a
-> mí; no hace falta que lo arregles. Un build a la vez (un navegador, una
-> sesión): dos en paralelo se pisan.
+> **Reglas del juego.** Si algo falla, abre un issue con el mensaje de error y
+> lo que estabas construyendo. Un build a la vez (un navegador, una sesión):
+> dos en paralelo se pisan.
 
 ### Puesta en marcha (5 pasos)
 
-1. Descomprimir el zip en una carpeta propia. Necesitas Python 3.10 o más.
+1. Clonar o descomprimir el zip en una carpeta propia. Necesitas Python 3.10 o más.
 2. Crear el entorno e instalar:
    ```bash
    cd tinkercad-mcp-bridge
@@ -233,8 +237,8 @@ tampoco `.git/`. `git archive` ya deja todo eso fuera; el zip de entrega son
 
 Con el MCP solo, el agente construye a partir de un plan JSON (piezas, cables
 por hueco y `boards`). El que **genera** esos planes desde una fixture es otro
-repo (`tinkercad-brain`, del mismo dueño). Si lo necesita, se le pasa también
-como zip; igual que este, sin repositorio y sin permisos.
+repo público, [`Aveess/tinkercad-brain`](https://github.com/Aveess/tinkercad-brain),
+del mismo autor. Se clona igual y apunta al puente con `TINKERCAD_BRIDGE`.
 
 ## 🔌 Connecting to MCP Clients
 
@@ -379,6 +383,27 @@ Read this before reporting a bug. These are properties of Tinkercad's editor and
 
 ---
 
+## 📜 Créditos y linaje
+
+Este servidor **no se escribió desde cero**. Es un fork con cambios propios de:
+
+| Proyecto | Licencia | Qué aporta |
+|---|---|---|
+| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | **Base directa de este repo.** El esqueleto del servidor MCP, la capa de Playwright, el catálogo de componentes, el editor de código y casi todas las 50 tools |
+| [`sethski/tinkercad-mcp-server`](https://github.com/sethski/tinkercad-mcp-server) | MIT | Proyecto anterior (Node/TypeScript) del que sale la idea y el enfoque: Tinkercad no tiene API, así que se maneja el editor real con un navegador automatizado |
+
+Lo que **sí** es de este fork, y por eso está aquí: el build por huecos de
+protoboard directo en el modelo del editor (`tinkercad_build_circuit_model`),
+el ruteo ortogonal por carriles con bandas y corredores, el sampler de
+simulación por píxel del cuerpo de la pieza, `tinkercad_delete_circuit`, la
+portabilidad a Linux y toda la documentación en español (`AGENTS.md`,
+`RESTRICCIONES.md`).
+
+Si reutilizas este repo, conserva también estos créditos y el aviso de
+copyright original: la licencia MIT lo exige.
+
+---
+
 ## 📄 License
-MIT License.
+MIT License. Ver [`LICENSE`](LICENSE).
 

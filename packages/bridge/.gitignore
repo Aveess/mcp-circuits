@@ -84,3 +84,10 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Credenciales adicionales (además de .env / *.key / *.pem / *.token)
+.netrc
+.authinfo
+*.cookies
+*.session
+cookies*.json
