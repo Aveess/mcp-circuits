@@ -45,6 +45,15 @@ Esta es la regla vigente en los layout `v2`/`v3` (implementada en
    para el resto.
 5. Una placa adicional se alimenta de la placa ya alimentada, nunca de la
    fuente.
+5b. Una **pieza suelta** (interruptor, pulsador, fuente) no tiene pata en un
+   hueco: su cable de alimentación va directo de su terminal al **hueco de
+   riel más cercano por distancia Manhattan**, entre todas las placas ya
+   alimentadas. No al de la placa 0. Todos los rieles son el mismo nodo (los
+   une la cadena del punto 5), así que elegir el vecino no cambia ni un net, y
+   una pieza en el otro extremo del lienzo colgada de la placa 0 paga una
+   tirada de punta a punta: el 2026-11-18 los dos pulsadores del proyecto
+   final daban **2620 y 2260** de cable (contra una mediana de 220) por esto;
+   con el riel vecino quedaron en 743 y 657.
 6. El **Arduino no es la fuente**: por defecto no se pone, y solo entra si el
    proyecto necesita programa (pines, serial, sensores, EN/RESET).
 

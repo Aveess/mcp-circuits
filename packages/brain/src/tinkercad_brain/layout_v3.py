@@ -156,6 +156,13 @@ def _rail(board_index: int, rail: str, col: int) -> str:
     return f"b{board_index}/{name}" if board_index else name
 
 
+# Un hueco de la placa: x = board.x + _HOLE_X0 + _HOLE_PITCH * (col - 1). Es
+# la misma cuenta que usa el puente para dibujar la placa, y sirve para
+# traducir la x de una pieza suelta a la columna de riel que le queda debajo.
+_HOLE_X0 = -295
+_HOLE_PITCH = 10
+
+
 def _wire(frm: str, to: str, name: str) -> dict:
     return {"from": frm, "to": to, "net": name, "color": _COLOR[name]}
 
@@ -380,26 +387,57 @@ def _plan_power(fixture: dict, leg_holes: dict, signal_claims: dict,
         )
         taken.setdefault(0, set()).add(_UNO_GROUND_COLUMN)
 
-    # 2b) Terminales de partes sueltas (el interruptor del EN, el pulsador del
-    #     RESET): cable directo de su terminal al riel de su net, entrando por
-    #     el borde izquierdo como la fuente.
+    # 2b) Terminales de partes sueltas (los pulsadores del registro): cable
+    #     directo de su terminal al riel de su net, en la columna mas cercana
+    #     a la pieza.
+    #
+    #     El riel es el hueco mas cercano de CUALQUIER placa ya alimentada, no
+    #     el de la placa 0. Todos los rieles son el mismo nodo (la cadena de
+    #     alimentacion los une, paso 3), asi que elegir el vecino no cambia ni
+    #     un net y ahorra una tirada de punta a punta del lienzo: medido el
+    #     2026-11-18 en el proyecto final, los dos pulsadores colgados de la
+    #     placa 0 daban los dos cables mas largos de todo el circuito (2620 y
+    #     2260) contra una mediana de 915.
     for name in _POWER_NAMES:
         if not free_power[name]:
             continue
-        rail = rail_on_side(boards[0]["kind"], home[name])
-        if rail is None:
-            errors.append(f"{name}: la placa 0 no tiene riel para la alimentacion")
-            continue
-        used = taken.setdefault(0, set())
         for endpoint in free_power[name]:
-            col = _nearest_rail_column(boards[0]["kind"], _ENTRY_COLUMN, used)
-            if col is None:
+            ref = endpoint.split(".", 1)[0]
+            free = ((placements or {}).get(ref) or {}).get("free") or {}
+            fx = float(free.get("x", boards[0]["x"]))
+            fy = float(free.get("y", 0.0))
+            # Solo placas ya alimentadas: el riel de una placa sin reparto no
+            # lo une nadie a la cadena y el cable quedaria colgando.
+            candidatas = [i for i in range(len(boards)) if i in powered] or [0]
+            mejor = None
+            for index in candidatas:
+                kind = boards[index]["kind"]
+                rail = rail_on_side(kind, home[name])
+                if rail is None:
+                    continue
+                huecos = _rail_holes(kind)
+                hint = round((fx - boards[index]["x"] - _HOLE_X0) / _HOLE_PITCH) + 1
+                # La ultima columna es del puente de rieles: pedirla dibujaria
+                # dos cables en el mismo hueco.
+                hint = min(max(hint, min(huecos)), max(huecos) - 1)
+                col = _nearest_rail_column(
+                    kind, hint, taken.setdefault(index, set()))
+                if col is None:
+                    continue
+                rail_x = boards[index]["x"] + _HOLE_X0 + _HOLE_PITCH * (col - 1)
+                # El riel se mide desde el origen de SU placa, no del lienzo.
+                rail_y = float(boards[index]["y"]) + float(board(kind).rails[rail])
+                costo = abs(fx - rail_x) + abs(fy - rail_y)
+                if mejor is None or costo < mejor[0]:
+                    mejor = (costo, index, rail, col)
+            if mejor is None:
                 errors.append(
                     f"{name}: sin hueco de riel para el cable de {endpoint}"
                 )
                 continue
-            wires.append(_wire(endpoint, _rail(0, rail, col), name))
-            used.add(col)
+            _, index, rail, col = mejor
+            wires.append(_wire(endpoint, _rail(index, rail, col), name))
+            taken.setdefault(index, set()).add(col)
 
     # 3) Placa extra: dos cables desde la ultima placa ya alimentada, de riel a
     #    riel y a la misma altura, asi que salen rectos.
