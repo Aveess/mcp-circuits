@@ -135,6 +135,20 @@ placas). Ojo: el lienzo dibuja la `y` negativa **hacia arriba** (una placa en
   `points`, que es lo que el build pidio. Medido el 2026-11-16: el lint decia
   `0 diagonales` sobre un diseño con dos cables en diagonal porque medía la
   intención.
+- **El simulador atiende un puntero a la vez.** No existe canal de doble
+  entrada: con un puntero abajo, el segundo se ignora. Medido el 2026-11-18
+  sobre el circuito del proyecto final (`0IItPdytJkx`) con los dos
+  `mousePressed` de CDP, dos toques y las seis mezclas de raton, toque y
+  lapiz: el interruptor se queda en su detente y el otro boton no se pulsa.
+  Los eventos sinteticos por JavaScript no los procesa y
+  `setProperty('Switch', ...)` en `circuit_editor.data` cambia la propiedad
+  del modelo pero no llega a la simulacion. Las pruebas que piden dos
+  acciones simultaneas se miden en su forma equivalente de un solo puntero
+  (sostener y leer dos veces) y la parte electronica se mide aparte.
+- **Una prueba sin control no prueba nada.** El "0" de una accion bloqueada
+  solo vale si la misma accion, sola, mueve algo. En el proyecto final el
+  clic de lapiz con `borrar` suelto no capturo; el 0 durante el borrado
+  sostenido era un clic que nunca llego, no la prioridad de RD.
 
 ## 3. Geometria de las placas (medida)
 

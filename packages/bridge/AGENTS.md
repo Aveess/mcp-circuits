@@ -179,6 +179,23 @@ Un did inventado no falla con un error claro: coloca otra cosa.
   la secuencia del display se viera afectada. Si una pata queda en una
   columna sin hueco de riel, el cable va **directo al hueco de riel mas
   cercano**, no por una fila de bus.
+- **El simulador atiende un puntero a la vez: no hay canal de doble entrada.**
+  Con un puntero abajo, el segundo se ignora. Medido el 2026-11-18 en
+  `0IItPdytJkx`: los dos `mousePressed` de CDP, dos toques y las seis mezclas
+  de raton, toque y lapiz dejan el interruptor en su detente y no pulsan el
+  otro boton. Los eventos sinteticos por JavaScript no los procesa (el
+  hitarea los recibe y la pieza no se mueve), y
+  `setProperty('Switch', ...)` en el modelo del editor cambia la propiedad
+  pero **la simulacion no lo ve** (el display cableado a los interruptores no
+  cambia con ningun valor). Una prueba que pida dos acciones simultaneas
+  (mantener un pulsador mientras se mueve un interruptor) se mide en su forma
+  equivalente de un solo puntero y se dice en el informe; la electronica que
+  la justifica se mide aparte sobre el integrado.
+- **Una prueba sin control puede dar un OK vacio.** Antes de creer un 0 (o un
+  5) durante una accion simultanea, comprueba que el canal hace algo cuando
+  la accion es sola. En la prueba del borrado prioritario el clic de lapiz
+  con `borrar` suelto no capturo: el 0 de la prueba no probaba la prioridad
+  de RD, probaba que el clic no llegaba.
 
 ## 6. Prohibido
 
