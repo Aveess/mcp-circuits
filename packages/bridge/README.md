@@ -162,21 +162,22 @@ python examples/build_temperature_circuit.py
 
 ---
 
-## 🤝 Cómo lo usa otra persona (clon, zip o copia directa)
+## 🤝 Cómo lo usa otra persona (invitación, zip o copia directa)
 
-El repo es público, así que hay tres formas de conseguirlo y las tres dan lo
-mismo:
+El repo es **privado**: se comparte invitando a la persona como colaborador de
+lectura o pasándole un zip. Con acceso, estas son las formas de conseguirlo:
 
 ```bash
-git clone https://github.com/Aveess/tinkercad-mcp-bridge.git   # con historial
-git clone --depth 1 https://github.com/Aveess/tinkercad-mcp-bridge.git  # sin historial, más rápido
+git clone https://github.com/Aveess/mcp-circuits-bridge.git   # con historial
+git clone --depth 1 https://github.com/Aveess/mcp-circuits-bridge.git  # sin historial, más rápido
 ```
 
-- **Descargar el ZIP**: botón *Code → Download ZIP* en GitHub, o
-  `https://github.com/Aveess/tinkercad-mcp-bridge/archive/refs/heads/main.zip`.
+- **Descargar el ZIP** (con acceso al repo): botón *Code → Download ZIP*, o
+  `https://github.com/Aveess/mcp-circuits-bridge/archive/refs/heads/main.zip`.
   El ZIP no trae `.git`, así que no hay forma de que suban cambios al original.
 - **`git archive`** desde una copia local: deja fuera `.git`, `.venv`,
-  `.tinkercad_profile` y `screenshots`; son ~270 KB.
+  `.tinkercad_profile` y `screenshots`; son ~270 KB. Es la vía recomendada para
+  pasar el proyecto a alguien sin darle acceso al repo.
 
 > **Tu cuenta, no la mía.** El servidor no tiene cuenta propia: maneja **tu**
 > navegador con **tu** sesión de Tinkercad. Los diseños que construyas van a tu
@@ -194,7 +195,7 @@ git clone --depth 1 https://github.com/Aveess/tinkercad-mcp-bridge.git  # sin hi
 1. Clonar o descomprimir el zip en una carpeta propia. Necesitas Python 3.10 o más.
 2. Crear el entorno e instalar:
    ```bash
-   cd tinkercad-mcp-bridge
+   cd mcp-circuits-bridge
    python -m venv .venv
    source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
    pip install -r requirements.txt
@@ -210,7 +211,7 @@ git clone --depth 1 https://github.com/Aveess/tinkercad-mcp-bridge.git  # sin hi
    ```jsonc
    "mcp": { "servers": { "tinkercad-circuits": {
      "type": "local",
-     "command": ["/ruta/a/tinkercad-mcp-bridge/.venv/bin/python", "-m", "src.main"]
+     "command": ["/ruta/a/mcp-circuits-bridge/.venv/bin/python", "-m", "src.main"]
    }}}
    ```
 5. Comprobar que quedó bien, antes de pedirle nada al agente:
@@ -241,8 +242,10 @@ tampoco `.git/`. `git archive` ya deja todo eso fuera; el zip de entrega son
 
 Con el MCP solo, el agente construye a partir de un plan JSON (piezas, cables
 por hueco y `boards`). El que **genera** esos planes desde una fixture es otro
-repo público, [`Aveess/tinkercad-brain`](https://github.com/Aveess/tinkercad-brain),
-del mismo autor. Se clona igual y apunta al puente con `TINKERCAD_BRIDGE`.
+repo aparte del mismo autor,
+[`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain),
+se comparte igual (invitación o zip). Se clona aparte y apunta al puente con
+`TINKERCAD_BRIDGE`.
 
 ## 🔌 Connecting to MCP Clients
 
