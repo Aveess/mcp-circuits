@@ -131,9 +131,10 @@ _WIRE_PALETTE = ["blue", "green", "orange", "yellow", "purple", "turquoise", "pi
 # deja de leerse") pero era una guarda de legibilidad, no una limitacion
 # medida del editor: el 2026-11-17 el proyecto final necesito 5 placas
 # (tres en fila + dos apiladas debajo, con todos los integrados montados) y
-# el editor las coloco y las cableo sin problema. Seis deja aire para el
-# proyecto completo (partes 2 y 3) sin volver el lienzo ilegible.
-_MAX_BOARDS = 6
+# el editor las coloco y las cableo sin problema. La parte 3 suma el registro
+# y el resultado: siete en total (cuatro de la parte 1, la suma, el registro y
+# el resultado). Siete es el numero real del proyecto entregable, no aire.
+_MAX_BOARDS = 7
 
 
 def _normalize_did(value: Any) -> Optional[Any]:
@@ -1217,9 +1218,25 @@ _BUILD_JS = r"""
                 // final: 10 cables de los interruptores a los integrados
                 // pasaban por encima de las dos placas de displays).
                 const midRows = boardsBetween(boardA, boardB);
-                const midX = midRows.length
-                  ? corridorX((boardOrigin(boardA).x + boardOrigin(boardB).x) / 2,
-                              midRows)
+                // Una fila de por medio solo obliga a bajar por el corredor
+                // si su cuerpo se cruza en el camino: una placa que esta en
+                // otra columna no estorba a un cable que baja derecho por la
+                // columna del destino. Antes bastaba la `y` y el cable daba
+                // una vuelta de 600 unidades para esquivar una placa que
+                // nunca tocaba (medido el 2026-11-17 en el proyecto final:
+                // los cables del registro esquivaban el banco de compuertas
+                // que vive en otra columna del lienzo).
+                const xLo = Math.min(posA.x, posB.x);
+                const xHi = Math.max(posA.x, posB.x);
+                const midBlocking = midRows.filter((i) => {
+                  const bx = boardBox(i);
+                  return bx.x1 >= xLo && bx.x0 <= xHi;
+                });
+                // Las ventanas se calculan con **todas** las filas de en
+                // medio: es el mapa de huecos de esa banda y no cambia
+                // porque un cable no pase por ellas.
+                const midX = midBlocking.length
+                  ? corridorX((boardOrigin(boardA).x + boardOrigin(boardB).x) / 2, midRows)
                   : null;
                 // El carril de arriba se pide solo si el cable va a usar el
                 // corredor: si no, gastaria un carril que no dibuja.

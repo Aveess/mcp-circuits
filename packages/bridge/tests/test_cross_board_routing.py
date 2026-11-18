@@ -136,6 +136,27 @@ class CrossBoardRoutingTest(unittest.TestCase):
         # Sin fila en medio se sigue usando el ruteo de siempre (dos quiebres).
         self.assertIn("puntos.push({ x: posA.x, y: laneHere },", js)
 
+    def test_una_fila_en_medio_que_no_esta_en_el_camino_no_obliga_a_desviar(self):
+        """El corredor se decide por el cuerpo, no solo por la fila.
+
+        Medido el 2026-11-17 en el proyecto final: el registro y el resultado
+        van apilados debajo del sumador, en la columna x=2300. La fila de
+        compuertas (x=1220, y=400) queda entre las dos en `y`, y el ruteo
+        mandaba los 12 cables a un corredor en x=1640 — una vuelta de 600
+        unidades para esquivar una placa que nunca estaba en el camino. La
+        fila de en medio ahora solo cuenta si su caja se cruza con el tramo
+        horizontal del cable.
+        """
+        js = self.js
+        self.assertIn("const midBlocking = midRows.filter((i) => {", js)
+        self.assertIn("bx.x1 >= xLo && bx.x0 <= xHi", js)
+        self.assertIn("const midX = midBlocking.length", js)
+        # Las ventanas siguen saliendo de todas las filas: la parte 2 ya esta
+        # entregada y su corredor (x=1230) no puede moverse.
+        self.assertIn(
+            "corridorX((boardOrigin(boardA).x + boardOrigin(boardB).x) / 2, midRows)",
+            js)
+
     def test_el_build_reporta_los_puntos_que_guardo_el_editor(self):
         """`route_debug[*].actual` es la medida del dibujo, no la intencion.
 

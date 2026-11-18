@@ -1352,6 +1352,30 @@ class TestMultiBoardValidation(unittest.IsolatedAsyncioTestCase):
                          [0.0, 0.0, 0.0, -520.0, -520.0])
         self.assertTrue(all(b["did"] == 116648 for b in plan["boards"]))
 
+    async def test_siete_placas_del_proyecto_final_pasan_el_tope(self):
+        """La parte 3 llega a siete placas: cuatro de entradas, suma,
+        registro y resultado. El tope subio de 6 a 7 el 2026-11-17 porque
+        siete es el numero real del circuito entregable, y el plan tiene que
+        llegar al JS con sus `y` (tres placas de la columna 2300)."""
+        boards = [
+            {"x": 845, "y": 0, "did": 116648},
+            {"x": 1220, "y": 400, "did": 116648},
+            {"x": 1595, "y": 0, "did": 116648},
+            {"x": 1220, "y": -380, "did": 116648},
+            {"x": 2300, "y": 0, "did": 116648},
+            {"x": 2300, "y": 400, "did": 116648},
+            {"x": 2300, "y": 800, "did": 116648},
+        ]
+        svc, _, page = make_service(evaluate_return={"placed": {}, "errors": []})
+        res = await svc.build_from_holes(parts=[], wires=[], boards=boards)
+        self.assertFalse(
+            any("boards are supported" in e for e in res.get("errors") or []),
+            res.get("errors"))
+        plan = page.evaluate.await_args_list[-1].args[1]
+        self.assertEqual(len(plan["boards"]), 7)
+        self.assertEqual([b["y"] for b in plan["boards"]],
+                         [0.0, 400.0, 0.0, -380.0, 0.0, 400.0, 800.0])
+
     async def test_board_entry_validation(self):
         svc, _, page = make_service()
         for bad in ({"x": "870", "y": 0}, {"x": 870}, 870):
