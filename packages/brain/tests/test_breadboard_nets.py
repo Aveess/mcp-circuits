@@ -1,16 +1,18 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 from tinkercad_brain.breadboard_nets import derive_nets
 
-LIVE6 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live6.json")
-LIVE11 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live11.json")
-LIVE14 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live14.json")
-LIVE19 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live19.json")
-LIVE21 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live21.json")
-LIVE24 = Path("/home/usuario/jarvis_data/logs/tinkercad-fase0/live24.json")
+DATOS = Path(os.environ.get("TINKERCAD_DATA", Path.home() / "jarvis_data"))
+LIVE6 = DATOS / "logs/tinkercad-fase0/live6.json"
+LIVE11 = DATOS / "logs/tinkercad-fase0/live11.json"
+LIVE14 = DATOS / "logs/tinkercad-fase0/live14.json"
+LIVE19 = DATOS / "logs/tinkercad-fase0/live19.json"
+LIVE21 = DATOS / "logs/tinkercad-fase0/live21.json"
+LIVE24 = DATOS / "logs/tinkercad-fase0/live24.json"
 
 EXPECTED_SERVO_POT = [
     ["potentiometer1.1", "servo1.vcc", "uno.5V"],

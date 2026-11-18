@@ -10,8 +10,8 @@ mano: esa es la regla de diseño número uno.
 
 | Pieza | Repo | Qué hace |
 |---|---|---|
-| El puente (las manos) | `Aveess/tinkercad-mcp-bridge` (privado) | Servidor MCP en Python/Playwright con 50 tools. Fork de ezhil-kumaran saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
-| El cerebro (este repo) | `Aveess/tinkercad-brain` (privado) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
+| El puente (las manos) | [`Aveess/tinkercad-mcp-bridge`](https://github.com/Aveess/tinkercad-mcp-bridge) | Servidor MCP en Python/Playwright con 50 tools. Fork de [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
+| El cerebro (este repo) | [`Aveess/tinkercad-brain`](https://github.com/Aveess/tinkercad-brain) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
 
 Las dos capas hablan **MCP sobre stdio**. El cerebro nunca importa al
 puente en producción.
@@ -111,3 +111,18 @@ cd ~/Documentos/StartUp/TInkercad/tinkercad-brain
   cierra un tester independiente que no escribe código de producción.
 - Sin secretos en los repos: la sesión de Tinkercad vive solo en el
   perfil persistente del navegador.
+
+## Créditos
+
+Este repo se apoya en trabajo ajeno, y se dice explícitamente:
+
+| Proyecto | Licencia | Qué se tomó |
+|---|---|---|
+| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | Es la base del **puente**: servidor MCP, Playwright, catálogo de componentes y la mayoría de las tools. El fork ([`Aveess/tinkercad-mcp-bridge`](https://github.com/Aveess/tinkercad-mcp-bridge)) le agregó el build por huecos, el ruteo ortogonal y el sampler |
+| [`sethski/tinkercad-mcp-server`](https://github.com/sethski/tinkercad-mcp-server) | MIT | Proyecto previo (Node/TypeScript) del que nace la idea: manejar el editor real de Tinkercad con un navegador porque no hay API pública |
+
+Todo lo demás —el planner de layout por huecos, la derivación de nets con
+continuidad de protoboard, la comparación por equivalencia eléctrica, el
+oráculo serial instrumentado, los generadores de informes y la documentación—
+es de este repo. Si reutilizas cualquiera de los dos, conserva los avisos de
+copyright de arriba: la MIT lo exige.
