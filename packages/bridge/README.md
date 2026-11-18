@@ -388,6 +388,13 @@ Read this before reporting a bug. These are properties of Tinkercad's editor and
 
 > **"Read the serial monitor output from my running circuit and report the temperature readings."**
 
+## 📣 Si lo usas, cuéntalo
+
+No hay telemetría: este repo no manda nada a ningún lado y no me entero de
+quién lo clona ni de quién lo descarga. Si te sirvió para armar algo, **abre un
+issue contando qué montaste y qué se rompió**. Es la única señal que tengo de
+que el proyecto se usa, y sirve para priorizar lo que sigue.
+
 ---
 
 ## 📜 Créditos y linaje
