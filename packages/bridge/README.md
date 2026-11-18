@@ -162,22 +162,22 @@ python examples/build_temperature_circuit.py
 
 ---
 
-## 🤝 Cómo lo usa otra persona (invitación, zip o copia directa)
+## 🤝 Cómo lo usa otra persona (clon, zip o copia directa)
 
-El repo es **privado**: se comparte invitando a la persona como colaborador de
-lectura o pasándole un zip. Con acceso, estas son las formas de conseguirlo:
+El repo es público, así que hay tres formas de conseguirlo y las tres dan lo
+mismo:
 
 ```bash
 git clone https://github.com/Aveess/mcp-circuits-bridge.git   # con historial
 git clone --depth 1 https://github.com/Aveess/mcp-circuits-bridge.git  # sin historial, más rápido
 ```
 
-- **Descargar el ZIP** (con acceso al repo): botón *Code → Download ZIP*, o
+- **Descargar el ZIP**: botón *Code → Download ZIP*, o
   `https://github.com/Aveess/mcp-circuits-bridge/archive/refs/heads/main.zip`.
   El ZIP no trae `.git`, así que no hay forma de que suban cambios al original.
 - **`git archive`** desde una copia local: deja fuera `.git`, `.venv`,
-  `.tinkercad_profile` y `screenshots`; son ~270 KB. Es la vía recomendada para
-  pasar el proyecto a alguien sin darle acceso al repo.
+  `.tinkercad_profile` y `screenshots`; son ~270 KB. Útil si quieres pasar el
+  proyecto a alguien sin que dependa del repo.
 
 > **Tu cuenta, no la mía.** El servidor no tiene cuenta propia: maneja **tu**
 > navegador con **tu** sesión de Tinkercad. Los diseños que construyas van a tu
@@ -242,10 +242,9 @@ tampoco `.git/`. `git archive` ya deja todo eso fuera; el zip de entrega son
 
 Con el MCP solo, el agente construye a partir de un plan JSON (piezas, cables
 por hueco y `boards`). El que **genera** esos planes desde una fixture es otro
-repo aparte del mismo autor,
-[`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain),
-se comparte igual (invitación o zip). Se clona aparte y apunta al puente con
-`TINKERCAD_BRIDGE`.
+repo público del mismo autor,
+[`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain).
+Se clona aparte y apunta al puente con `TINKERCAD_BRIDGE`.
 
 ## 🔌 Connecting to MCP Clients
 
