@@ -1,5 +1,9 @@
 # Tinkercad Circuits MCP Server (Python)
 
+> Proyecto **no oficial**, sin relación con Autodesk. «Tinkercad» es marca de
+> Autodesk y aquí solo se usa para decir qué editor automatiza. Úsalo con tu
+> propia cuenta y a tu ritmo: un build a la vez.
+
 A complete **Model Context Protocol (MCP)** server for automating **Autodesk Tinkercad Circuits** using Python, Playwright, and the official Python MCP SDK.
 
 This server enables AI assistants (such as Claude Desktop, Cursor, Antigravity, or custom agents) to programmatically design, wire, code, simulate, and debug electronic circuits directly inside the Tinkercad web interface.
