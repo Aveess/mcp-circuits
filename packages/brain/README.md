@@ -1,5 +1,8 @@
 # tinkercad-brain
 
+> Proyecto **no oficial**, sin relación con Autodesk. «Tinkercad» es marca de
+> Autodesk y aquí solo se usa para nombrar el simulador al que apunta.
+
 Asistente personal y local para construir circuitos Arduino en **Tinkercad
 Circuits**, verificarlos automáticamente y documentarlos. Un solo usuario,
 uso local. Todo circuito producido termina como diseño guardado en
