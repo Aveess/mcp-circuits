@@ -24,9 +24,25 @@ from mcp.client.stdio import stdio_client
 REPO = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parents[1]
 
 
+def _venv_python(repo: Path) -> str:
+    """Interprete del venv del proyecto.
+
+    En el monorepo el venv vive en la raiz (`mcp-circuits/.venv`), dos niveles
+    arriba de este paquete; en una copia suelta del paquete, al lado. Si no hay
+    venv, se usa el interprete que corre este script.
+    """
+    bases = [repo.parents[1] if len(repo.parents) > 1 else repo, repo]
+    for base in bases:
+        for parts in (("bin", "python"), ("Scripts", "python.exe")):
+            candidate = base.joinpath(".venv", *parts)
+            if candidate.exists():
+                return str(candidate)
+    return sys.executable
+
+
 async def main() -> int:
     params = StdioServerParameters(
-        command=str(REPO / ".venv" / "bin" / "python"),
+        command=_venv_python(REPO),
         args=["-m", "src.main"],
         cwd=str(REPO),
         env={"PYTHONUNBUFFERED": "1"},

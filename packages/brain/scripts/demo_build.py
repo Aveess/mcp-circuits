@@ -30,8 +30,10 @@ from tinkercad_brain.circuit_doc import (  # noqa: E402
 from tinkercad_brain.documenter import render_build_report  # noqa: E402
 
 DEFAULT_FIXTURES_PATH = REPO_ROOT / "fixtures" / "fase0" / "circuits.json"
+# El puente vive al lado, en `packages/bridge`; `TINKERCAD_BRIDGE` lo manda si
+# alguien lo tiene en otra ruta.
 DEFAULT_BRIDGE_PATH = Path(
-    os.environ.get("TINKERCAD_BRIDGE", "~/Documentos/StartUp/TInkercad/tinkercad-mcp")
+    os.environ.get("TINKERCAD_BRIDGE", str(REPO_ROOT.parent / "bridge"))
 ).expanduser()
 REPORTS_DIR = REPO_ROOT / "docs" / "reportes"
 
@@ -109,39 +111,6 @@ _PRESETS_BY_FIXTURE["contador-0-7-jk-v4"] = [
     dict(preset) for preset in _PRESETS_BY_FIXTURE["contador-0-7-jk-v3"]
 ] + [
     {"component": "rpd", "property": "resistance", "value": 10, "unit": "k"},
-]
-
-
-# Proyecto final, partes 1, 2 y 3. Tres familias de preset, las dos primeras
-# medidas en vivo el 2026-11-16 en la sonda `iXiA957AXba`:
-#
-# - **Display**: la pieza nace de ANODO comun. Cableada como catodo (comun a
-#   GND, que es lo que pide el CD4511) queda **apagada** aunque el cableado
-#   este perfecto: medido en la sonda, el mismo circuito paso de negro a
-#   encender el "8" del lamp test al fijar `common = cathode`.
-# - **Resistencia**: Tinkercad crea las resistencias en 1 kohm; el diseno es de
-#   220 ohm por segmento (y por LED del banco de la parte 2). El valor va por
-#   ref porque en el circuito hay 29 resistencias de segmento.
-# - **Pull de los botones de la parte 3**: el reloj necesita 10 k a GND y el
-#   borrado 10 k a 5V; sin pull, un pulsador que no esta apretado deja la
-#   entrada al aire.
-_PRESETS_BY_FIXTURE["proyecto-final-sumador-c2"] = [
-    {"component": ref, "property": "common", "value": "cathode"}
-    for ref in ("sigA", "numA", "sigB", "numB", "sigS", "numS")
-] + [
-    {"component": ref, "property": "resistance", "value": 220}
-    for ref in (
-        [f"ra{index}" for index in range(1, 8)]
-        + ["rsa"]
-        + [f"rb{index}" for index in range(1, 8)]
-        + ["rsb"]
-        + [f"rl{index}" for index in range(5)]
-        + [f"rr{index}" for index in range(1, 8)]
-        + ["rrs"]
-    )
-] + [
-    {"component": "rcp", "property": "resistance", "value": 10, "unit": "k"},
-    {"component": "rcl", "property": "resistance", "value": 10, "unit": "k"},
 ]
 
 

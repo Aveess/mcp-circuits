@@ -29,14 +29,15 @@ import argparse
 import asyncio
 import os
 import sys
+import tempfile
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 # Ruta del puente: `TINKERCAD_BRIDGE` manda, para que el repo corra en otra
-# maquina sin editar el script. El default es donde vive hoy.
+# maquina sin editar el script. El default es el paquete hermano del monorepo.
 BRIDGE = Path(
-    os.environ.get(
-        "TINKERCAD_BRIDGE", "~/Documentos/StartUp/TInkercad/tinkercad-mcp"
-    )
+    os.environ.get("TINKERCAD_BRIDGE", str(REPO_ROOT.parent / "bridge"))
 ).expanduser()
 sys.path.insert(0, str(BRIDGE))
 
@@ -44,7 +45,10 @@ from playwright.async_api import async_playwright  # noqa: E402
 
 from src.config import PROFILE_DIR  # noqa: E402
 
-SHOTS = Path("/tmp/opencode")
+# Capturas de la sonda: `TINKERCAD_SHOTS` manda, si no el temp del sistema.
+SHOTS = Path(os.environ.get("TINKERCAD_SHOTS", tempfile.gettempdir())) / (
+    "tinkercad-shots"
+)
 
 # Teclas 1, 2, 3 y 4 en el encuadre del circuito cerradura-teclado.
 KEYS_DEFAULT = "755,310 800,310 850,310 755,356"

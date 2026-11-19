@@ -1,0 +1,49 @@
+# Raíz del monorepo: lo que aplica a los dos paquetes. Cada paquete tiene su
+# propio .gitignore para lo suyo.
+
+# Entornos virtuales
+.venv/
+venv/
+ENV/
+env/
+
+# Credenciales: el perfil del navegador ES la sesión de Tinkercad
+.tinkercad_profile/
+.tinkercad_profile*
+.browser_profile/
+*.profile/
+.netrc
+.authinfo
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.token
+*.cookies
+*.session
+cookies*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Capturas y artefactos de corridas
+screenshots/*
+!screenshots/.gitkeep
+*.png.tmp
+*.log
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*~

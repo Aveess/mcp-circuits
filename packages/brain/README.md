@@ -11,10 +11,10 @@ mano: esa es la regla de diseño número uno.
 
 ## Arquitectura
 
-| Pieza | Repo | Qué hace |
+| Pieza | Dónde | Qué hace |
 |---|---|---|
-| El puente (las manos) | [`Aveess/mcp-circuits-bridge`](https://github.com/Aveess/mcp-circuits-bridge) | Servidor MCP en Python/Playwright con 50 tools. Fork de [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) saneado para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
-| El cerebro (este repo) | [`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain) | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
+| El puente (las manos) | [`packages/bridge`](../bridge) | Servidor MCP en Python/Playwright con 50 tools. Base de [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) saneada para Linux + tools propias: construcción por huecos directa en el modelo del editor (`tinkercad_build_circuit_model`) con ruteo ortogonal por carriles, y sampler de simulación |
+| El cerebro (este paquete) | `packages/brain` | Spec por huecos validada, planner de layout, builder, derivación de nets con continuidad de protoboard, comparación por equivalencia eléctrica, verificador por serial instrumentado, documentador |
 
 Las dos capas hablan **MCP sobre stdio**. El cerebro nunca importa al
 puente en producción.
@@ -85,24 +85,22 @@ y los reportes individuales en `docs/reportes/`.
 
 ## Puesta en marcha
 
-Puente (una sola vez):
+Todo sale del `setup.sh` de la raíz del monorepo (venv + dependencias +
+Chromium + este paquete en modo editable). Después, el login del puente, una
+sola vez:
 
 ```bash
-cd ~/Documentos/StartUp/TInkercad/tinkercad-mcp
-.venv/bin/python -m src.cli.login_cli   # login interactivo, queda en el perfil
-.venv/bin/playwright install chromium
+cd ../..                                  # raíz de mcp-circuits
+.venv/bin/python -m src.cli.login_cli     # login interactivo, queda en el perfil
 ```
 
-Si el puente vive en otra ruta, `TINKERCAD_BRIDGE` manda sobre el default
-(`~/Documentos/StartUp/TInkercad/tinkercad-mcp`); `demo_build.py` también
-acepta `--bridge`. Ese default es solo el del `PATH` de proceso: no hay
-rutas absolutas de usuario en el código.
+El cerebro busca el puente en `packages/bridge`; si vive en otra ruta,
+`TINKERCAD_BRIDGE` manda, y `demo_build.py` además acepta `--bridge`.
 
-Cerebro:
+Suite:
 
 ```bash
-cd ~/Documentos/StartUp/TInkercad/tinkercad-brain
-.venv/bin/pytest -q
+cd packages/brain && ../../.venv/bin/python -m pytest -q
 ```
 
 ## Reglas del proyecto
@@ -127,11 +125,11 @@ Este repo se apoya en trabajo ajeno, y se dice explícitamente:
 
 | Proyecto | Licencia | Qué se tomó |
 |---|---|---|
-| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | Es la base del **puente**: servidor MCP, Playwright, catálogo de componentes y la mayoría de las tools. El fork ([`Aveess/mcp-circuits-bridge`](https://github.com/Aveess/mcp-circuits-bridge)) le agregó el build por huecos, el ruteo ortogonal y el sampler |
+| [`ezhil-kumaran/Tinkercad-mcp`](https://github.com/ezhil-kumaran/Tinkercad-mcp) | MIT | Es la base del **puente** (`packages/bridge`): servidor MCP, Playwright, catálogo de componentes y la mayoría de las tools. El trabajo propio encima le agregó el build por huecos, el ruteo ortogonal y el sampler |
 | [`sethski/tinkercad-mcp-server`](https://github.com/sethski/tinkercad-mcp-server) | MIT | Proyecto previo (Node/TypeScript) del que nace la idea: manejar el editor real de Tinkercad con un navegador porque no hay API pública |
 
 Todo lo demás —el planner de layout por huecos, la derivación de nets con
 continuidad de protoboard, la comparación por equivalencia eléctrica, el
 oráculo serial instrumentado, los generadores de informes y la documentación—
-es de este repo. Si reutilizas cualquiera de los dos, conserva los avisos de
-copyright de arriba: la MIT lo exige.
+es de este paquete. Si reutilizas cualquiera de las dos capas, conserva los
+avisos de copyright: la MIT lo exige.

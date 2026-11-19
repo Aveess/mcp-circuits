@@ -67,8 +67,7 @@ This server enables AI assistants (such as Claude Desktop, Cursor, Antigravity, 
 ## 📦 Project Structure
 
 ```
-Tinkercad-mcp/
-├── .venv/                         # Python virtual environment
+mcp-circuits/packages/bridge/       # el venv vive en la raiz de mcp-circuits
 ├── .tinkercad_profile/            # Persistent browser session & cookies (gitignored)
 ├── screenshots/                   # Workspace screenshots captured by tools
 ├── requirements.txt               # pip dependencies
@@ -102,30 +101,24 @@ Tinkercad-mcp/
 
 ## 🛠️ Setup Instructions
 
-### 1. Prerequisites
-* **Python 3.10+** (Python 3.12 recommended)
-* **pip** and **venv**
+This package lives inside the [`mcp-circuits`](https://github.com/Aveess/mcp-circuits)
+monorepo. The quickstart is the repo root: `./setup.sh` (or `.\setup.ps1`).
+By hand, from the **repo root**:
 
-### 2. Virtual Environment & Dependencies
-If not already created:
 ```bash
-# Create virtual environment
 python -m venv .venv
-
-# Activate virtual environment
-# Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# Linux / macOS:
-# source .venv/bin/activate
-
-# Install requirements
-pip install -r requirements.txt
-
-# Install Playwright Chromium browser
+source .venv/bin/activate            # Windows: .\.venv\Scripts\Activate.ps1
+pip install -r packages/bridge/requirements.txt
+pip install -e packages/bridge -e packages/brain
 playwright install chromium
 ```
 
-### 3. One-Time Authentication
+> Why `pip install -e`: `pyproject.toml` declares the `src` package
+> explicitly, so the editable install keeps `python -m src.main` working from
+> any directory. Without it, setuptools mistakes `src/` for the `src/` layout
+> and installs nothing useful.
+
+### 1. One-Time Authentication
 Run the interactive login command to sign into your Tinkercad / Autodesk account:
 ```bash
 python -m src.cli.login_cli
@@ -134,18 +127,19 @@ python -m src.cli.login_cli
 * Log in with your Autodesk ID, Google account, or student nickname.
 * Once you land on your Tinkercad dashboard, the CLI will automatically detect your login, save your session cookies in `.tinkercad_profile/`, and exit.
 
-### 4. Verify Registered Tools
+### 2. Verify Registered Tools
 To inspect the 50 registered MCP tools:
 ```bash
 python -m src.cli.list_tools_cli
 ```
 
-### 5. Run Unit Tests
+### 3. Run Unit Tests
+From `packages/bridge` (the suite imports `src.*` from the working directory):
 ```bash
 python -m unittest discover tests
 ```
 
-### 6. Check the MCP Protocol Itself
+### 4. Check the MCP Protocol Itself
 The unit tests call the service layer directly. This script spawns the real
 server over stdio, performs the MCP handshake, lists the tools and calls one
 (no circuit is modified):
@@ -154,7 +148,7 @@ python examples/check_mcp_stdio.py
 ```
 Expected output: `handshake: tinkercad-circuits 1.1.0`, `tools: 50`, `authenticated: True`, `OK`.
 
-### 7. Run End-to-End Example (Optional)
+### 5. Run End-to-End Example (Optional)
 To programmatically build, wire, program, and simulate a complete temperature-controlled servo circuit:
 ```bash
 python examples/build_temperature_circuit.py
@@ -168,12 +162,12 @@ El repo es público, así que hay tres formas de conseguirlo y las tres dan lo
 mismo:
 
 ```bash
-git clone https://github.com/Aveess/mcp-circuits-bridge.git   # con historial
-git clone --depth 1 https://github.com/Aveess/mcp-circuits-bridge.git  # sin historial, más rápido
+git clone https://github.com/Aveess/mcp-circuits.git   # con historial
+git clone --depth 1 https://github.com/Aveess/mcp-circuits.git  # sin historial, más rápido
 ```
 
 - **Descargar el ZIP**: botón *Code → Download ZIP*, o
-  `https://github.com/Aveess/mcp-circuits-bridge/archive/refs/heads/main.zip`.
+  `https://github.com/Aveess/mcp-circuits/archive/refs/heads/main.zip`.
   El ZIP no trae `.git`, así que no hay forma de que suban cambios al original.
 - **`git archive`** desde una copia local: deja fuera `.git`, `.venv`,
   `.tinkercad_profile` y `screenshots`; son ~270 KB. Útil si quieres pasar el
@@ -192,26 +186,22 @@ git clone --depth 1 https://github.com/Aveess/mcp-circuits-bridge.git  # sin his
 
 ### Puesta en marcha (5 pasos)
 
-1. Clonar o descomprimir el zip en una carpeta propia. Necesitas Python 3.10 o más.
-2. Crear el entorno e instalar:
+1. Clonar o descomprimir el zip en una carpeta propia. Necesitas Python 3.11 o más.
+2. Un solo comando en la raíz del repo:
    ```bash
-   cd mcp-circuits-bridge
-   python -m venv .venv
-   source .venv/bin/activate            # Windows: .venv\Scripts\Activate.ps1
-   pip install -r requirements.txt
-   playwright install chromium
+   ./setup.sh                           # Windows: .\setup.ps1
    ```
-3. Entrar a Tinkercad con **su** cuenta (abre Chrome; la sesión queda en su
-   `.tinkercad_profile/`, que no se comparte):
+3. Entrar a Tinkercad con **su** cuenta (abre Chrome; la sesión queda en
+   `packages/bridge/.tinkercad_profile/`, que no se comparte):
    ```bash
-   python -m src.cli.login_cli
+   .venv/bin/python -m src.cli.login_cli
    ```
-4. Conectar su cliente MCP al **python del venv**, con `cwd` en esa carpeta (ver
+4. Conectar su cliente MCP al **python del venv** (ver
    "Connecting to MCP Clients" aquí abajo). En OpenCode:
    ```jsonc
    "mcp": { "servers": { "tinkercad-circuits": {
      "type": "local",
-     "command": ["/ruta/a/mcp-circuits-bridge/.venv/bin/python", "-m", "src.main"]
+     "command": ["/ruta/a/mcp-circuits/.venv/bin/python", "-m", "src.main"]
    }}}
    ```
 5. Comprobar que quedó bien, antes de pedirle nada al agente:
@@ -241,10 +231,10 @@ tampoco `.git/`. `git archive` ya deja todo eso fuera; el zip de entrega son
 ### Si además quiere el flujo completo
 
 Con el MCP solo, el agente construye a partir de un plan JSON (piezas, cables
-por hueco y `boards`). El que **genera** esos planes desde una fixture es otro
-repo público del mismo autor,
-[`Aveess/mcp-circuits-brain`](https://github.com/Aveess/mcp-circuits-brain).
-Se clona aparte y apunta al puente con `TINKERCAD_BRIDGE`.
+por hueco y `boards`). El que **genera** esos planes desde una fixture y
+**verifica** el resultado es [`packages/brain`](../brain), en este mismo repo y
+en el mismo venv. El cerebro busca el puente en `packages/bridge`; si vive en
+otra ruta, `TINKERCAD_BRIDGE=/ruta` manda.
 
 ## 🔌 Connecting to MCP Clients
 
@@ -255,17 +245,19 @@ Add this to your `claude_desktop_config.json` (`%APPDATA%\Claude\claude_desktop_
 {
   "mcpServers": {
     "tinkercad-circuits": {
-      "command": "python",
+      "command": "/path/to/mcp-circuits/.venv/bin/python",
       "args": ["-m", "src.main"],
-      "cwd": "/path/to/Tinkercad-mcp"
+      "cwd": "/path/to/mcp-circuits/packages/bridge"
     }
   }
 }
 ```
 
-> **Windows Note**: Use absolute path to the venv Python executable, for example:
-> `"command": "C:\\path\\to\\Tinkercad-mcp\\.venv\\Scripts\\python.exe"` and `"cwd": "C:\\path\\to\\Tinkercad-mcp"`.
-> **macOS / Linux Note**: Use `"command": "/path/to/Tinkercad-mcp/.venv/bin/python"` and `"cwd": "/path/to/Tinkercad-mcp"`.
+> **Windows Note**: `"command": "C:\\path\\to\\mcp-circuits\\.venv\\Scripts\\python.exe"` and `"cwd": "C:\\path\\to\\mcp-circuits\\packages\\bridge"`.
+> **macOS / Linux Note**: `"command": "/path/to/mcp-circuits/.venv/bin/python"` and `"cwd": "/path/to/mcp-circuits/packages/bridge"`.
+> `cwd` is only a fallback once the editable install is done — but it is the
+> one thing that silently breaks when someone skips the install and runs
+> `python -m src.main` from the wrong place.
 
 ### B. Cursor (.cursor/mcp.json)
 Create or edit `.cursor/mcp.json` in your project workspace:
@@ -274,9 +266,9 @@ Create or edit `.cursor/mcp.json` in your project workspace:
 {
   "mcpServers": {
     "tinkercad": {
-      "command": "python",
+      "command": "/path/to/mcp-circuits/.venv/bin/python",
       "args": ["-m", "src.main"],
-      "cwd": "/path/to/Tinkercad-mcp"
+      "cwd": "/path/to/mcp-circuits/packages/bridge"
     }
   }
 }
@@ -285,7 +277,7 @@ Create or edit `.cursor/mcp.json` in your project workspace:
 ### C. Testing with MCP Inspector
 You can test the server interactively via the official MCP Inspector:
 ```bash
-npx @modelcontextprotocol/inspector .venv/Scripts/python.exe -m src.main
+npx @modelcontextprotocol/inspector /path/to/mcp-circuits/.venv/bin/python -m src.main
 ```
 
 ---

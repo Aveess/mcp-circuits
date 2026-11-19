@@ -20,3 +20,10 @@ dependencies = [
 tinkercad-mcp = "src.main:main"
 tinkercad-login = "src.cli.login_cli:main"
 
+# El paquete se llama `src` (asi nacio) y vive en `src/`. Sin esta lista,
+# setuptools lo confunde con el layout `src/<paquete>/` e instala `browser`,
+# `catalog`... como paquetes de primer nivel, dejando `python -m src.main`
+# roto. Declararlo explicito es lo que hace que `pip install -e` funcione.
+[tool.setuptools]
+packages = ["src", "src.browser", "src.catalog", "src.cli", "src.services"]
+
