@@ -1,0 +1,3 @@
+# Dependencias para correr las suites (no hacen falta para usar el MCP).
+#   .venv/bin/python -m pip install -r requirements-dev.txt
+pytest>=8

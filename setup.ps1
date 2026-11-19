@@ -22,6 +22,9 @@ Write-Host "==> dependencias del puente"
 Write-Host "==> puente y cerebro (editables)"
 & $py -m pip install -e packages\bridge -e packages\brain
 
+Write-Host "==> pytest (para las suites)"
+& $py -m pip install -r requirements-dev.txt
+
 if ($env:SKIP_BROWSER -ne "1") {
     Write-Host "==> Chromium de Playwright (~150 MB la primera vez)"
     & $py -m playwright install chromium

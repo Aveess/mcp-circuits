@@ -72,7 +72,7 @@ Windows: `.venv\Scripts\python.exe` y rutas con doble barra invertida.
 # handshake: tinkercad-circuits 1.1.0 / tools: 50 / authenticated: True / OK
 ```
 
-Suites:
+Suites (el `setup.sh` ya instala pytest; a mano: `pip install -r requirements-dev.txt`):
 
 ```bash
 cd packages/bridge && ../../.venv/bin/python -m unittest discover tests   # 364 tests

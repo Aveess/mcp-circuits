@@ -39,6 +39,9 @@ echo "==> dependencias del puente"
 echo "==> puente y cerebro (editables)"
 "$PY_BIN" -m pip install -e packages/bridge -e packages/brain
 
+echo "==> pytest (para las suites)"
+"$PY_BIN" -m pip install -r requirements-dev.txt
+
 if [ "${SKIP_BROWSER:-0}" != "1" ]; then
     echo "==> Chromium de Playwright (~150 MB la primera vez)"
     "$PY_BIN" -m playwright install chromium

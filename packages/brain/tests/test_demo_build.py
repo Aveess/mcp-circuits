@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 from pathlib import Path
 
 import tinkercad_brain.sketches as sketches
@@ -90,12 +91,27 @@ def test_select_presets_otras_fixtures_sin_presets():
     assert demo.select_presets(demo.find_fixture("blink-basico")) is None
 
 
-def test_bridge_launch_spec():
-    spec = demo.bridge_launch_spec("/tmp/puente-x")
-    assert spec["command"] == "/tmp/puente-x/.venv/bin/python"
+def test_bridge_launch_spec_usa_el_venv_del_puente_si_existe(tmp_path):
+    """Puente clonado suelto: su propio `.venv` manda."""
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.write_text("")
+    spec = demo.bridge_launch_spec(str(tmp_path))
+    assert spec["command"] == str(python)
     assert spec["args"] == ["-m", "src.main"]
-    assert "-m" in spec["args"] and "src.main" in spec["args"]
-    assert spec["cwd"] == "/tmp/puente-x"
+    assert spec["cwd"] == str(tmp_path)
+
+
+def test_bridge_launch_spec_sin_venv_del_puente_usa_el_interprete_actual(tmp_path):
+    """Monorepo: el venv esta en la raiz y es el que corre el script.
+
+    Antes se pedia `packages/bridge/.venv/bin/python`, que en el monorepo no
+    existe: el runner arrancaba el puente con un interprete fantasma.
+    """
+    spec = demo.bridge_launch_spec(str(tmp_path))
+    assert spec["command"] == sys.executable
+    assert spec["args"] == ["-m", "src.main"]
+    assert spec["cwd"] == str(tmp_path)
 
 
 def test_main_rechaza_fixture_sin_sketch_sin_conectar(monkeypatch, capsys):

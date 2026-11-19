@@ -189,13 +189,22 @@ def select_code(fixture: dict) -> str | None:
 
 
 def bridge_launch_spec(bridge_path=DEFAULT_BRIDGE_PATH) -> dict:
-    """Comando puro (sin MCP) para lanzar el puente por stdio."""
+    """Comando puro (sin MCP) para lanzar el puente por stdio.
+
+    El interprete es el del venv del puente si existe (cuando el puente se
+    clono suelto, con su propio `.venv`). En el monorepo el venv vive en la
+    raiz y es el mismo que corre este script, asi que se usa `sys.executable`:
+    pedirle a `packages/bridge/.venv` un interprete que no existe es la forma
+    mas silenciosa de romper el flujo.
+    """
     bridge = Path(bridge_path).expanduser()
-    return {
-        "command": str(bridge / ".venv" / "bin" / "python"),
-        "args": ["-m", "src.main"],
-        "cwd": str(bridge),
-    }
+    command = sys.executable
+    for parts in (("bin", "python"), ("Scripts", "python.exe")):
+        candidate = bridge.joinpath(".venv", *parts)
+        if candidate.exists():
+            command = str(candidate)
+            break
+    return {"command": command, "args": ["-m", "src.main"], "cwd": str(bridge)}
 
 
 def _result_text(result) -> str:

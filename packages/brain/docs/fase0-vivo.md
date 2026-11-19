@@ -1613,7 +1613,8 @@ el serial exige marcas y no llegó ninguna nueva cerraría el falso negativo.
 
 ### 47f · Documento de entrega
 
-`~/Documentos/StartUp/TInkercad/entrega/taller3-contador-0-7-jk-v2.pdf`
+`entrega/taller3-contador-0-7-jk-v2.pdf`, en la carpeta de entregas de la
+máquina donde se generó (no se versiona)
 (10 páginas, reportlab): portada con campos en blanco, objetivo, resultado
 verificado, piezas y configuraciones, funcionamiento con la justificación
 de las expresiones del punto 4 (más una comprobación a mano del dígito 5),
